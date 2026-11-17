@@ -89,7 +89,7 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
         raise InstallError("Serveur MariaDB : adresse, compte et mot de passe requis.")
     out: dict[str, Any] = {
         "server": {"host": str(server["host"]).strip(), "port": int(server.get("port") or 3306), "user": str(server["user"]),
-                   "password": str(server["password"])},
+                   "password": str(server["password"]), "tls": bool(server.get("tls"))},
         "app": {"db_name": check_identifier(app.get("db_name"), "Base de données"),
                 "logging_db_name": check_identifier(app.get("logging_db_name"), "Base des journaux"),
                 "user": check_identifier(app.get("user"), "Compte de l'application"),
@@ -109,7 +109,16 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
             raise InstallError("Module 5S : la clé de licence ne l'ouvre pas.")
         out["fives"] = {"db_name": check_identifier(fives.get("db_name"), "Base du module 5S"),
                         "inventory_db_name": check_identifier(fives.get("inventory_db_name"), "Base d'inventaire du module 5S"),
-                        "user": check_identifier(fives.get("user"), "Compte du module 5S")}
+                        "user": check_identifier(fives.get("user"), "Compte du module 5S"), "server": None}
+        # Its two bases on a MariaDB server of their own (FIVES_DB_HOST): its administrator account, TLS as the first one
+        other = fives.get("server")
+        if other:
+            if not str(other.get("host") or "").strip() or not other.get("user") or not other.get("password"):
+                raise InstallError("Serveur MariaDB du module 5S : adresse, compte et mot de passe requis.")
+            host, port = str(other["host"]).strip(), int(other.get("port") or 3306)
+            if (host.lower(), port) != (out["server"]["host"].lower(), out["server"]["port"]):
+                out["fives"]["server"] = {"host": host, "port": port, "user": str(other["user"]), "password": str(other["password"]),
+                                          "tls": out["server"]["tls"]}
     else:
         out["fives"] = None
     # An installation for the 5S only: the governance stays off (no access request, nothing created in the directory)
@@ -118,7 +127,8 @@ def validate(plan: dict[str, Any]) -> dict[str, Any]:
     if not out["governance"] and not out["fives"]:
         raise InstallError("Modules : choisir la gouvernance des accès, le 5S, ou les deux.")
     users = [out["app"]["user"], out["app"]["migrate_user"]] + ([out["fives"]["user"]] if out["fives"] else [])
-    if len({user.lower() for user in users}) != len(users) or out["server"]["user"].lower() in {user.lower() for user in users}:
+    admins = {out["server"]["user"].lower()} | ({out["fives"]["server"]["user"].lower()} if out["fives"] and out["fives"]["server"] else set())
+    if len({user.lower() for user in users}) != len(users) or admins & {user.lower() for user in users}:
         raise InstallError("Chaque usage a son propre compte SQL, distinct du compte administrateur : choisir des noms différents.")
     names = [out["app"]["db_name"], out["app"]["logging_db_name"]] + ([out["fives"]["db_name"], out["fives"]["inventory_db_name"]] if out["fives"] else [])
     if len({name.lower() for name in names}) != len(names):
@@ -184,28 +194,41 @@ def _write_secret(name: str, value: str) -> None:
     os.replace(tmp, path)
 
 
-def _databases_and_accounts(server: dict[str, Any], app: dict[str, Any], fives: dict[str, Any] | None,
-                            passwords: dict[str, str]) -> list[str]:
-    """Create the databases (those already there are kept) and the accounts; the names of the databases created."""
-    app_dbs = [app["db_name"], app["logging_db_name"]]
-    module_dbs = [fives["db_name"], fives["inventory_db_name"]] if fives else []
+def _on_server(server: dict[str, Any], databases: list[str], accounts: list[tuple[str, str, list[tuple[str, str]]]]) -> list[str]:
+    """On one MariaDB server: the databases (those already there are kept), then the accounts; the databases created."""
     conn = get_connection(root_cfg=server)
     cur = conn.cursor()
     try:
         cur.execute("SHOW DATABASES")
         existing = {str(row[0]).lower() for row in cur.fetchall()}
-        for name in app_dbs + module_dbs:
+        for name in databases:
             cur.execute(f"CREATE DATABASE IF NOT EXISTS `{name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci")
-        _account(cur, app["migrate_user"], passwords["migrate"], [(MIGRATE_RIGHTS, name) for name in app_dbs + module_dbs])
-        _account(cur, app["user"], passwords["core"], [(APP_RIGHTS, app["db_name"]), (AUDIT_RIGHTS, app["logging_db_name"])])
-        if fives:
-            _account(cur, fives["user"], passwords["fives"], [(APP_RIGHTS, name) for name in module_dbs])
+        for user, password, rights in accounts:
+            _account(cur, user, password, rights)
         cur.execute("FLUSH PRIVILEGES")
         conn.commit()
-        return [name for name in app_dbs + module_dbs if name.lower() not in existing]
+        return [name for name in databases if name.lower() not in existing]
     finally:
         cur.close()
         conn.close()
+
+
+def _databases_and_accounts(server: dict[str, Any], app: dict[str, Any], fives: dict[str, Any] | None,
+                            passwords: dict[str, str]) -> list[str]:
+    """Create the databases and the accounts; the names of the databases created. The bases of the 5S on their own
+    server when it has one (fives["server"]): the migration account is created there too, with the same password."""
+    app_dbs = [app["db_name"], app["logging_db_name"]]
+    module_dbs = [fives["db_name"], fives["inventory_db_name"]] if fives else []
+    core_account = (app["user"], passwords["core"], [(APP_RIGHTS, app["db_name"]), (AUDIT_RIGHTS, app["logging_db_name"])])
+    fives_account = [(fives["user"], passwords["fives"], [(APP_RIGHTS, name) for name in module_dbs])] if fives else []
+    other = fives.get("server") if fives else None
+    if not other:
+        return _on_server(server, app_dbs + module_dbs,
+                          [(app["migrate_user"], passwords["migrate"], [(MIGRATE_RIGHTS, name) for name in app_dbs + module_dbs]), core_account]
+                          + fives_account)
+    created = _on_server(server, app_dbs, [(app["migrate_user"], passwords["migrate"], [(MIGRATE_RIGHTS, name) for name in app_dbs]), core_account])
+    return created + _on_server(other, module_dbs, [(app["migrate_user"], passwords["migrate"], [(MIGRATE_RIGHTS, name) for name in module_dbs])]
+                                + fives_account)
 
 
 def _check_account(server: dict[str, Any], user: str, password: str, databases: list[str]) -> None:
@@ -258,6 +281,9 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     if fives:
         passwords["fives"] = generate_password()
     migrate = {**server, "user": app["migrate_user"], "password": passwords["migrate"]}
+    # The server of the bases of the 5S: its own, or the one of BornToShare
+    fives_server = (fives.get("server") if fives else None) or server
+    fives_migrate = {**fives_server, "user": app["migrate_user"], "password": passwords["migrate"]}
     steps: list[dict[str, Any]] = []
 
     def step(key: str, label: str, action: Callable[[], str | None]) -> bool:
@@ -282,7 +308,8 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
             _write_secret(SECRET_NAMES[key], value)
         kept = [name for name in app_dbs + module_dbs if name not in created]
         users = [app["migrate_user"], app["user"]] + ([fives["user"]] if fives else [])
-        return (f"{', '.join(app_dbs + module_dbs)} · comptes {', '.join(users)}"
+        where = f" ; 5S sur {fives_server['host']}:{fives_server['port']}" if fives_server is not server else ""
+        return (f"{', '.join(app_dbs + module_dbs)} · comptes {', '.join(users)}{where}"
                 + (f" ; déjà présente(s), conservée(s) : {', '.join(kept)}" if kept else ""))
 
     def packs() -> str:
@@ -290,7 +317,7 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
         audit = run_logging_schema_pack(app["logging_db_name"], migrate)
         detail = f"{count} paquets sur {app['db_name']}, {audit} sur {app['logging_db_name']}"
         if fives:
-            module = run_fives_packs(fives["db_name"], fives["inventory_db_name"], migrate)
+            module = run_fives_packs(fives["db_name"], fives["inventory_db_name"], fives_migrate)
             detail += f", {module} pour le module 5S"
         return detail + f" (compte {app['migrate_user']})"
 
@@ -326,7 +353,7 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     def accounts() -> str:
         _check_account(server, app["user"], passwords["core"], app_dbs)
         if fives:
-            _check_account(server, fives["user"], passwords["fives"], module_dbs)
+            _check_account(fives_server, fives["user"], passwords["fives"], module_dbs)
         return "chaque compte ouvre ses bases, les comptes de l'application ne peuvent pas modifier le schéma"
 
     actions: list[tuple[str, str, Callable[[], str | None]]] = [
@@ -344,11 +371,15 @@ def run(plan: dict[str, Any]) -> dict[str, Any]:
     ok = all(step(*action) for action in actions)
 
     # .env needs the server only: the other lines when they differ from the defaults (podman-compose.yml, scripts)
-    env = [["DB_HOST", server["host"]]]
+    # DB_TLS and the server of the 5S always written: an installation run again replaces an earlier choice (empty = the
+    # server of BornToShare)
+    env = [["DB_HOST", server["host"]], ["DB_TLS", "on" if server.get("tls") else "off"]]
     chosen = [("DB_PORT", str(server["port"])), ("DB_NAME", app["db_name"]), ("LOGGING_DB_NAME", app["logging_db_name"]),
               ("DB_USER", app["user"]), ("DB_MIGRATE_USER", app["migrate_user"])]
     if fives:
         chosen += [("FIVES_DB_NAME", fives["db_name"]), ("FIVES_INVENTORY_DB_NAME", fives["inventory_db_name"]), ("FIVES_DB_USER", fives["user"])]
+        own = fives_server is not server
+        env += [["FIVES_DB_HOST", fives_server["host"] if own else ""], ["FIVES_DB_PORT", str(fives_server["port"]) if own else ""]]
     env += [[name, value] for name, value in chosen if value != ENV_DEFAULTS[name]]
     env += deploy_plan.env_lines(plan.get("deploy"))
     if ok:

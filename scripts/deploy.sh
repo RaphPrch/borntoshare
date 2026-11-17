@@ -49,6 +49,8 @@ if has_secret b2s_db_fives; then
   if [ -n "$(env_value B2S_LAKE_URI)" ]; then
     LAKE=1
     COMPOSE="${COMPOSE/podman-compose /podman-compose --profile lake }"
+    # On an S3 store: its keys, podman secrets, mounted in fives-lake
+    if has_secret b2s_lake_s3_access && has_secret b2s_lake_s3_secret; then COMPOSE="$COMPOSE -f podman-compose.lake-s3.yml"; fi
   fi
 fi
 # A 5S measure running would be cut by the restart (its walk is lost, its result may not reach the core): wait
@@ -74,7 +76,7 @@ phase database "compte $MIGRATE_USER${FIVES:+, module 5S}"
 apply_pack() {  # database file
   local try out
   for try in 1 2 3; do
-    if out=$(b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$1" < "$2" 2>&1 >/dev/null); then return 0; fi
+    if out=$(B2S_DB_SERVER=$(db_server_for "$1") b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$1" < "$2" 2>&1 >/dev/null); then return 0; fi
     case "$out" in *"pasta failed"*|*"netlink"*) echo "  $(basename "$2"): conteneur client non démarré (essai $try), nouvel essai" >&2; sleep 2 ;; *) echo "$out" >&2; return 1 ;; esac
   done
   echo "$out" >&2; return 1

@@ -1,0 +1,19 @@
+# ============================================================
+# The Parquet lake of the 5S module on an S3-compatible store (B2S_LAKE_URI=s3://…), added by scripts/deploy.sh when
+# the podman secrets b2s_lake_s3_access and b2s_lake_s3_secret exist: the keys as files of fives-lake, never in .env.
+#   printf '%s' "<access key>" | podman secret create b2s_lake_s3_access -   (the value typed with read -rs, never echoed)
+# ============================================================
+services:
+  fives-lake:
+    environment:
+      B2S_LAKE_S3_ACCESS_KEY_FILE: /run/secrets/b2s_lake_s3_access
+      B2S_LAKE_S3_SECRET_KEY_FILE: /run/secrets/b2s_lake_s3_secret
+    secrets:
+      - {source: b2s_lake_s3_access, uid: "10005", mode: "0400"}
+      - {source: b2s_lake_s3_secret, uid: "10005", mode: "0400"}
+
+secrets:
+  b2s_lake_s3_access:
+    external: true
+  b2s_lake_s3_secret:
+    external: true

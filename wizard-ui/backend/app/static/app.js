@@ -8,7 +8,7 @@ const val = (id) => $(id).value.trim();
 
 const state = {
   mode: null, web: "local", push: "ssh", mods: { gov: true, fives: false, smtp: false, syslog: false },
-  step: 0, reached: 0, server: null, serverInfo: null, license: null, host: {}, stage: "s1", result: null, smtpTested: false,
+  step: 0, reached: 0, server: null, serverInfo: null, fivesServer: null, license: null, host: {}, stage: "s1", result: null, smtpTested: false,
 };
 const MODE_TITLE = { containers: "Tout en conteneurs", hybrid: "Hybride", native: "Sans conteneur" };
 
@@ -141,6 +141,7 @@ function valid(id) {
       if (!state.mods.fives) return true;
       if (!fivesOpen()) return false;
       const ok = ["m_db", "m_inv", "m_user"].map((f) => mark(f, ident(f))).every(Boolean);
+      if (fivesOwn() && !state.fivesServer) return false;
       return ok && new Set([val("a_db"), val("a_log"), val("m_db"), val("m_inv")].map((n) => n.toLowerCase())).size === 4
         && new Set([val("a_user"), val("a_migrate"), val("m_user")].map((n) => n.toLowerCase())).size === 3;
     }
@@ -203,8 +204,8 @@ $("p_reload").addEventListener("click", async () => {
 });
 
 /* ---------- MariaDB ---------- */
-function serverForm() { return { host: val("s_host"), port: Number($("s_port").value || 3306), user: val("s_user"), password: $("s_password").value }; }
-["s_host", "s_port", "s_user", "s_password"].forEach((id) => $(id).addEventListener("input", () => { state.server = null; render(); }));
+function serverForm() { return { host: val("s_host"), port: Number($("s_port").value || 3306), user: val("s_user"), password: $("s_password").value, tls: $("s_tls").checked }; }
+["s_host", "s_port", "s_user", "s_password", "s_tls"].forEach((id) => $(id).addEventListener("input", () => { state.server = null; state.fivesServer = null; render(); }));
 $("s_test").addEventListener("click", async () => {
   const server = serverForm();
   if (!server.host || !server.user || !server.password) return toast("Serveur, compte et mot de passe requis.");
@@ -227,6 +228,32 @@ $("s_test").addEventListener("click", async () => {
   } finally {
     out.hidden = false;
     busy($("s_test"), false);
+    render();
+  }
+});
+
+/* ---------- MariaDB of the 5S (optional): its two bases on a server of their own ---------- */
+function fivesServerForm() { return { host: val("mf_host"), port: Number($("mf_port").value || 3306), user: val("mf_user"), password: $("mf_password").value, tls: $("s_tls").checked }; }
+const fivesOwn = () => fivesOn() && $("mf_own").checked;
+$("mf_own").addEventListener("change", () => { state.fivesServer = null; render(); });
+["mf_host", "mf_port", "mf_user", "mf_password"].forEach((id) => $(id).addEventListener("input", () => { state.fivesServer = null; render(); }));
+$("mf_test").addEventListener("click", async () => {
+  const server = fivesServerForm();
+  if (!server.host || !server.user || !server.password) return toast("Serveur, compte et mot de passe requis.");
+  const out = $("mf_result");
+  busy($("mf_test"), true, "Connexion…");
+  try {
+    const info = await api("/api/server/check", server);
+    state.fivesServer = server;
+    out.className = info.ready ? "result is-ok" : "result is-error";
+    out.innerHTML = `<div class="result__head"><b>Connecté : MariaDB ${escape(info.version)}, ${info.latency_ms} ms</b></div><p class="hint">${info.ready ? "Droits suffisants (bases, comptes, GRANT)." : "Droits à vérifier : il faut créer des bases, des comptes et donner des droits."}</p>`;
+  } catch (error) {
+    state.fivesServer = null;
+    out.className = "result is-error";
+    out.innerHTML = `<div class="result__head"><b>Connexion refusée</b></div><p class="hint">${escape(error.message)}</p>`;
+  } finally {
+    out.hidden = false;
+    busy($("mf_test"), false);
     render();
   }
 });
@@ -291,6 +318,8 @@ function refreshModules() {
   $("m_only").hidden = state.mods.gov || !state.mods.fives;
   $("m_fives").hidden = !state.mods.fives;
   $("m_fields").hidden = !fivesOn();
+  $("m_where").hidden = !fivesOn();
+  $("mf_fields").hidden = !fivesOwn();
 }
 $$("[data-mod]").forEach((card) => card.addEventListener("click", () => { state.mods[card.dataset.mod] = !state.mods[card.dataset.mod]; render(); }));
 $("l_key").addEventListener("input", () => { state.license = null; $("l_result").hidden = true; render(); });
@@ -381,7 +410,7 @@ function plan() {
     admin: { username: val("u_name"), email: val("u_email") || null, password: $("u_password").value },
     modules: { governance: state.mods.gov, fives: fivesOn() },
     license: fivesOn() ? $("l_key").value : null,
-    fives: fivesOn() ? { db_name: val("m_db"), inventory_db_name: val("m_inv"), user: val("m_user") } : null,
+    fives: fivesOn() ? { db_name: val("m_db"), inventory_db_name: val("m_inv"), user: val("m_user"), server: fivesOwn() ? state.fivesServer : null } : null,
     deploy: deployPlan(),
     smtp: state.mods.smtp ? smtpForm() : null,
     syslog: state.mods.syslog ? syslogForm() : null,
@@ -407,8 +436,11 @@ function refreshReady() {
     + (annex() ? card("Serveur annexe", val("n_host"), [["Interface", "Node.js, service b2s-web"], ["Publication", `httpd :${escape($("h_port").value)}, ${escape(val("h_name"))}`],
       ["Installée par", state.push === "ssh" ? `SSH, compte ${escape(val("n_user"))}` : "paquet à copier"]])
       : card("Accès", "", [["Adresse", escape(originOf())], ["Certificat", state.mode === "containers" ? "celui de votre proxy" : escape(val("h_cert"))]]))
-    + card("MariaDB", `${p.server?.host || ""}:${p.server?.port || ""}`, [["Bases", [p.app.db_name, p.app.logging_db_name].concat(p.fives ? [p.fives.db_name, p.fives.inventory_db_name] : []).map(escape).join(", ")],
-      ["Comptes", [p.app.user, p.app.migrate_user].concat(p.fives ? [p.fives.user] : []).map(escape).join(", ") + " · mots de passe générés"]])
+    + card("MariaDB", `${p.server?.host || ""}:${p.server?.port || ""}`, [["Bases", [p.app.db_name, p.app.logging_db_name].concat(p.fives && !p.fives.server ? [p.fives.db_name, p.fives.inventory_db_name] : []).map(escape).join(", ")],
+      ["Comptes", [p.app.user, p.app.migrate_user].concat(p.fives && !p.fives.server ? [p.fives.user] : []).map(escape).join(", ") + " · mots de passe générés"],
+      ["Connexion", p.server?.tls ? "TLS, certificat vérifié" : "sans TLS"]])
+    + (p.fives?.server ? card("MariaDB du 5S", `${p.fives.server.host}:${p.fives.server.port}`, [["Bases", [p.fives.db_name, p.fives.inventory_db_name].map(escape).join(", ")],
+      ["Comptes", [p.fives.user, p.app.migrate_user].map(escape).join(", ")]]) : "")
     + card("Réglages", "", [["Modules", [p.modules.governance && "Gouvernance", p.modules.fives && "5S"].filter(Boolean).join(" + ")],
       ["E-mails", p.smtp ? escape(`${p.smtp.host}:${p.smtp.port}`) : "plus tard"], ["Syslog", p.syslog ? escape(`${p.syslog.host}:${p.syslog.port}/${p.syslog.transport}`) : "plus tard"],
       ["Administrateur", escape(p.admin.username)]]);
@@ -532,6 +564,11 @@ function followDeploy() {
     const d = await api("/api/defaults");
     $("s_host").value = d.server.host;
     $("s_port").value = d.server.port;
+    $("s_tls").checked = !!d.server.tls;
+    $("s_tls_hint").innerHTML = d.server.ca_file
+      ? "Certificat et nom du serveur vérifiés avec l’autorité <code>capsule-runner/certs/db-ca.pem</code>. Vaut pour tous les services."
+      : "Certificat et nom du serveur vérifiés avec les autorités du système (pas de <code>capsule-runner/certs/db-ca.pem</code>). Vaut pour tous les services.";
+    if (d.fives.server) { $("mf_own").checked = true; $("mf_host").value = d.fives.server.host; $("mf_port").value = d.fives.server.port; }
     $("a_db").value = d.app.db_name; $("a_log").value = d.app.logging_db_name; $("a_user").value = d.app.user; $("a_migrate").value = d.app.migrate_user;
     $("m_db").value = d.fives.db_name; $("m_inv").value = d.fives.inventory_db_name; $("m_user").value = d.fives.user;
     const dep = d.deploy || {};

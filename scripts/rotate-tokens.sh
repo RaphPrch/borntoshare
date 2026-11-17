@@ -53,7 +53,11 @@ else
     running=$(podman ps --format '{{.Names}}' | grep -c 'fives-scanner' || true)
     SCALE="--scale fives-scanner=${running/#0/1}"
     COMPOSE="${COMPOSE/podman-compose /podman-compose --profile fives }"
-    if podman container exists fives-lake; then SERVICES="$SERVICES fives-lake"; COMPOSE="${COMPOSE/podman-compose /podman-compose --profile lake }"; fi
+    if podman container exists fives-lake; then
+      SERVICES="$SERVICES fives-lake"
+      COMPOSE="${COMPOSE/podman-compose /podman-compose --profile lake }"
+      if has_secret b2s_lake_s3_access && has_secret b2s_lake_s3_secret; then COMPOSE="$COMPOSE -f podman-compose.lake-s3.yml"; fi
+    fi
   fi
   [ "$WEB" = annex ] && export B2S_API_BIND=0.0.0.0
   # shellcheck disable=SC2086

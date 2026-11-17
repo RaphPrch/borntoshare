@@ -101,12 +101,18 @@ sans sa clé, coffre réinitialisé), son résultat les nomme, le Dashboard des 
 un lien vers chaque objet, et la fiche d'un serveur propose « Ressaisir le mot de passe »
 (`GET /api/infrastructure/secrets/missing`).
 
-`make backup` enregistre les deux bases dans `backups/` (fichiers lisibles par leur seul propriétaire). La clé n'y est pas : à conserver
-dans un coffre, à part. Pour restaurer sur une installation arrêtée, avec le même `.env` :
+`make backup` enregistre les bases dans `backups/` (fichiers lisibles par leur seul propriétaire), celles du 5S sur
+leur propre serveur quand elles en ont un (`FIVES_DB_HOST`). La clé n'y est pas : à conserver dans un coffre, à part.
+Pour restaurer sur une installation arrêtée, avec le même `.env`, par le compte de migration (son mot de passe reste
+dans son secret ; TLS si `DB_TLS=on`) :
 
 ```bash
-zcat backups/<date>/borntoshare.sql.gz | mariadb -h <hôte> -u <compte> -p borntoshare
-zcat backups/<date>/borntoshare_logging.sql.gz | mariadb -h <hôte> -u <compte> -p borntoshare_logging
+B=backups/<date>
+for DB in borntoshare borntoshare_logging; do   # + b2s_fives b2s_fives_inventory avec le module 5S
+  # sed : les sauvegardes d'avant le 2026-11-17 contiennent des LOCK TABLES, droit que le compte de migration n'a pas
+  gzip -dc $B/$DB.sql.gz | sed -E '/^(UN)?LOCK TABLES/d' \
+    | bash -c ". scripts/lib.sh; B2S_DB_SERVER=\$(db_server_for $DB) b2s_db b2s_db_migrate \$(env_value DB_MIGRATE_USER b2s_migrate) mariadb $DB"
+done
 ```
 
 Puis relancer les services et vérifier qu'un test d'annuaire réussit : c'est lui qui prouve que la clé correspond aux mots de passe.

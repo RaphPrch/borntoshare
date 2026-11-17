@@ -17,7 +17,7 @@ if [ ! -x .wizard-venv/bin/uvicorn ]; then
 fi
 
 # The fields of the wizard start from .env (names only, never a password)
-for name in DB_HOST DB_PORT DB_NAME DB_USER DB_MIGRATE_USER LOGGING_DB_NAME FIVES_DB_NAME FIVES_INVENTORY_DB_NAME FIVES_DB_USER \
+for name in DB_HOST DB_PORT DB_TLS FIVES_DB_HOST FIVES_DB_PORT DB_NAME DB_USER DB_MIGRATE_USER LOGGING_DB_NAME FIVES_DB_NAME FIVES_INVENTORY_DB_NAME FIVES_DB_USER \
   FRONTEND_PUBLIC_ORIGIN FRONTEND_PUBLISHED_PORT B2S_DEPLOY_MODE B2S_WEB_LOCATION B2S_WEB_SERVER_NAME B2S_WEB_HTTPS_PORT B2S_WEB_CERT B2S_WEB_KEY \
   B2S_WEB_HOST B2S_WEB_IP B2S_API_HOST B2S_AUTH_PORT B2S_CORE_PORT B2S_FIVES_PORT B2S_WEB_PUSH B2S_WEB_SSH_USER B2S_WEB_SSH_KEY; do
   value=$(env_value "$name")
@@ -25,6 +25,8 @@ for name in DB_HOST DB_PORT DB_NAME DB_USER DB_MIGRATE_USER LOGGING_DB_NAME FIVE
 done
 PORT=$(env_value WIZARD_PORT 8080)
 export SECRETS_DIR="$PWD/secrets"
+# The private authority of the MariaDB servers (TLS)
+export DB_TLS_CA="$PWD/capsule-runner/certs/db-ca.pem"
 cd wizard-ui
 setsid -f ../.wizard-venv/bin/uvicorn backend.app.main:app --host 0.0.0.0 --port "$PORT" > ../secrets/.wizard.log 2>&1 < /dev/null
 sleep 2

@@ -27,10 +27,13 @@ l'installation (serveur MariaDB, façon d'installer, interface) ; les secrets so
 | Variable | Lue par | Valeur |
 |---|---|---|
 | `DB_HOST` | tous | Serveur MariaDB : la seule ligne requise pour la base (`DB_PORT` : 3306 par défaut) |
+| `DB_TLS` | core, module 5S, `make deploy`, `make backup`, wizard | `off` (défaut) ou `on` : connexions à MariaDB chiffrées, certificat **et** nom du serveur vérifiés (autorité `capsule-runner/certs/db-ca.pem`, sinon celles du système). Écrit par le wizard (case « Connexion chiffrée ») |
 | `DB_NAME`, `LOGGING_DB_NAME` | core-service | Facultatifs (`borntoshare`, `borntoshare_logging`) : bases des données et de l'audit, créées par le wizard |
 | `DB_USER` | core-service | Facultatif (`b2s_core`) : compte SQL de l'application, lecture et écriture, créé par le wizard |
 | `DB_MIGRATE_USER` | `make deploy`, `make backup` | Facultatif (`b2s_migrate`) : compte de migration, schéma et données, créé par le wizard |
 | `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER` | module 5S | Bases et compte du module (créés par le wizard quand la licence l'ouvre) |
+| `FIVES_DB_HOST`, `FIVES_DB_PORT` | module 5S, `make deploy`, `make backup` | Vides (défaut) : les bases du 5S sont sur le serveur de `DB_HOST`. Renseignés : sur ce serveur à part (choisi dans le wizard, étape Modules) |
+| `B2S_LAKE_URI`, `B2S_LAKE_S3_*` | fives-lake | Lac Parquet du module 5S (`file:///lake` ou `s3://bucket/préfixe`) : [module-5s.md](module-5s.md#lac-parquet) |
 | `FRONTEND_PUBLIC_ORIGIN` | frontend | URL publique exacte (schéma, hôte, port) : sert de contrôle d'origine |
 | `FRONTEND_PUBLISHED_PORT` | compose | Port publié sur l'hôte (3000) |
 | `RUNNER_MAX_SCOPE` | worker | `write` (normal) ou `read` (worker de lecture seule) |
@@ -47,6 +50,7 @@ dans `.env` ni dans `podman inspect`. `make deploy` (`scripts/secrets.sh`) les c
 | `b2s_master_key` | core-service | Généré par `make deploy` (ou repris de `B2S_SECRET_MASTER_KEY`) : chiffre les mots de passe stockés. **À sauvegarder à part** |
 | `b2s_internal_token` | tous les services | Jeton partagé entre les services (en-tête `X-Internal-Token`). Généré par `make deploy` (48 caractères) ou repris de `INTERNAL_TOKEN` d'un ancien `.env` |
 | `b2s_principal_key` | auth-service, frontend | Clé de signature du cookie de session. Générée par `make deploy` ou reprise de `PRINCIPAL_SIGNING_KEY` d'un ancien `.env` |
+| `b2s_lake_s3_access`, `b2s_lake_s3_secret` | fives-lake | Clés du stockage S3 du lac Parquet, à créer à la main (`podman secret create`) ; `make deploy` les monte quand elles existent ([module-5s.md](module-5s.md#lac-parquet)) |
 
 Chaque service lit un secret depuis son fichier (`NOM_FILE=/run/secrets/b2s_…`, `app/secret_files.py` pour les
 services Python, `src/lib/server/secret-files.ts` pour l'interface) : la valeur n'est jamais dans l'environnement du
@@ -73,7 +77,8 @@ installé sur un **autre serveur** partage le jeton : lui donner la nouvelle val
 [infrastructure.md](infrastructure.md#workers)).
 
 Les certificats ne passent pas par une variable : on les dépose dans `capsule-runner/certs/`, monté en lecture
-seule dans `/etc/b2s/certs` par auth-service, core-service et capsule-runner. Chaque fichier est pris en compte
+seule dans `/etc/b2s/certs` par auth-service, core-service, capsule-runner, le wizard et les conteneurs du 5S (sans
+conteneur : copié dans `/etc/b2s/certs` par `make deploy`). Chaque fichier est pris en compte
 s'il existe :
 
 | Fichier | Lu par | Effet |
@@ -83,6 +88,8 @@ s'il existe :
 | `oidc-ca.pem` | auth-service | Autorité privée des serveurs Keycloak (SSO) |
 | `syslog-ca.pem`, `splunk-ca.pem` | core-service | Autorité privée du collecteur syslog (TLS) ou du HEC Splunk (Settings › Extensions) |
 | `opensearch-ca.pem`, `rabbitmq-ca.pem`, `minio-ca.pem`, `vault-ca.pem` | core-service | Autorité privée d'OpenSearch, RabbitMQ, MinIO (S3) ou Vault (Settings › Extensions) |
+| `db-ca.pem` | core, module 5S, wizard, `make deploy`, `make backup` | Autorité privée des serveurs MariaDB (`DB_TLS=on`) |
+| `lake-s3-ca.pem` | fives-lake | Autorité privée du stockage S3 du lac Parquet (HTTPS) |
 
 `B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés dans le menu du compte (en haut à droite).
 
@@ -108,6 +115,8 @@ Puis, étape par étape (seules celles qui servent à la façon choisie apparais
 1. **Prérequis** : ce que le serveur offre pour cette façon ; un point rouge bloque, un orange se règle pendant le
    déploiement. En hybride et sans conteneur, on y choisit si l'interface est publiée ici ou sur un serveur annexe.
 2. **Serveur MariaDB** : adresse et compte administrateur (root), testés ; utilisé pour cette installation seulement.
+   « Connexion chiffrée (TLS) » : le test et toute l'installation passent en TLS vérifié, et `DB_TLS=on` est écrit
+   (déposer avant l'autorité privée dans `capsule-runner/certs/db-ca.pem`).
 3. **Bases et comptes SQL** : `DB_NAME`, `LOGGING_DB_NAME`, `DB_USER` (lecture et écriture), `DB_MIGRATE_USER`
    (schéma) ; mots de passe générés.
 4. **Interface** : en conteneurs, l'adresse publique (`FRONTEND_PUBLIC_ORIGIN`) et le port publié ; sinon le nom
@@ -121,7 +130,9 @@ Puis, étape par étape (seules celles qui servent à la façon choisie apparais
    (`dist/borntoshare-web.tar.gz`, puis `sudo borntoshare-web/install-web.sh` sur l'annexe ; il contient le jeton des
    services : à transférer par un canal sûr, puis à supprimer). Le trafic entre les deux serveurs est en HTTP sur le
    réseau interne ; TLS entre eux : plus tard.
-6. **Modules** : gouvernance des accès, 5S (clé de licence vérifiée hors ligne, ses deux bases et son compte),
+6. **Modules** : gouvernance des accès, 5S (clé de licence vérifiée hors ligne, ses deux bases et son compte ; au
+   choix sur **un autre serveur MariaDB**, avec son propre compte administrateur testé : le compte de migration y est
+   créé aussi, `FIVES_DB_HOST` et `FIVES_DB_PORT` sont écrits),
    **Messagerie (SMTP)** et **Journal syslog**. Ces deux derniers ajoutent chacun une étape, avec un envoi de test
    et « Passer, régler plus tard » (Réglages avancés › Notifications, › Extensions).
 7. **Administrateur** : le premier compte local, mot de passe provisoire changé à la première connexion.
@@ -195,8 +206,9 @@ La sauvegarde (avec le compte de migration ; les bases du module 5S aussi) **ne 
 `b2s_master_key` ni le `.env`. Conservez-les ailleurs, de manière sûre (`podman secret inspect --showsecret --format '{{.SecretData}}' b2s_master_key`) : une base restaurée sans sa clé laisse tous les mots de passe stockés illisibles. Le Dashboard
 signale alors « mot de passe introuvable » pour chaque objet touché, et il faut les ressaisir.
 
-Restauration : recharger les deux dumps dans une base vide (`gzip -dc … | mariadb …`), remettre le même
-`.env` (même clé), puis `make up`. Détails dans [infrastructure.md](infrastructure.md).
+Restauration : recharger les dumps par le compte de migration (les sauvegardes n'ont pas de `LOCK TABLES` depuis le
+2026-11-17), remettre le même `.env` (même clé), puis `make deploy`. Commandes dans
+[infrastructure.md](infrastructure.md#secrets-et-sauvegarde).
 
 ## 6. Vérifier
 

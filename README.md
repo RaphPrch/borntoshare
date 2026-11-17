@@ -47,7 +47,7 @@ flowchart LR
 | capsule-runner | Worker : toutes les actions sur l'AD et les serveurs | [capsule-runner/README.md](capsule-runner/README.md) |
 | redis | File des travaux et sessions | [docs/architecture.md](docs/architecture.md) |
 | wizard-ui | Installation (bases, administrateur, licence, module 5S), une seule fois | [wizard-ui/README.md](wizard-ui/README.md) |
-| fives-service, fives-scanner | Module 5S, sous licence, livré dans un dépôt privé à part : mesures, doublons, archives, scores | [docs/module-5s.md](docs/module-5s.md) |
+| fives-service, fives-scanner, fives-lake | Module 5S, sous licence, livré dans un dépôt privé à part : mesures, doublons, archives, scores ; lac Parquet de l'historique | [docs/module-5s.md](docs/module-5s.md) |
 | mailpit | Laboratoire seulement : serveur SMTP de test (`make mail-up`) | [docs/notifications.md](docs/notifications.md) |
 
 ## Démarrer

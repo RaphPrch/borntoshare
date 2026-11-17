@@ -90,6 +90,8 @@ services:
       DB_HOST: ${DB_HOST:?DB_HOST must be set}
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-borntoshare}
+      # TLS to MariaDB: on = encrypted, certificate and name checked (certs/db-ca.pem, else the system authorities)
+      DB_TLS: ${DB_TLS:-off}
       # Its own account: read and write on DB_NAME, insert/read/purge on LOGGING_DB_NAME, no schema change
       DB_USER: ${DB_USER:-b2s_core}
       DB_PASSWORD_FILE: /run/secrets/b2s_db_core
@@ -188,8 +190,14 @@ services:
     environment:
       <<: *common-env
       B2S_CORE_URL: http://core-service:8000
-      FIVES_DB_HOST: ${DB_HOST}
-      FIVES_DB_PORT: ${DB_PORT:-3306}
+      # The bases of the module on a MariaDB server of their own (FIVES_DB_HOST/PORT in .env), else on the one of
+      # BornToShare (DB_HOST/PORT): the module takes the first that is set
+      FIVES_DB_HOST: ${FIVES_DB_HOST:-}
+      FIVES_DB_PORT: ${FIVES_DB_PORT:-}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      # TLS to MariaDB: on = encrypted, certificate and name checked (certs/db-ca.pem, else the system authorities)
+      DB_TLS: ${DB_TLS:-off}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
       FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
@@ -197,6 +205,8 @@ services:
     secrets:
       - {source: b2s_db_fives, uid: "10005", mode: "0400"}
       - {source: b2s_internal_token, uid: "10005", mode: "0400"}
+    volumes:
+      - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     expose: ["8000"]
     healthcheck:
       <<: *healthcheck
@@ -215,8 +225,14 @@ services:
     environment:
       <<: *common-env
       B2S_CORE_URL: http://core-service:8000
-      FIVES_DB_HOST: ${DB_HOST}
-      FIVES_DB_PORT: ${DB_PORT:-3306}
+      # The bases of the module on a MariaDB server of their own (FIVES_DB_HOST/PORT in .env), else on the one of
+      # BornToShare (DB_HOST/PORT): the module takes the first that is set
+      FIVES_DB_HOST: ${FIVES_DB_HOST:-}
+      FIVES_DB_PORT: ${FIVES_DB_PORT:-}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      # TLS to MariaDB: on = encrypted, certificate and name checked (certs/db-ca.pem, else the system authorities)
+      DB_TLS: ${DB_TLS:-off}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
       FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
@@ -224,9 +240,8 @@ services:
       B2S_LAKE_URI: ${B2S_LAKE_URI:-file:///lake}
       B2S_LAKE_S3_ENDPOINT: ${B2S_LAKE_S3_ENDPOINT:-}
       B2S_LAKE_S3_REGION: ${B2S_LAKE_S3_REGION:-}
-      # S3 keys: podman secrets b2s_lake_s3_access / b2s_lake_s3_secret mounted as files when used (never in .env)
-      B2S_LAKE_S3_ACCESS_KEY_FILE: ${B2S_LAKE_S3_ACCESS_KEY_FILE:-}
-      B2S_LAKE_S3_SECRET_KEY_FILE: ${B2S_LAKE_S3_SECRET_KEY_FILE:-}
+      # S3 keys: the podman secrets b2s_lake_s3_access and b2s_lake_s3_secret, mounted by podman-compose.lake-s3.yml
+      # (added by make deploy when they exist), never in .env
       B2S_LAKE_HOUR: ${B2S_LAKE_HOUR:-7}
       B2S_LAKE_KEEP_DAYS: ${B2S_LAKE_KEEP_DAYS:-400}
     secrets:
@@ -234,6 +249,7 @@ services:
       - {source: b2s_internal_token, uid: "10005", mode: "0400"}
     volumes:
       - b2s-lake:/lake
+      - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     networks: [app, data]
 
   # Scanner of the 5S module: walks the folders ON their Windows file servers (WinRM, Kerberos, no agent), from the
@@ -253,8 +269,14 @@ services:
       <<: *common-env
       CORE_URL: http://core-service:8000
       SCANNER_ID: ${FIVES_SCANNER_ID:-}
-      FIVES_DB_HOST: ${DB_HOST}
-      FIVES_DB_PORT: ${DB_PORT:-3306}
+      # The bases of the module on a MariaDB server of their own (FIVES_DB_HOST/PORT in .env), else on the one of
+      # BornToShare (DB_HOST/PORT): the module takes the first that is set
+      FIVES_DB_HOST: ${FIVES_DB_HOST:-}
+      FIVES_DB_PORT: ${FIVES_DB_PORT:-}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-3306}
+      # TLS to MariaDB: on = encrypted, certificate and name checked (certs/db-ca.pem, else the system authorities)
+      DB_TLS: ${DB_TLS:-off}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
       FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
       FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
@@ -262,6 +284,8 @@ services:
     secrets:
       - {source: b2s_db_fives, uid: "10006", mode: "0400"}
       - {source: b2s_internal_token, uid: "10006", mode: "0400"}
+    volumes:
+      - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     healthcheck:
       <<: *healthcheck
       test: ["CMD", "python", "-c", "import os, time; assert time.time() - os.path.getmtime('/tmp/scanner-alive') < 120"]
@@ -280,6 +304,9 @@ services:
       # The fields start from .env (names only)
       DB_HOST: ${DB_HOST:-}
       DB_PORT: ${DB_PORT:-3306}
+      DB_TLS: ${DB_TLS:-off}
+      FIVES_DB_HOST: ${FIVES_DB_HOST:-}
+      FIVES_DB_PORT: ${FIVES_DB_PORT:-}
       DB_NAME: ${DB_NAME:-borntoshare}
       DB_USER: ${DB_USER:-b2s_core}
       DB_MIGRATE_USER: ${DB_MIGRATE_USER:-b2s_migrate}
@@ -312,6 +339,8 @@ services:
     user: "0:0"
     volumes:
       - ./secrets:/secrets:rw,z
+      # The private authority of the MariaDB servers (db-ca.pem), for « TLS »
+      - ./capsule-runner/certs:/etc/b2s/certs:ro,z
     ports:
       - "${WIZARD_PORT:-8080}:8080"
     healthcheck:

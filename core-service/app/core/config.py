@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import urllib.parse
 from functools import lru_cache
 
@@ -38,6 +39,10 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 20
     DB_POOL_RECYCLE: int = 1800
     DB_SCHEMA_GUARD_ENABLED: bool = True
+    # TLS to MariaDB: « on » = encrypted, the certificate and the name of the server checked, with DB_TLS_CA when the
+    # file is there (private authority, capsule-runner/certs/db-ca.pem), else the authorities of the system
+    DB_TLS: str = "off"
+    DB_TLS_CA: str = "/etc/b2s/certs/db-ca.pem"
 
     # Audit database (borntoshare_logging): same server and account as the main database unless set
     LOGGING_DB_NAME: str = "borntoshare_logging"
@@ -53,6 +58,14 @@ class Settings(BaseSettings):
     JOB_WATCHDOG_QUEUED_TIMEOUT_SECONDS: int = Field(default=300, ge=30)
     JOB_WATCHDOG_MAX_REPUBLISH: int = Field(default=1, ge=0)
     JOB_WATCHDOG_LIMIT: int = Field(default=200, ge=1, le=1000)
+
+    @field_validator("DB_TLS")
+    @classmethod
+    def _check_db_tls(cls, value: str) -> str:
+        normalized = str(value or "off").strip().lower()
+        if normalized not in {"on", "off"}:
+            raise ValueError("DB_TLS: on ou off")
+        return normalized
 
     @field_validator("LOG_LEVEL")
     @classmethod
@@ -93,6 +106,13 @@ class Settings(BaseSettings):
             f"{self.DB_DRIVER}://{user}:{pwd}"
             f"@{self.LOGGING_DB_HOST}:{self.LOGGING_DB_PORT}/{self.LOGGING_DB_NAME}"
         )
+
+    @property
+    def db_connect_args(self) -> dict:
+        """Arguments of the MariaDB driver (PyMySQL) for TLS: none when DB_TLS is off."""
+        if self.DB_TLS != "on" or ("mysql" not in self.DB_DRIVER and "mariadb" not in self.DB_DRIVER):
+            return {}
+        return {"ssl_ca": self.DB_TLS_CA if os.path.isfile(self.DB_TLS_CA) else None, "ssl_verify_cert": True, "ssl_verify_identity": True}
 
     def fastapi_kwargs(self) -> dict:
         # No interactive API documentation: the API is internal, behind the BFF

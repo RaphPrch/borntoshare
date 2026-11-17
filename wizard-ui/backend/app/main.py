@@ -37,11 +37,15 @@ def _env(name: str, default: str) -> str:
 def defaults() -> dict[str, Any]:
     """What .env already says (names only: the passwords of the accounts are generated): the fields start from it."""
     return {
-        "server": {"host": _env("DB_HOST", ""), "port": int(_env("DB_PORT", "3306"))},
+        "server": {"host": _env("DB_HOST", ""), "port": int(_env("DB_PORT", "3306")), "tls": _env("DB_TLS", "off") == "on",
+                   "ca_file": os.path.isfile(os.getenv("DB_TLS_CA") or "/etc/b2s/certs/db-ca.pem")},
         "app": {"db_name": _env("DB_NAME", "borntoshare"), "logging_db_name": _env("LOGGING_DB_NAME", "borntoshare_logging"),
                 "user": _env("DB_USER", "b2s_core"), "migrate_user": _env("DB_MIGRATE_USER", "b2s_migrate")},
         "fives": {"db_name": _env("FIVES_DB_NAME", "b2s_fives"), "inventory_db_name": _env("FIVES_INVENTORY_DB_NAME", "b2s_fives_inventory"),
-                  "user": _env("FIVES_DB_USER", "b2s_fives")},
+                  "user": _env("FIVES_DB_USER", "b2s_fives"),
+                  # Its bases on a MariaDB server of their own: an installation run again starts from it
+                  "server": ({"host": _env("FIVES_DB_HOST", ""), "port": int(_env("FIVES_DB_PORT", _env("DB_PORT", "3306")))}
+                             if _env("FIVES_DB_HOST", "") else None)},
         # Where it runs: an installation run again starts from what .env says
         "deploy": {
             "mode": _env("B2S_DEPLOY_MODE", ""),
@@ -74,6 +78,8 @@ class Server(BaseModel):
     port: int = Field(default=3306, ge=1, le=65535)
     user: str = Field(min_length=1, max_length=80)
     password: str = Field(min_length=1, max_length=512)
+    # Encrypted connection, certificate and name of the server checked (DB_TLS=on)
+    tls: bool = False
 
 
 @app.post("/api/server/check")

@@ -15,7 +15,10 @@ module, ils n'apparaissent pas dans le menu.
 2. Copier `fives-service/` et `fives-scanner/` à la racine de ce dépôt, et `wizard-sql/fives/`,
    `wizard-sql/fives_inventory/` dans `wizard-ui/backend/app/sql/`.
 3. `make wizard`, étape « Licence et modules » : clé de licence, puis les noms des deux bases et du compte SQL.
-   Le wizard crée les bases, le compte `b2s_fives` et son secret `b2s_db_fives`.
+   Le wizard crée les bases, le compte `b2s_fives` et son secret `b2s_db_fives`. Les deux bases peuvent aller sur
+   **un autre serveur MariaDB** (case « Ses deux bases sur un autre serveur MariaDB », avec le compte
+   administrateur de ce serveur, testé) : l'inventaire grossit avec le nombre de fichiers sans peser sur la
+   gouvernance. Le wizard y crée aussi le compte de migration et écrit `FIVES_DB_HOST` / `FIVES_DB_PORT`.
 4. `make deploy` démarre `fives-service` et `fives-scanner` dès que ce secret existe (profil `fives`).
 
 Mise à jour du module : recopier les dossiers depuis son dépôt, puis `make deploy` (les paquets SQL du module
@@ -25,7 +28,8 @@ code WinRM de `capsule-runner`.
 | Conteneur | Rôle |
 |---|---|
 | fives-service | API du module (`/modules/fives/*` derrière le BFF) : arborescence, doublons, quarantaine, scores |
-| fives-scanner | Parcourt les dossiers **sur** leur serveur Windows (WinRM 5985, Kerberos, sans agent), un parcours complet planifié et des passages incrémentaux ; plusieurs instances possibles (une par site) |
+| fives-scanner | Parcourt les dossiers **sur** leur serveur Windows (WinRM 5985, Kerberos, sans agent), un parcours complet planifié et des passages incrémentaux ; plusieurs instances possibles (`FIVES_SCANNERS` dans `.env` ; en le baissant, `make deploy` retire les instances en trop) |
+| fives-lake | Lac Parquet : export quotidien de l'historique (voir plus bas), quand `B2S_LAKE_URI` est dans `.env` |
 
 Bases : `b2s_fives` (résultats, décisions, quarantaine, historique des scores) et `b2s_fives_inventory`
 (empreintes), avec le compte SQL `b2s_fives` (lecture et écriture, jamais le schéma).
@@ -99,3 +103,28 @@ générique) et par le script PowerShell, sur les chemins complets résolus, ava
 
 Le compte du serveur de fichiers doit pouvoir ouvrir une session WinRM en Kerberos et lire tout le dossier : voir
 [droits-ad.md](droits-ad.md#le-compte-du-serveur-de-fichiers).
+
+Connexions à MariaDB : `DB_TLS=on` vaut aussi pour le module (certificat et nom du serveur vérifiés, voir
+[securite.md](securite.md#connexions-à-mariadb)).
+
+## Lac Parquet
+
+L'historique des inventaires (snapshots quotidiens vérifiés, publiés atomiquement) est écrit par `fives-lake`, un
+processus à part de l'API. Fonctionnement détaillé : `docs/lake.md` du dépôt du module.
+
+| Où | `.env` | Installation |
+|---|---|---|
+| Volume local (`b2s-lake`) | `B2S_LAKE_URI=file:///lake` | rien d'autre ; sans conteneur : `/var/lib/borntoshare/lake` |
+| Répertoire monté (disque dédié, NFS, SMB) | `B2S_LAKE_URI=file:///lake` | le volume `b2s-lake` attaché au répertoire : `podman volume create --opt type=none --opt o=bind --opt device=/srv/b2s-lake b2s-lake` (répertoire à l'UID 10005 du conteneur, soit 110004 sur l'hôte en podman sans root) |
+| Stockage S3 compatible (MinIO, Ceph…) | `B2S_LAKE_URI=s3://bucket/préfixe`, `B2S_LAKE_S3_ENDPOINT=https://…`, `B2S_LAKE_S3_REGION` | les clés en secrets podman `b2s_lake_s3_access` et `b2s_lake_s3_secret` (jamais dans `.env`) ; autorité privée : `capsule-runner/certs/lake-s3-ca.pem` |
+
+```bash
+# Clés S3 : tapées, jamais affichées ni dans l'historique
+read -rs -p "Access key : " K; echo; printf '%s' "$K" | podman secret create b2s_lake_s3_access -; unset K
+read -rs -p "Secret key : " K; echo; printf '%s' "$K" | podman secret create b2s_lake_s3_secret -; unset K
+make deploy        # monte les deux secrets dans fives-lake (podman-compose.lake-s3.yml) dès qu'ils existent
+podman exec fives-lake python -m app.lake export && podman exec fives-lake python -m app.lake verify --all
+```
+
+Sans conteneur, les clés sont les fichiers `/etc/borntoshare/secrets/b2s_lake_s3_access` et `…_secret` (0400,
+compte `b2s`), et le lac tourne dans l'unité `b2s-lake`.

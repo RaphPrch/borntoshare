@@ -156,8 +156,8 @@ def test_install_all_steps_writes_the_secrets_and_no_password_on_screen(issuer, 
     assert {name: oct(path.stat().st_mode & 0o777) for name, path in files.items()} == dict.fromkeys(files, "0o600")
     assert files["b2s_db_core"].read_text() == given["core"] and len(given["core"]) == 40
     assert len(set(given.values())) == 3
-    # The defaults are not repeated: .env needs the server only
-    assert result["env"] == [["DB_HOST", "db"]]
+    # The defaults are not repeated: .env needs the server, TLS and the server of the 5S (empty: the same) only
+    assert result["env"] == [["DB_HOST", "db"], ["DB_TLS", "off"], ["FIVES_DB_HOST", ""], ["FIVES_DB_PORT", ""]]
     text = json.dumps(result)
     assert all(value not in text for value in given.values()) and PASSWORD not in text
 
@@ -180,7 +180,7 @@ def test_env_lines_only_for_names_other_than_the_defaults(tmp_path, monkeypatch)
     with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
          patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"):
         result = install.run(plan)
-    assert result["env"] == [["DB_HOST", "db"], ["DB_NAME", "b2s_prod"]]
+    assert result["env"] == [["DB_HOST", "db"], ["DB_TLS", "off"], ["DB_NAME", "b2s_prod"]]
 
 
 def test_a_successful_installation_signals_the_watcher(tmp_path, monkeypatch):
@@ -189,7 +189,7 @@ def test_a_successful_installation_signals_the_watcher(tmp_path, monkeypatch):
          patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"), \
          patch.object(install, "_switch"):
         install.run(install.validate(_plan()))
-    assert json.loads((tmp_path / ".installed").read_text()) == {"env": [["DB_HOST", "db"]]}
+    assert json.loads((tmp_path / ".installed").read_text()) == {"env": [["DB_HOST", "db"], ["DB_TLS", "off"]]}
     assert client.get("/api/deploy").json()["state"] == "waiting"
 
 
@@ -339,3 +339,75 @@ def test_defaults_carry_the_way_of_installing_and_the_host_check(tmp_path, monke
     data = client.get("/api/defaults").json()
     assert data["deploy"]["mode"] == "hybrid" and data["deploy"]["web"]["location"] == "annex"
     assert data["host"]["node"] == "22.1.0"
+
+
+# ---- MariaDB: TLS, the bases of the 5S on a server of their own ------------------------------------------------
+
+FIVES = {"db_name": "b2s_fives", "inventory_db_name": "b2s_fives_inventory", "user": "b2s_fives"}
+
+
+def test_tls_connection_checks_the_certificate_and_the_name(tmp_path, monkeypatch):
+    from backend.app import db
+
+    ca = tmp_path / "db-ca.pem"
+    ca.write_text("x")
+    monkeypatch.setattr(db, "DB_TLS_CA", str(ca))
+    seen: dict = {}
+    monkeypatch.setattr(db.mysql.connector, "connect", lambda **cfg: seen.update(cfg))
+    db.get_connection(root_cfg={"host": "db", "port": 3306, "user": "root", "password": "x", "tls": True})
+    assert seen["ssl_disabled"] is False and seen["ssl_verify_cert"] is True and seen["ssl_verify_identity"] is True
+    assert seen["ssl_ca"] == str(ca)
+    seen.clear()
+    db.get_connection(root_cfg={"host": "db", "port": 3306, "user": "root", "password": "x"})
+    assert seen["ssl_disabled"] is True and "ssl_ca" not in seen
+
+
+def test_tls_is_written_in_env(tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    plan = install.validate(_plan(server={"host": "db", "port": 3306, "user": "root", "password": "x", "tls": True}))
+    assert plan["server"]["tls"] is True
+    with patch.object(install, "_databases_and_accounts", return_value=[]), patch.object(install, "run_schema_pack"), \
+         patch.object(install, "run_logging_schema_pack"), patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_check_account"), \
+         patch.object(install, "_switch"):
+        result = install.run(plan)
+    assert ["DB_TLS", "on"] in result["env"]
+
+
+def test_fives_on_its_own_server(issuer, tmp_path, monkeypatch):
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    key = _key({"lic": "L1", "cust": "CORP", "feat": ["fives"]}, issuer)
+    other = {"host": "db5s", "port": 3307, "user": "root5s", "password": "y"}
+    plan = install.validate(_plan(license=key, server={"host": "db", "port": 3306, "user": "root", "password": "x", "tls": True},
+                                  fives={**FIVES, "server": other}))
+    # TLS as the first server
+    assert plan["fives"]["server"] == {**other, "tls": True}
+    created: list = []
+    with patch.object(install, "_on_server", side_effect=lambda server, dbs, accounts: created.append((server["host"], dbs, [a[0] for a in accounts])) or []), \
+         patch.object(install, "run_schema_pack"), patch.object(install, "run_logging_schema_pack"), patch.object(install, "run_fives_packs") as packs, \
+         patch.object(install, "create_local_admin_if_needed"), patch.object(install, "_license"), patch.object(install, "_switch"), \
+         patch.object(install, "_check_account") as check:
+        result = install.run(plan)
+    assert result["ok"] is True
+    # Each server its bases; the migration account on both, the account of the 5S on its server only
+    assert created == [("db", ["borntoshare", "borntoshare_logging"], ["b2s_migrate", "b2s_core"]),
+                       ("db5s", ["b2s_fives", "b2s_fives_inventory"], ["b2s_migrate", "b2s_fives"])]
+    assert packs.call_args.args[2]["host"] == "db5s" and packs.call_args.args[2]["user"] == "b2s_migrate"
+    assert [c.args[0]["host"] for c in check.call_args_list] == ["db", "db5s"]
+    assert ["FIVES_DB_HOST", "db5s"] in result["env"] and ["FIVES_DB_PORT", "3307"] in result["env"]
+    assert "y" not in [value for _name, value in result["env"]]
+
+
+def test_fives_server_same_as_the_first_is_not_a_second_server(issuer):
+    key = _key({"lic": "L1", "cust": "CORP", "feat": ["fives"]}, issuer)
+    plan = install.validate(_plan(license=key, fives={**FIVES, "server": {"host": "DB", "port": 3306, "user": "root", "password": "x"}}))
+    assert plan["fives"]["server"] is None
+
+
+def test_fives_server_needs_its_account(issuer):
+    key = _key({"lic": "L1", "cust": "CORP", "feat": ["fives"]}, issuer)
+    with pytest.raises(install.InstallError, match="module 5S : adresse"):
+        install.validate(_plan(license=key, fives={**FIVES, "server": {"host": "db5s", "user": "", "password": ""}}))
+    # Its administrator account is not one of the accounts of the services
+    with pytest.raises(install.InstallError, match="propre compte"):
+        install.validate(_plan(license=key, fives={**FIVES, "server": {"host": "db5s", "user": "b2s_fives", "password": "y"}}))
+

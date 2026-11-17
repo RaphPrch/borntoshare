@@ -70,6 +70,8 @@
             <label class="fl"><span>Port <small>DB_PORT</small></span><input id="s_port" type="number" min="1" max="65535" value="3306" /></label></div>
           <div class="grid g-2"><label class="fl">Compte administrateur<input id="s_user" value="root" spellcheck="false" /></label>
             <label class="fl">Mot de passe<span class="pw"><input id="s_password" type="password" autocomplete="off" /><button type="button" class="eye" aria-label="Afficher le mot de passe"></button></span></label></div>
+          <div class="inline"><label class="cb"><input type="checkbox" id="s_tls" />Connexion chiffrée (TLS) <small>DB_TLS</small></label>
+            <span class="hint" id="s_tls_hint">Certificat et nom du serveur vérifiés : autorité <code>capsule-runner/certs/db-ca.pem</code>, sinon celles du système. Vaut pour tous les services.</span></div>
           <div class="inline"><button type="button" class="btn" id="s_test">Tester la connexion</button><span class="hint">Obligatoire pour continuer.</span></div>
           <div id="s_result" hidden></div>
         </section>
@@ -163,6 +165,18 @@
               <label class="fl"><span>Base <small>FIVES_DB_NAME</small></span><input id="m_db" spellcheck="false" /></label>
               <label class="fl"><span>Inventaire <small>FIVES_INVENTORY_DB_NAME</small></span><input id="m_inv" spellcheck="false" /></label>
               <label class="fl"><span>Compte <small>FIVES_DB_USER</small></span><input id="m_user" spellcheck="false" /></label>
+            </div>
+            <div id="m_where" hidden>
+              <label class="cb"><input type="checkbox" id="mf_own" />Ses deux bases sur un autre serveur MariaDB <small>FIVES_DB_HOST</small></label>
+              <div id="mf_fields" class="stack-sm" hidden>
+                <p class="hint">L’inventaire grossit avec le nombre de fichiers : un serveur à part ne pèse pas sur la gouvernance. Le compte de migration y est créé aussi ; TLS comme le premier serveur.</p>
+                <div class="grid g-host"><label class="fl"><span>Serveur <small>FIVES_DB_HOST</small></span><input id="mf_host" placeholder="mariadb-5s.corp.local" spellcheck="false" /></label>
+                  <label class="fl"><span>Port <small>FIVES_DB_PORT</small></span><input id="mf_port" type="number" min="1" max="65535" value="3306" /></label></div>
+                <div class="grid g-2"><label class="fl">Compte administrateur<input id="mf_user" value="root" spellcheck="false" /></label>
+                  <label class="fl">Mot de passe<span class="pw"><input id="mf_password" type="password" autocomplete="off" /><button type="button" class="eye" aria-label="Afficher le mot de passe"></button></span></label></div>
+                <div class="inline"><button type="button" class="btn is-sm" id="mf_test">Tester la connexion</button><span class="hint">Obligatoire pour continuer.</span></div>
+                <div id="mf_result" hidden></div>
+              </div>
             </div>
           </div>
         </section>

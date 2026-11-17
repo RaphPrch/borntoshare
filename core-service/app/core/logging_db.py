@@ -14,6 +14,7 @@ logging_engine = create_engine(
     pool_size=settings.DB_POOL_SIZE,
     max_overflow=settings.DB_MAX_OVERFLOW,
     pool_recycle=settings.DB_POOL_RECYCLE,
+    connect_args=settings.db_connect_args,
 )
 
 LoggingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=logging_engine)

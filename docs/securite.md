@@ -76,6 +76,18 @@ BornToShare ne contourne jamais un refus.
 - **Kerberos (88)** : tickets pour WinRM et test de connexion ; le worker ne fait jamais de délégation Kerberos.
 - **SMTP** : e-mails envoyés par core-service (STARTTLS ou TLS), voir [notifications.md](notifications.md).
 
+## Connexions à MariaDB
+
+`DB_TLS=on` (case « Connexion chiffrée » du wizard) : toutes les connexions à MariaDB — core, module 5S, wizard,
+`make deploy`, `make backup` — sont chiffrées et vérifient le certificat **et** le nom du serveur, avec l'autorité
+`capsule-runner/certs/db-ca.pem` (sinon celles du système). Un certificat inconnu ou un nom absent du certificat
+coupe la connexion : jamais de repli en clair. Le nom ou l'adresse de `DB_HOST` (et `FIVES_DB_HOST`) doit figurer
+dans le certificat du serveur. Côté serveur, `require_secure_transport=ON` refuse ensuite toute connexion en clair.
+
+`DB_TLS=off` (défaut) : rien n'est vérifié. Les services Python chiffrent quand le serveur le propose, **sans**
+contrôle du certificat ; le wizard et le client de `make deploy` / `make backup` se connectent en clair. À réserver
+à un réseau de données isolé.
+
 ## Conteneurs
 
 Chaque service tourne :
@@ -83,7 +95,7 @@ Chaque service tourne :
 - avec un système de fichiers en lecture seule, et `/tmp` en tmpfs `noexec` ;
 - sans aucune capacité Linux (`cap_drop: ALL`) et avec `no-new-privileges`.
 
-Le seul montage est `capsule-runner/certs` (lecture seule) ; les secrets podman arrivent en fichiers 0400 dans `/run/secrets`.
+Le seul montage est `capsule-runner/certs` (lecture seule ; plus le lac Parquet pour `fives-lake`) ; les secrets podman arrivent en fichiers 0400 dans `/run/secrets`.
 Les images partent d'une base fixée (`python:3.14-slim-trixie`, `node:26-alpine`).
 
 ## Rôles dans l'application

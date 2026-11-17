@@ -33,10 +33,10 @@ après la fin. Sans installation, il s'arrête avec le wizard.
 
 | Étape | Ce qui est demandé |
 |---|---|
-| 1. Serveur MariaDB | Adresse, port et compte administrateur (root) : connexion, version, droits et bases présentes |
+| 1. Serveur MariaDB | Adresse, port et compte administrateur (root) : connexion, version, droits et bases présentes. « Connexion chiffrée (TLS) » : certificat et nom du serveur vérifiés (`capsule-runner/certs/db-ca.pem`, sinon les autorités du système), `DB_TLS=on` écrit pour tous les services |
 | 2. Bases BornToShare | `DB_NAME`, `LOGGING_DB_NAME`, comptes de l'application (`DB_USER`) et des migrations (`DB_MIGRATE_USER`) |
 | 3. Administrateur | Identifiant, e-mail (facultatif) et mot de passe **provisoire** du premier compte local : il est à changer à la première connexion, rien d'autre ne s'ouvre avant |
-| 4. Modules | Gouvernance des accès (incluse), 5S (clé de licence vérifiée hors ligne, puis `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER`), ou les deux. 5S seul : la gouvernance reste éteinte (aucune demande d'accès, rien créé dans l'annuaire) ; elle se rallume dans Settings › Fonctionnalités |
+| 4. Modules | Gouvernance des accès (incluse), 5S (clé de licence vérifiée hors ligne, puis `FIVES_DB_NAME`, `FIVES_INVENTORY_DB_NAME`, `FIVES_DB_USER` ; au choix sur un autre serveur MariaDB, son compte administrateur testé : `FIVES_DB_HOST`, `FIVES_DB_PORT`), ou les deux. 5S seul : la gouvernance reste éteinte (aucune demande d'accès, rien créé dans l'annuaire) ; elle se rallume dans Settings › Fonctionnalités |
 | 5. Installation | Récapitulatif, puis le résultat de chaque action et les lignes à reporter dans `.env` |
 
 Les champs partent des noms déjà dans `.env` (`podman-compose.yml` les passe au wizard). Seul le mot de passe

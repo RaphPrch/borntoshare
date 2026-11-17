@@ -67,8 +67,8 @@ flowchart TB
 | capsule-runner | Redis | 6379 base 2 | Lecture des travaux | Mot de passe Redis |
 | capsule-runner | core-service | 8000 `/api/internal/*` | Début et fin de travail, résolution d'un secret, DNS des domaines | Jeton interne |
 | core-service | capsule-runner | 8443 (HTTPS) ou 8080 | Agent : santé du worker | Identifiants d'agent |
-| core-service, wizard-ui | MariaDB | 3306 | Données et audit | Compte SQL de l'application |
-| fives-service, fives-scanner | MariaDB | 3306 | Bases du module 5S | Compte SQL `b2s_fives` |
+| core-service, wizard-ui | MariaDB | 3306 | Données et audit | Compte SQL de l'application ; TLS vérifié si `DB_TLS=on` |
+| fives-service, fives-scanner, fives-lake | MariaDB (celui de `FIVES_DB_HOST`, sinon de `DB_HOST`) | 3306 | Bases du module 5S | Compte SQL `b2s_fives` ; TLS vérifié si `DB_TLS=on` |
 | fives-service, fives-scanner | core-service | 8000 `/api/internal/*` | Dossiers, comptes, résultats des mesures | Jeton interne |
 
 ## Flux à ouvrir vers l'extérieur
@@ -77,7 +77,8 @@ L'hôte BornToShare doit pouvoir joindre :
 
 | Destination | Port | Protocole | Utilisé par | Pour |
 |---|---|---|---|---|
-| MariaDB | 3306/TCP | MySQL | core-service, wizard-ui | Données et journal d'audit |
+| MariaDB | 3306/TCP | MySQL (TLS si `DB_TLS=on`) | core-service, wizard-ui, module 5S, `make deploy` / `make backup` | Données et journal d'audit ; bases du 5S (serveur à part possible : `FIVES_DB_HOST`) |
+| Stockage S3 du lac (si 5S et lac sur S3) | 443/TCP (ou le port du stockage) | HTTPS S3 | fives-lake | Lac Parquet ([module-5s.md](module-5s.md#lac-parquet)) |
 | Contrôleurs de domaine | 636/TCP | LDAPS | worker, auth-service | Annuaire : lecture, groupes, membres ; connexion des utilisateurs |
 | Contrôleurs de domaine | 389/TCP | LDAP | worker (découverte) | Lecture du rootDSE ; le bind simple en clair est refusé par un AD durci |
 | Contrôleurs de domaine | 88/TCP+UDP | Kerberos | worker, fives-scanner | Tickets pour WinRM, test Kerberos |

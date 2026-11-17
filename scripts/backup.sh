@@ -16,7 +16,8 @@ fi
 umask 077
 mkdir -p "$TARGET"
 for db in $DATABASES; do
-  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb-dump --single-transaction "$db" \
+  # --skip-add-locks: no LOCK TABLES in the dump, a right the migration account has not (it restores the dumps)
+  B2S_DB_SERVER=$(db_server_for "$db") b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb-dump --single-transaction --skip-add-locks "$db" \
     | sed -E 's/DEFINER=`[^`]+`@`[^`]+`//' | gzip > "$TARGET/$db.sql.gz"
   gzip -dc "$TARGET/$db.sql.gz" | tail -1 | grep -q "Dump completed" || { echo "Incomplete dump: $db" >&2; exit 1; }
   echo "$TARGET/$db.sql.gz"

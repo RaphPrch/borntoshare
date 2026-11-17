@@ -145,8 +145,10 @@ env_file() {  # name; lines NAME=value on stdin
   owner "root:$USER_NAME" "$ETC/env/$1.env"
 }
 
-unit() {  # unit description command service-dir
+unit() {  # unit description command service-dir [env-name] [writable-path]
   install -d "$UNITS"
+  local envname=${5:-$4} writable=""
+  [ -n "${6:-}" ] && writable="ReadWritePaths=$6"
   cat > "$UNITS/$1.service" <<UNIT
 [Unit]
 Description=BornToShare : $2
@@ -158,7 +160,7 @@ PartOf=borntoshare.target
 User=$USER_NAME
 Group=$USER_NAME
 WorkingDirectory=/opt/borntoshare/app/$4
-EnvironmentFile=/etc/borntoshare/env/$4.env
+EnvironmentFile=/etc/borntoshare/env/$envname.env
 ExecStart=$3
 Restart=on-failure
 RestartSec=5
@@ -167,6 +169,7 @@ PrivateTmp=yes
 ProtectSystem=strict
 ProtectHome=yes
 CapabilityBoundingSet=
+$writable
 
 [Install]
 WantedBy=borntoshare.target
@@ -174,7 +177,7 @@ UNIT
 }
 
 do_services() {
-  local fives="" svc services common units
+  local fives="" svc services common units lake_uri="" lake_dir=""
   if [ -f "$SECRETS/b2s_db_fives" ]; then fives=1; fi
   services="auth-service core-service capsule-runner${fives:+ fives-service fives-scanner}"
   install -d -m 0755 "$APP" "$CERTS"
@@ -222,6 +225,7 @@ DB_NAME=$(env_value DB_NAME borntoshare)
 DB_USER=$(env_value DB_USER b2s_core)
 DB_PASSWORD_FILE=/etc/borntoshare/secrets/b2s_db_core
 LOGGING_DB_NAME=$(env_value LOGGING_DB_NAME borntoshare_logging)
+DB_TLS=$(env_value DB_TLS off)
 DB_MIGRATE_USER=$(env_value DB_MIGRATE_USER b2s_migrate)
 CAPSULE_BROKER_URL=redis://127.0.0.1:6379/2
 REDIS_PASSWORD_FILE=/etc/borntoshare/secrets/b2s_redis
@@ -237,8 +241,10 @@ CORE_URL=http://127.0.0.1:$CORE_PORT
 ENV
   if [ -n "$fives" ]; then
     local fives_env
-    fives_env="FIVES_DB_HOST=$(env_value DB_HOST)
-FIVES_DB_PORT=$(env_value DB_PORT 3306)
+    # Its bases on a MariaDB server of their own (FIVES_DB_HOST), else on the one of BornToShare
+    fives_env="FIVES_DB_HOST=$(env_value FIVES_DB_HOST "$(env_value DB_HOST)")
+FIVES_DB_PORT=$(env_value FIVES_DB_PORT "$(env_value DB_PORT 3306)")
+DB_TLS=$(env_value DB_TLS off)
 FIVES_DB_USER=$(env_value FIVES_DB_USER b2s_fives)
 FIVES_DB_PASSWORD_FILE=/etc/borntoshare/secrets/b2s_db_fives
 FIVES_DB_NAME=$(env_value FIVES_DB_NAME b2s_fives)
@@ -254,6 +260,34 @@ CORE_URL=http://127.0.0.1:$CORE_PORT
 SCANNER_ID=$(env_value FIVES_SCANNER_ID scanner-1)
 $fives_env
 ENV
+    # The Parquet lake (B2S_LAKE_URI in .env): the code of fives-service, a process of its own (b2s-lake). The path
+    # of the containers (file:///lake) is /var/lib/borntoshare/lake here; S3 keys: secrets b2s_lake_s3_access/secret
+    lake_uri=$(env_value B2S_LAKE_URI)
+    if [ -n "$lake_uri" ]; then
+      [ "$lake_uri" = "file:///lake" ] && lake_uri="file:///var/lib/borntoshare/lake"
+      case "$lake_uri" in
+        file://*)
+          lake_dir=${lake_uri#file://}
+          install -d -m 0750 "$STAGE$lake_dir"
+          owner "$USER_NAME:$USER_NAME" "$STAGE$lake_dir" ;;
+      esac
+      local s3_keys=""
+      if [ -f "$SECRETS/b2s_lake_s3_access" ] && [ -f "$SECRETS/b2s_lake_s3_secret" ]; then
+        s3_keys="B2S_LAKE_S3_ACCESS_KEY_FILE=/etc/borntoshare/secrets/b2s_lake_s3_access
+B2S_LAKE_S3_SECRET_KEY_FILE=/etc/borntoshare/secrets/b2s_lake_s3_secret"
+      fi
+      env_file fives-lake <<ENV
+$common
+B2S_CORE_URL=http://127.0.0.1:$CORE_PORT
+$fives_env
+B2S_LAKE_URI=$lake_uri
+B2S_LAKE_S3_ENDPOINT=$(env_value B2S_LAKE_S3_ENDPOINT)
+B2S_LAKE_S3_REGION=$(env_value B2S_LAKE_S3_REGION)
+$s3_keys
+B2S_LAKE_HOUR=$(env_value B2S_LAKE_HOUR 7)
+B2S_LAKE_KEEP_DAYS=$(env_value B2S_LAKE_KEEP_DAYS 400)
+ENV
+    fi
   fi
 
   # Redis of the system, its own instance (its password in a file only b2s reads)
@@ -305,6 +339,11 @@ UNIT
     unit b2s-fives "module 5S" "$bin/fives-service/venv/bin/python -m uvicorn app.main:app --host $API_BIND --port $FIVES_PORT" fives-service
     unit b2s-scanner "scanner du module 5S" "$bin/fives-scanner/venv/bin/python -m scanner" fives-scanner
     units="$units b2s-fives b2s-scanner"
+    if [ -n "$lake_uri" ]; then
+      # Writes only in the lake (a local folder); an S3 lake needs no path
+      unit b2s-lake "lac Parquet du module 5S" "$bin/fives-service/venv/bin/python -m app.lake worker" fives-service fives-lake "$lake_dir"
+      units="$units b2s-lake"
+    fi
   fi
 
   # Swap: the running code becomes the rollback point, then restart
