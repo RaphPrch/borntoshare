@@ -122,6 +122,10 @@ Un gardien ne valide pas sa propre demande : un autre gardien ou un administrate
 - Centreon interroge `GET /monitoring/health` sur le frontend, seule route publique en dehors de la connexion : elle
   exige l'en-tête `X-Monitoring-Token` (jeton créé à l'activation, affiché une seule fois, renouvelable), ne lit que
   l'état des composants et répond 200 (OK, WARNING) ou 503 (CRITICAL).
+- OpenSearch, RabbitMQ et MinIO (S3) reçoivent les mêmes événements ; leurs mots de passe et clés sont dans le coffre.
+- HashiCorp Vault : un champ mot de passe peut contenir `vault://<montage>/<chemin>#<clé>` ; la valeur est lue à
+  l'usage (token ou AppRole, politique en lecture seule), gardée 60 s en mémoire, jamais écrite. Détail :
+  [extensions.md](extensions.md).
 
 ## En-têtes HTTP du frontend
 

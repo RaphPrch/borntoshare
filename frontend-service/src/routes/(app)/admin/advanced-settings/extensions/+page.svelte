@@ -27,8 +27,8 @@
   } from '$lib/api/extensions';
 
   /**
-   * Advanced Settings › Extensions: where the events of BornToShare go (syslog, Splunk) and the Centreon check.
-   * OpenTelemetry, Grafana and ServiceNow are announced, not configurable yet.
+   * Advanced Settings › Extensions: where the events of BornToShare go (syslog, Splunk, OpenTelemetry, Grafana,
+   * ServiceNow, OpenSearch, RabbitMQ, MinIO / S3), the Centreon check, and HashiCorp Vault as an external vault.
    */
   type Product = { key: string; name: string; category: () => string; description: () => string; live: boolean };
   const PRODUCTS: Product[] = [
@@ -37,7 +37,11 @@
     { key: 'otel', name: 'OpenTelemetry', category: () => t('Observability'), description: () => t('Traces, metrics and logs of the services in OTLP, to your collector.'), live: true },
     { key: 'grafana', name: 'Grafana', category: () => t('Observability'), description: () => t('Logs to Loki, annotations on your dashboards, metrics to scrape.'), live: true },
     { key: 'centreon', name: 'Centreon', category: () => t('Supervision and ITSM'), description: () => t('Centreon checks the state of the BornToShare components.'), live: true },
-    { key: 'servicenow', name: 'ServiceNow ITSM', category: () => t('Supervision and ITSM'), description: () => t('One incident per critical alert, resolved when the alert closes.'), live: true }
+    { key: 'servicenow', name: 'ServiceNow ITSM', category: () => t('Supervision and ITSM'), description: () => t('One incident per critical alert, resolved when the alert closes.'), live: true },
+    { key: 'opensearch', name: 'OpenSearch', category: () => t('Search and analytics'), description: () => t('Audit and alerts as documents of an OpenSearch index: search, dashboards, retention.'), live: true },
+    { key: 'rabbitmq', name: 'RabbitMQ', category: () => t('Messaging and storage'), description: () => t('One message per event on an exchange, for your other applications.'), live: true },
+    { key: 'minio', name: 'MinIO / S3', category: () => t('Messaging and storage'), description: () => t('One JSON object per event in a bucket (MinIO or any S3 store): archive, data lake.'), live: true },
+    { key: 'vault', name: 'HashiCorp Vault', category: () => t('Secrets'), description: () => t('Passwords of BornToShare read in Vault: type vault://… instead of the password.'), live: true }
   ];
   // The families of the audit log, as core-service sorts them (the start of each action)
   const CATEGORIES: Array<{ key: AuditCategory; label: () => string; hint: () => string }> = [
@@ -105,7 +109,7 @@
       : item.stats?.last_status === 'failed' ? { variant: 'error', label: t('Failing') }
       : { variant: 'success', label: t('Active') };
   const flows = (item: Extension | null) =>
-    !item ? '' : item.key === 'centreon' ? t('Platform state, on request') : item.key === 'servicenow' ? t('Incidents from the alerts') : [item.routes.audit ? t('Audit') : '', item.routes.alerts ? t('Alerts') : ''].filter(Boolean).join(' · ') || '—';
+    !item ? '' : item.key === 'vault' ? t('Passwords read on demand') : item.key === 'centreon' ? t('Platform state, on request') : item.key === 'servicenow' ? t('Incidents from the alerts') : [item.routes.audit ? t('Audit') : '', item.routes.alerts ? t('Alerts') : ''].filter(Boolean).join(' · ') || '—';
 
   // ---- drawer -----------------------------------------------------------------------------------
   let editing = $state<Extension | null>(null);
@@ -134,6 +138,10 @@
       if (!item.configured) routes = { ...routes, audit: false, min_severity: 'critical' };
     }
     if (key === 'grafana') form = { labels: 'app=borntoshare', ...item.config };
+    if (key === 'opensearch') form = { index: 'borntoshare-{yyyy}.{MM}', verify: 'public', ...item.config };
+    if (key === 'rabbitmq') form = { vhost: '/', exchange: 'amq.topic', routing_prefix: 'borntoshare', verify: 'public', ...item.config };
+    if (key === 'minio') form = { region: 'us-east-1', prefix: 'borntoshare', verify: 'public', ...item.config };
+    if (key === 'vault') form = { auth: 'token', approle_mount: 'approle', verify: 'public', ...item.config };
     testResult = null;
     shownToken = '';
   }
@@ -154,7 +162,11 @@
     try {
       const result = await testExtension(fetch, editing.key, payload());
       testResult = result.ok
-        ? { ok: true, text: t('Test event delivered in {ms} ms.', { ms: result.latency_ms ?? 0 }) }
+        ? editing.key === 'vault'
+          ? { ok: true, text: t('Vault answers in {ms} ms (version {version}, policies: {policies}){reference}.', { ms: result.latency_ms ?? 0,
+              version: result.details?.version ?? '?', policies: (result.details?.policies ?? []).join(', ') || '—',
+              reference: result.details?.test_reference ? t(', test reference readable') : '' }) }
+          : { ok: true, text: t('Test event delivered in {ms} ms.', { ms: result.latency_ms ?? 0 }) }
         : { ok: false, text: t('The test failed: {error}', { error: result.error ?? '' }) };
     } catch (error) {
       reportUiError(error, t('The test could not run.'), 'extensions.test');
@@ -412,6 +424,58 @@
           <label>{t('Create from')}<select class="b2s-input" bind:value={routes.min_severity}>{#each SEVERITIES as severity (severity.key)}<option value={severity.key}>{severity.label()}</option>{/each}</select></label>
         </div>
         <p class="ext__result is-info">{t('One incident per alert (correlation id = key of the alert): no duplicate when the alert comes back. Critical → impact/urgency 1, High → 2. When the alert closes in BornToShare, the incident is resolved with a note.')}</p>
+      {:else if editing.key === 'opensearch'}
+        <h3>{t('Cluster')}</h3>
+        <label class="ext__field">{t('URL')}<input class="b2s-input" bind:value={form.url} placeholder="https://opensearch.corp.local:9200" /></label>
+        <div class="ext__grid">
+          <label>{t('Index')}<input class="b2s-input" bind:value={form.index} /><small>{t('{yyyy}, {MM}, {dd}: date of the event (one index a month by default)', { yyyy: '{yyyy}', MM: '{MM}', dd: '{dd}' })}</small></label>
+          <label>{t('Account (optional)')}<input class="b2s-input" bind:value={form.username} autocomplete="off" /></label>
+          <label>{t('Password')}<input class="b2s-input" type="password" bind:value={secret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /><small>{t('Kept in the vault of BornToShare')}</small></label>
+          <label>{t('Certificate')}<select class="b2s-input" bind:value={form.verify}><option value="public">{t('Check (public authority)')}</option><option value="file">{t('Check (capsule-runner/certs/opensearch-ca.pem)')}</option><option value="none">{t('Do not check')}</option></select></label>
+        </div>
+        <p class="ext__result is-info">{t('One document per event (@timestamp, type, family, action, actor, target, outcome): the account needs « index » and « create_index » on these indices.')}</p>
+      {:else if editing.key === 'rabbitmq'}
+        <h3>{t('Broker (management HTTP API)')}</h3>
+        <label class="ext__field">{t('URL')}<input class="b2s-input" bind:value={form.url} placeholder="https://rabbitmq.corp.local:15671" /></label>
+        <div class="ext__grid">
+          <label>{t('Virtual host')}<input class="b2s-input" bind:value={form.vhost} /></label>
+          <label>{t('Exchange')}<input class="b2s-input" bind:value={form.exchange} /></label>
+          <label>{t('Prefix of the routing key')}<input class="b2s-input" bind:value={form.routing_prefix} /><small>{form.routing_prefix || 'borntoshare'}.alerts.folders, {form.routing_prefix || 'borntoshare'}.audit.auth…</small></label>
+          <label>{t('Account')}<input class="b2s-input" bind:value={form.username} autocomplete="off" /></label>
+          <label>{t('Password')}<input class="b2s-input" type="password" bind:value={secret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /><small>{t('Kept in the vault of BornToShare')}</small></label>
+          <label>{t('Certificate')}<select class="b2s-input" bind:value={form.verify}><option value="public">{t('Check (public authority)')}</option><option value="file">{t('Check (capsule-runner/certs/rabbitmq-ca.pem)')}</option><option value="none">{t('Do not check')}</option></select></label>
+        </div>
+        <p class="ext__result is-info">{t('A message that reaches no queue is counted as failed: bind a queue to the exchange (for example « borntoshare.# »).')}</p>
+      {:else if editing.key === 'minio'}
+        <h3>{t('Bucket')}</h3>
+        <label class="ext__field">{t('Endpoint')}<input class="b2s-input" bind:value={form.endpoint} placeholder="https://minio.corp.local:9000" /></label>
+        <div class="ext__grid">
+          <label>{t('Bucket')}<input class="b2s-input" bind:value={form.bucket} placeholder="borntoshare-events" /></label>
+          <label>{t('Prefix')}<input class="b2s-input" bind:value={form.prefix} /><small>{form.prefix || 'borntoshare'}/alerts/2026/11/17/…json</small></label>
+          <label>{t('Region')}<input class="b2s-input" bind:value={form.region} /></label>
+          <label>{t('Access key')}<input class="b2s-input" bind:value={form.access_key} autocomplete="off" /></label>
+          <label>{t('Secret key')}<input class="b2s-input" type="password" bind:value={secret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /><small>{t('Kept in the vault of BornToShare')}</small></label>
+          <label>{t('Certificate')}<select class="b2s-input" bind:value={form.verify}><option value="public">{t('Check (public authority)')}</option><option value="file">{t('Check (capsule-runner/certs/minio-ca.pem)')}</option><option value="none">{t('Do not check')}</option></select></label>
+        </div>
+        <p class="ext__result is-info">{t('One object per event, signed with AWS Signature V4: the key needs « s3:PutObject » on this bucket only.')}</p>
+      {:else if editing.key === 'vault'}
+        <h3>{t('Server')}</h3>
+        <div class="ext__grid">
+          <label>{t('URL')}<input class="b2s-input" bind:value={form.url} placeholder="https://vault.corp.local:8200" /></label>
+          <label>{t('Namespace (Enterprise, optional)')}<input class="b2s-input" bind:value={form.namespace} /></label>
+          <label>{t('Certificate')}<select class="b2s-input" bind:value={form.verify}><option value="public">{t('Check (public authority)')}</option><option value="file">{t('Check (capsule-runner/certs/vault-ca.pem)')}</option><option value="none">{t('Do not check')}</option></select></label>
+        </div>
+        <div class="ext__field"><span>{t('Identity of BornToShare')}</span><SegmentedFilter bind:value={form.auth} options={[{ key: 'token', label: t('Token') }, { key: 'approle', label: 'AppRole' }]} /></div>
+        <div class="ext__grid">
+          {#if form.auth === 'approle'}
+            <label>role_id<input class="b2s-input" bind:value={form.role_id} autocomplete="off" /></label>
+            <label>{t('Mount of the AppRole')}<input class="b2s-input" bind:value={form.approle_mount} /></label>
+          {/if}
+          <label>{form.auth === 'approle' ? 'secret_id' : t('Token')}<input class="b2s-input" type="password" bind:value={secret} placeholder={editing.has_secret ? t('Unchanged') : ''} autocomplete="new-password" /><small>{t('Kept in the vault of BornToShare')}</small></label>
+        </div>
+        <h3>{t('Use')}</h3>
+        <p class="ext__result is-info">{t('In any password field of BornToShare (directory, file server, SMTP, extension…), type a reference instead of the password: vault://<KV mount>/<path>#<key>. The value is read in Vault (KV version 2) when it is needed, kept one minute in memory, never written.')}</p>
+        <label class="ext__field">{t('Test reference (optional)')}<input class="b2s-input" bind:value={form.test_reference} placeholder="vault://secret/borntoshare/svc-b2s-sync#password" /><small>{t('Read by « Test the connection », never shown')}</small></label>
       {:else}
         <p class="ext__result is-info">{t('Centreon calls the check below with its token: 200 « OK » or « WARNING », 503 « CRITICAL » with the components down.')}</p>
         <div class="ext__field"><span>{t('Check URL')}</span><code class="ext__preview">{checkUrl}</code></div>
@@ -435,7 +499,7 @@
   {#snippet footer()}
   
       <button type="button" class="b2s-btn b2s-btn-secondary" disabled={saving} onclick={() => (editing = null)}>{t('Cancel')}</button>
-      {#if editing?.events.length}<button type="button" class="b2s-btn b2s-btn-secondary" disabled={testing || saving} onclick={runTest}><i class="bi bi-lightning-charge" aria-hidden="true"></i>{testing ? t('Testing…') : t('Send a test')}</button>{/if}
+      {#if editing?.events.length || editing?.key === 'vault'}<button type="button" class="b2s-btn b2s-btn-secondary" disabled={testing || saving} onclick={runTest}><i class="bi bi-lightning-charge" aria-hidden="true"></i>{testing ? t('Testing…') : editing?.key === 'vault' ? t('Test the connection') : t('Send a test')}</button>{/if}
       <button type="button" class="b2s-btn b2s-btn-primary" disabled={saving} onclick={save}><i class="bi {saving ? 'bi-arrow-repeat' : 'bi-check2'}" aria-hidden="true"></i>{t('Save')}</button>
     
   {/snippet}

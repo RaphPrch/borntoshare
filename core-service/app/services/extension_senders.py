@@ -1,11 +1,17 @@
-"""Senders of the extensions Grafana (Loki, annotations), OpenTelemetry (OTLP/HTTP JSON) and ServiceNow (Table API).
+"""Senders of the extensions Grafana (Loki, annotations), OpenTelemetry (OTLP/HTTP JSON), ServiceNow (Table API),
+OpenSearch (document API), RabbitMQ (HTTP API of the management plugin) and MinIO / S3 (PUT, AWS Signature V4).
 
 Pure HTTP with httpx: no SDK to install, the payloads are built here and tested.
 """
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import uuid
+from datetime import datetime, timezone
+from urllib.parse import quote, urlparse
 import socket
 import time
 from typing import Any
@@ -179,3 +185,95 @@ def servicenow_check(config: dict[str, Any], secret: str | None) -> None:
     instance = str(config.get("instance_url") or "").rstrip("/")
     headers, auth = _snow_auth(config, secret)
     _check(httpx.get(f"{instance}/api/now/table/incident", params={"sysparm_limit": 1, "sysparm_fields": "number"}, headers={**headers, "Accept": "application/json"}, auth=auth, timeout=TIMEOUT))
+
+
+def _verify(config: dict[str, Any], ca_file: str) -> bool | str:
+    mode = str(config.get("verify") or "public")
+    if mode == "none":
+        return False
+    return f"/etc/b2s/certs/{ca_file}" if mode == "file" else True
+
+
+def _when(event: dict[str, Any]) -> datetime:
+    try:
+        return datetime.fromisoformat(str(event.get("at") or "").replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.now(timezone.utc)
+
+
+# ---- OpenSearch ---------------------------------------------------------------------------------------
+
+def opensearch_index(config: dict[str, Any], event: dict[str, Any]) -> str:
+    """The index of an event: the name given, with {yyyy}, {MM}, {dd} replaced by its date (one index a month: borntoshare-{yyyy}.{MM})."""
+    at = _when(event)
+    name = str(config.get("index") or "borntoshare-{yyyy}.{MM}")
+    return name.replace("{yyyy}", f"{at.year:04d}").replace("{MM}", f"{at.month:02d}").replace("{dd}", f"{at.day:02d}").lower()
+
+
+def opensearch_document(event: dict[str, Any]) -> dict[str, Any]:
+    return {"@timestamp": event.get("at"), "source": "borntoshare", "host": socket.gethostname(), **event}
+
+
+def send_opensearch(config: dict[str, Any], secret: str | None, event: dict[str, Any]) -> None:
+    url = f"{str(config.get('url') or '').rstrip('/')}/{quote(opensearch_index(config, event))}/_doc"
+    auth = (str(config["username"]), secret or "") if config.get("username") else None
+    _check(httpx.post(url, json=opensearch_document(event), auth=auth, timeout=TIMEOUT, verify=_verify(config, "opensearch-ca.pem")))
+
+
+# ---- RabbitMQ -----------------------------------------------------------------------------------------
+
+def rabbitmq_routing_key(config: dict[str, Any], event: dict[str, Any]) -> str:
+    """borntoshare.<audit|alerts>.<family>: a queue bound to « borntoshare.alerts.# » gets the alerts only."""
+    prefix = str(config.get("routing_prefix") or "borntoshare").strip(".")
+    return f"{prefix}.{event.get('type') or 'audit'}.{event.get('category') or 'other'}"
+
+
+def send_rabbitmq(config: dict[str, Any], secret: str | None, event: dict[str, Any]) -> None:
+    base = str(config.get("url") or "").rstrip("/")
+    vhost = quote(str(config.get("vhost") or "/"), safe="")
+    exchange = quote(str(config.get("exchange") or "amq.topic"), safe="")
+    body = {"properties": {"content_type": "application/json", "delivery_mode": 2, "app_id": "borntoshare"},
+            "routing_key": rabbitmq_routing_key(config, event), "payload": json.dumps(event, default=str), "payload_encoding": "string"}
+    response = _check(httpx.post(f"{base}/api/exchanges/{vhost}/{exchange}/publish", json=body, auth=(str(config.get("username") or ""), secret or ""),
+                                 timeout=TIMEOUT, verify=_verify(config, "rabbitmq-ca.pem")))
+    if not response.json().get("routed"):
+        raise RuntimeError(f"Message accepté mais distribué à aucune file (exchange {config.get('exchange') or 'amq.topic'}, clé {body['routing_key']})")
+
+
+# ---- MinIO / S3 ---------------------------------------------------------------------------------------
+
+def _sign(key: bytes, message: str) -> bytes:
+    return hmac.new(key, message.encode("utf-8"), hashlib.sha256).digest()
+
+
+def s3_headers(method: str, url: str, body: bytes, access_key: str, secret_key: str, region: str, now: datetime) -> dict[str, str]:
+    """Headers of a request signed with AWS Signature Version 4 (service s3), as MinIO and every S3 store check them."""
+    parsed = urlparse(url)
+    amz_date, day = now.strftime("%Y%m%dT%H%M%SZ"), now.strftime("%Y%m%d")
+    payload = hashlib.sha256(body).hexdigest()
+    headers = {"host": parsed.netloc, "x-amz-content-sha256": payload, "x-amz-date": amz_date}
+    signed = ";".join(sorted(headers))
+    canonical = "\n".join([method, parsed.path or "/", parsed.query, "".join(f"{key}:{headers[key]}\n" for key in sorted(headers)), signed, payload])
+    scope = f"{day}/{region}/s3/aws4_request"
+    to_sign = "\n".join(["AWS4-HMAC-SHA256", amz_date, scope, hashlib.sha256(canonical.encode("utf-8")).hexdigest()])
+    key = _sign(_sign(_sign(_sign(f"AWS4{secret_key}".encode("utf-8"), day), region), "s3"), "aws4_request")
+    signature = hmac.new(key, to_sign.encode("utf-8"), hashlib.sha256).hexdigest()
+    return {**headers, "authorization": f"AWS4-HMAC-SHA256 Credential={access_key}/{scope}, SignedHeaders={signed}, Signature={signature}"}
+
+
+def s3_object_key(config: dict[str, Any], event: dict[str, Any]) -> str:
+    """<prefix>/<audit|alerts>/<yyyy>/<MM>/<dd>/<HHMMSS>-<id>.json: one object per event, by day."""
+    at = _when(event)
+    prefix = str(config.get("prefix") or "borntoshare").strip("/")
+    return f"{prefix}/{event.get('type') or 'audit'}/{at:%Y/%m/%d}/{at:%H%M%S}-{uuid.uuid4().hex[:12]}.json"
+
+
+def send_minio(config: dict[str, Any], secret: str | None, event: dict[str, Any]) -> None:
+    base = str(config.get("endpoint") or "").rstrip("/")
+    key = s3_object_key(config, event)
+    url = f"{base}/{quote(str(config.get('bucket') or ''))}/{quote(key)}"
+    body = json.dumps(event, default=str).encode("utf-8")
+    headers = s3_headers("PUT", url, body, str(config.get("access_key") or ""), secret or "", str(config.get("region") or "us-east-1"),
+                         datetime.now(timezone.utc))
+    _check(httpx.put(url, content=body, headers={**headers, "content-type": "application/json"}, timeout=TIMEOUT,
+                     verify=_verify(config, "minio-ca.pem")))

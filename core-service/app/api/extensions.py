@@ -45,6 +45,10 @@ _ALLOWED = {
     "grafana": {"loki_url", "loki_user", "labels", "grafana_url", "dashboard_uid"},
     "otel": {"endpoint", "service_namespace", "environment", "logs", "traces", "metrics", "sample_ratio"},
     "servicenow": {"instance_url", "auth", "username", "client_id", "assignment_group", "cmdb_ci", "category", "close_code"},
+    "opensearch": {"url", "index", "username", "verify"},
+    "vault": {"url", "auth", "role_id", "approle_mount", "namespace", "test_reference", "verify"},
+    "rabbitmq": {"url", "vhost", "exchange", "routing_prefix", "username", "verify"},
+    "minio": {"endpoint", "bucket", "prefix", "region", "access_key", "verify"},
 }
 _URL_FIELDS = {"url", "loki_url", "grafana_url", "endpoint", "instance_url"}
 
@@ -70,6 +74,19 @@ def _clean(key: str, config: dict[str, Any]) -> dict[str, Any]:
         if not 1 <= port <= 65535:
             raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "The port goes from 1 to 65535"})
         out["port"] = port
+    if key == "vault":
+        if out.get("auth", "token") not in {"token", "approle"}:
+            raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Authentification token ou approle"})
+        if out.get("auth") == "approle" and not out.get("role_id"):
+            raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "L'AppRole demande son role_id"})
+        if out.get("test_reference") and not str(out["test_reference"]).startswith("vault://"):
+            raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Référence de test : vault://<montage>/<chemin>#<clé>"})
+    if key == "minio":
+        bucket = str(out.get("bucket") or "")
+        if not (3 <= len(bucket) <= 63) or not all(c.islower() or c.isdigit() or c in ".-" for c in bucket):
+            raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Nom de bucket : 3 à 63 minuscules, chiffres, . ou -"})
+    if key in ("opensearch", "vault", "rabbitmq", "minio") and out.get("verify", "public") not in {"public", "file", "none"}:
+        raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "Certificat : public, file ou none"})
     if key == "splunk" and out.get("url") and not str(out["url"]).startswith(("https://", "http://")):
         raise HTTPException(status_code=422, detail={"code": "EXTENSION_CONFIG_INVALID", "message": "The HEC URL starts with https://"})
     return out
@@ -128,6 +145,10 @@ def save_extension(key: str, payload: ExtensionPayload, request: Request, db: Se
         raise HTTPException(status_code=422, detail={"code": "EXTENSION_SECRET_REQUIRED", "message": "The token is required"})
     ext.save_extension(db, key, enabled=payload.enabled, config=config, routes=payload.routes.model_dump(), secret_ref=secret_ref, by=actor.display_name)
     ext.forget_cache()
+    if key == "vault":
+        from app.services import vault
+
+        vault.forget()
     log_activity(
         db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name,
         action="extension.updated", outcome="success", target_type="extension", target_display=key,
@@ -142,10 +163,26 @@ def test_extension(key: str, payload: ExtensionPayload, request: Request, db: Se
     """Send a test event with the values of the form (not saved yet); the stored secret when none is typed."""
     require_admin(actor_from_request(request))
     config = _clean(key, payload.config)
+    if key == "vault":
+        # Nothing sent: Vault reachable, unsealed, the identity of the core accepted, the test reference readable
+        from app.services import vault
+
+        current = _row(db, key)
+        started = time.monotonic()
+        try:
+            own = payload.secret or (resolve(db, current["secret_ref"]) if current and current["secret_ref"] else None)
+            vault.forget()
+            found = vault.check(config, own)
+        except Exception as exc:
+            return ui_data({"ok": False, "error": str(exc)[:300]})
+        return ui_data({"ok": True, "latency_ms": int((time.monotonic() - started) * 1000), "details": found})
     if not ext.CATALOG[key]["events"]:
         raise HTTPException(status_code=422, detail={"code": "EXTENSION_NOTHING_TO_SEND", "message": "This extension receives no event"})
     current = _row(db, key)
-    secret = payload.secret or (resolve(db, current["secret_ref"]) if current and current["secret_ref"] else None)
+    try:
+        secret = payload.secret or (resolve(db, current["secret_ref"]) if current and current["secret_ref"] else None)
+    except Exception as exc:  # a Vault reference that cannot be read: the test says why
+        return ui_data({"ok": False, "error": f"Secret illisible : {exc}"[:300]})
     if key == "grafana" and payload.secret:
         from app.services.extension_senders import secrets_of
 

@@ -1,6 +1,6 @@
 import { apiGetData, apiPostData, apiPutData, type FetchLike } from './client';
 
-export type ExtensionKey = 'syslog' | 'splunk' | 'centreon' | 'grafana' | 'otel' | 'servicenow';
+export type ExtensionKey = 'syslog' | 'splunk' | 'centreon' | 'grafana' | 'otel' | 'servicenow' | 'opensearch' | 'vault' | 'rabbitmq' | 'minio';
 export type AuditCategory = 'auth' | 'access' | 'identities' | 'folders' | 'policies' | 'jobs' | 'settings' | 'fives' | 'other';
 /** categories: the families of audit events sent (null: all); failures_only: refused sign-ins, failed jobs… only */
 export type ExtensionRoutes = { audit: boolean; alerts: boolean; min_severity: 'info' | 'warning' | 'high' | 'critical';
@@ -23,6 +23,6 @@ export const listExtensions = (fetchFn: FetchLike) => apiGetData<{ extensions: E
 export const saveExtension = (fetchFn: FetchLike, key: ExtensionKey, payload: ExtensionWrite) =>
   apiPutData<{ key: string; enabled: boolean; token: string | null }>(fetchFn, `/extensions/${key}`, payload);
 export const testExtension = (fetchFn: FetchLike, key: ExtensionKey, payload: ExtensionWrite) =>
-  apiPostData<{ ok: boolean; latency_ms?: number; error?: string }>(fetchFn, `/extensions/${key}/test`, payload);
+  apiPostData<{ ok: boolean; latency_ms?: number; error?: string; details?: Record<string, any> }>(fetchFn, `/extensions/${key}/test`, payload);
 export const renewCentreonToken = (fetchFn: FetchLike) => apiPostData<{ token: string }>(fetchFn, '/extensions/centreon/token', {});
 export const listExtensionDeliveries = (fetchFn: FetchLike) => apiGetData<ExtensionDelivery[]>(fetchFn, '/extensions/deliveries', { limit: 50 });

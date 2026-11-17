@@ -95,11 +95,34 @@ def resolve(db: Session, ref: str) -> str:
     if row is None:
         raise SecretNotFound("Secret not found")
     try:
-        return AESGCM(master_key()).decrypt(
+        value = AESGCM(master_key()).decrypt(
             base64.b64decode(row["iv"]), base64.b64decode(row["ciphertext"]), checked.encode("utf-8")
         ).decode("utf-8")
     except Exception as exc:
         raise SecretDecryptFailed("Secret exists but cannot be decrypted") from exc
+    # A reference to HashiCorp Vault typed instead of the password: the value is read there (services/vault.py)
+    from app.services import vault
+
+    if vault.is_reference(value):
+        return _from_vault(db, value)
+    return value
+
+
+def _from_vault(db: Session, reference: str) -> str:
+    from app.services import extensions, vault
+
+    row = next((item for item in extensions.load(db) if item["key"] == "vault"), None)
+    if row is None or not row["enabled"]:
+        raise SecretNotFound("Référence Vault, mais l'extension Vault n'est pas activée (Réglages avancés › Extensions)")
+    own = None
+    if row["secret_ref"]:
+        own = resolve(db, row["secret_ref"])
+        if vault.is_reference(own):
+            raise SecretInvalidRef("Le jeton de Vault ne peut pas lui-même être une référence Vault")
+    try:
+        return vault.read(row["config"], own, reference)
+    except vault.VaultError as exc:
+        raise SecretNotFound(str(exc)) from exc
 
 
 def exists(db: Session, ref: str) -> bool:

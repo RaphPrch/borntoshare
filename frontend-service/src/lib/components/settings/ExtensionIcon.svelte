@@ -1,9 +1,10 @@
 <script lang="ts">
   /**
    * Product icon of an extension: the official mark from simple-icons (CC0) when the brand publishes one there,
-   * otherwise a neutral monogram (Centreon and ServiceNow are not in simple-icons; syslog is a protocol).
+   * otherwise a neutral monogram (Centreon and ServiceNow are not in simple-icons; syslog is a protocol). Vault in black:
+   * its brand yellow is not readable on a white card.
    */
-  import { siGrafana, siOpentelemetry, siSplunk } from 'simple-icons';
+  import { siGrafana, siMinio, siOpensearch, siOpentelemetry, siRabbitmq, siSplunk, siVault } from 'simple-icons';
 
   interface Props {
     product: string;
@@ -15,7 +16,11 @@
   const ICONS: Record<string, { path: string; hex: string; title: string }> = {
     splunk: siSplunk,
     grafana: siGrafana,
-    otel: siOpentelemetry
+    otel: siOpentelemetry,
+    opensearch: siOpensearch,
+    vault: { ...siVault, hex: '000000' },
+    rabbitmq: siRabbitmq,
+    minio: siMinio
   };
   const MONOGRAMS: Record<string, string> = { syslog: 'SL', centreon: 'CE', servicenow: 'SN' };
   let icon = $derived(ICONS[product]);

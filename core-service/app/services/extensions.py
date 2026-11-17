@@ -41,6 +41,14 @@ CATALOG: dict[str, dict[str, Any]] = {
     "otel": {"events": ["audit", "alerts"], "secret": False},
     # One incident per new alert, resolved when the alert closes
     "servicenow": {"events": ["alerts", "alerts_resolved"], "secret": True},
+    # One document per event in an index (dated): search and dashboards of OpenSearch
+    "opensearch": {"events": ["audit", "alerts"], "secret": False},
+    # The passwords of BornToShare read in Vault (references vault://…): receives no event
+    "vault": {"events": [], "secret": True},
+    # One message per event on an exchange (routing key borntoshare.<type>.<family>)
+    "rabbitmq": {"events": ["audit", "alerts"], "secret": True},
+    # One JSON object per event in a bucket (MinIO or any S3 store): archive, data lake
+    "minio": {"events": ["audit", "alerts"], "secret": True},
 }
 DEFAULT_ROUTES = {"audit": True, "alerts": True, "min_severity": "high", "categories": None, "failures_only": False}
 # The audit events by family, from the start of their action (« storage_root.created » → folders): each extension
@@ -235,6 +243,12 @@ def deliver(key: str, config: dict[str, Any], secret: str | None, event: dict[st
         senders.send_otel(config, secret, event)
     elif key == "servicenow":
         senders.send_servicenow(config, secret, event)
+    elif key == "opensearch":
+        senders.send_opensearch(config, secret, event)
+    elif key == "rabbitmq":
+        senders.send_rabbitmq(config, secret, event)
+    elif key == "minio":
+        senders.send_minio(config, secret, event)
     else:
         raise ValueError(f"{key} receives no event")
 
@@ -312,7 +326,11 @@ def _send_with_retries(key: str, event: dict[str, Any]) -> None:
         row = next((r for r in load(db) if r["key"] == key), None)
         if row is None or not row["enabled"]:
             return
-        secret = resolve(db, row["secret_ref"]) if row["secret_ref"] else None
+        try:
+            secret = resolve(db, row["secret_ref"]) if row["secret_ref"] else None
+        except Exception as exc:  # a secret gone, or a Vault reference that cannot be read: said in the deliveries
+            record(db, key, event, "failed", f"Secret illisible : {exc}"[:300], 1, None)
+            return
         error = None
         for attempt, delay in enumerate(RETRY_DELAYS, start=1):
             time.sleep(delay)

@@ -49,3 +49,32 @@ sur ces identités sont conservés ; seuls ceux venant du jeton sont recalculés
 Le health check contrôle la découverte OpenID de chaque serveur depuis un worker. Sont tracés : serveur ajouté, modifié, supprimé ;
 connexions SSO réussies et refusées (motif) ; identité créée par SSO.
 Supprimer un serveur désactive les identités qu'il a créées (historique conservé).
+
+## Rôles depuis les groupes de l'Active Directory
+
+Keycloak lit l'AD (fédération LDAP) et transforme l'appartenance à un groupe en rôle du realm, que BornToShare met en
+correspondance avec ses propres rôles :
+
+1. User Federation › LDAP : vendor « Active Directory », `ldaps://<dc>:636`, **lecture seule** (`READ_ONLY`), compte de
+   liaison `svc-b2s-auth` (aucun droit ajouté dans l'AD, voir [droits-ad.md](droits-ad.md)), Users DN la racine du
+   domaine, filtre `(&(objectCategory=person)(objectClass=user))`, nom d'utilisateur `sAMAccountName`, UUID `objectGUID`.
+   L'autorité de l'AD doit être dans le truststore de Keycloak (`KC_TRUSTSTORE_PATHS`).
+2. Mapper `group-ldap-mapper` : Groups DN `OU=B2S Groups,…`, filtre sur le seul groupe voulu (`(cn=<groupe>)`),
+   `LOAD_GROUPS_BY_MEMBER_ATTRIBUTE`, lecture seule ; puis « Sync LDAP groups to Keycloak ».
+3. Groupe synchronisé › Role mapping : rôle du realm `b2s-admins`.
+4. Dans BornToShare : rôles depuis `realm_access.roles`, `b2s-admins` → Administrateur de la plateforme.
+
+Ainsi, retirer quelqu'un du groupe AD lui retire l'accès à sa prochaine connexion (rôles recalculés à chaque fois).
+
+## Laboratoire (hôte de build)
+
+Recette du 2026-11-17 : Keycloak 26.3 en conteneur `lab-keycloak` (réseau `b2s-app`, HTTPS 8443, autorité de labo),
+realm `corp`, client `borntoshare`, serveur « Keycloak CORP » dans BornToShare. « Tester » : découverte OK, client
+reconnu ; « Se connecter avec CORP (Keycloak) » mène à la page de connexion du realm.
+
+- auth-service tourne avec Python 3.13, qui vérifie les certificats en mode strict : l'autorité privée doit porter
+  `basicConstraints=critical,CA:TRUE`, `keyUsage=keyCertSign`, et le certificat du serveur `subjectKeyIdentifier` /
+  `authorityKeyIdentifier`. Sinon « Certificat du serveur Keycloak refusé » alors que `curl` l'accepte.
+  Contrôle : `openssl verify -x509_strict -CAfile oidc-ca.pem tls.crt`.
+- Le nom (ou l'IP) de l'URL du serveur doit figurer dans le SAN du certificat, et être joignable depuis auth-service
+  comme depuis les navigateurs (même émetteur des deux côtés).

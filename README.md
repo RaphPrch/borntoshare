@@ -75,6 +75,7 @@ Mises à jour : `make deploy` (paquets SQL, point de retour, reconstruction). Vo
 | Notifications par e-mail (SMTP, Gmail, Mailpit) | [docs/notifications.md](docs/notifications.md) |
 | Module 5S : écrans, installation depuis son dépôt | [docs/module-5s.md](docs/module-5s.md) |
 | Infrastructure : santé, planifications, workers, serveur injoignable | [docs/infrastructure.md](docs/infrastructure.md) |
+| Extensions : Syslog, Splunk, Centreon, OpenSearch, RabbitMQ, MinIO, Vault | [docs/extensions.md](docs/extensions.md) |
 | SSO Keycloak | [docs/keycloak.md](docs/keycloak.md) |
 | Governance Jobs : alertes, événements, jobs, santé | [docs/observability.md](docs/observability.md) |
 | Pilote sur un AD Windows | [docs/pilote-windows.md](docs/pilote-windows.md) |

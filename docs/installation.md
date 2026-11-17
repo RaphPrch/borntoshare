@@ -82,6 +82,7 @@ s'il existe :
 | `agent-ca.pem` | core-service | Autorité privée des certificats d'agent |
 | `oidc-ca.pem` | auth-service | Autorité privée des serveurs Keycloak (SSO) |
 | `syslog-ca.pem`, `splunk-ca.pem` | core-service | Autorité privée du collecteur syslog (TLS) ou du HEC Splunk (Settings › Extensions) |
+| `opensearch-ca.pem`, `rabbitmq-ca.pem`, `minio-ca.pem`, `vault-ca.pem` | core-service | Autorité privée d'OpenSearch, RabbitMQ, MinIO (S3) ou Vault (Settings › Extensions) |
 
 `B2S_VERSION` n'est pas à renseigner : `make deploy` y met le commit et la date, affichés dans le menu du compte (en haut à droite).
 
