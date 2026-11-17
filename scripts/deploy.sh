@@ -45,6 +45,11 @@ if has_secret b2s_db_fives; then
   FIVES=1
   SERVICES="$SERVICES fives-service fives-scanner"
   COMPOSE="${COMPOSE/podman-compose /podman-compose --profile fives }"
+  # The Parquet lake of the module, when .env says where it is (B2S_LAKE_URI): same image as fives-service
+  if [ -n "$(env_value B2S_LAKE_URI)" ]; then
+    LAKE=1
+    COMPOSE="${COMPOSE/podman-compose /podman-compose --profile lake }"
+  fi
 fi
 # A 5S measure running would be cut by the restart (its walk is lost, its result may not reach the core): wait
 # for it, or FORCE=1 make deploy (the scanner queues the interrupted measure again at its start)
@@ -123,6 +128,7 @@ else
   SCALE=""
   [ -n "$FIVES" ] && SCALE="--scale fives-scanner=${FIVES_SCANNERS:-$(env_value FIVES_SCANNERS 1)}"
   $COMPOSE up -d --force-recreate --no-deps $SCALE $SERVICES
+  if [ -n "${LAKE:-}" ]; then $COMPOSE up -d --force-recreate --no-deps fives-lake; fi
   # Hybrid: the container of the interface of an earlier installation in containers is stopped (httpd replaces it)
   if [ "$MODE" = hybrid ] && podman container exists frontend-service; then
     podman stop frontend-service >/dev/null && echo "  conteneur frontend-service arrêté : l'interface passe par httpd"

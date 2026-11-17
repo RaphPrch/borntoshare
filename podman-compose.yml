@@ -194,6 +194,38 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=3)"]
     networks: [app, data]
 
+  # Parquet lake of the 5S module (history, analytics): the image of fives-service, its own process (an export reads
+  # millions of rows: never in the process of the API). Off while B2S_LAKE_URI is empty (profile lake, make deploy
+  # starts it when the line is in .env). Commands: podman exec fives-lake python -m app.lake list|verify|usage…
+  fives-lake:
+    <<: *hardening
+    container_name: fives-lake
+    image: b2s-fives-service:latest
+    profiles: [lake]
+    command: ["python", "-m", "app.lake", "worker"]
+    environment:
+      <<: *common-env
+      B2S_CORE_URL: http://core-service:8000
+      FIVES_DB_HOST: ${DB_HOST}
+      FIVES_DB_PORT: ${DB_PORT:-3306}
+      FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
+      FIVES_DB_PASSWORD_FILE: /run/secrets/b2s_db_fives
+      FIVES_DB_NAME: ${FIVES_DB_NAME:-b2s_fives}
+      FIVES_INVENTORY_DB_NAME: ${FIVES_INVENTORY_DB_NAME:-b2s_fives_inventory}
+      B2S_LAKE_URI: ${B2S_LAKE_URI:-file:///lake}
+      B2S_LAKE_S3_ENDPOINT: ${B2S_LAKE_S3_ENDPOINT:-}
+      B2S_LAKE_S3_REGION: ${B2S_LAKE_S3_REGION:-}
+      # S3 keys: podman secrets b2s_lake_s3_access / b2s_lake_s3_secret mounted as files when used (never in .env)
+      B2S_LAKE_S3_ACCESS_KEY_FILE: ${B2S_LAKE_S3_ACCESS_KEY_FILE:-}
+      B2S_LAKE_S3_SECRET_KEY_FILE: ${B2S_LAKE_S3_SECRET_KEY_FILE:-}
+      B2S_LAKE_HOUR: ${B2S_LAKE_HOUR:-7}
+      B2S_LAKE_KEEP_DAYS: ${B2S_LAKE_KEEP_DAYS:-400}
+    secrets:
+      - {source: b2s_db_fives, uid: "10005", mode: "0400"}
+    volumes:
+      - b2s-lake:/lake
+    networks: [app, data]
+
   # Scanner of the 5S module: walks the folders ON their Windows file servers (WinRM, Kerberos, no agent), from the
   # queue in b2s_fives; several instances possible (one per site: SCANNER_ID). Built from the root of the repository
   # (it reuses the WinRM code of capsule-runner).
@@ -331,3 +363,6 @@ networks:
 volumes:
   redis-data:
     name: b2s-redis-data
+  # The Parquet lake when it is local (B2S_LAKE_URI file:///lake); an S3 store needs no volume
+  b2s-lake:
+    name: b2s-lake
