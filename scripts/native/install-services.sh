@@ -253,7 +253,7 @@ PartOf=borntoshare.target
 [Service]
 User=$USER_NAME
 Group=$USER_NAME
-ExecStart=$(command -v redis-server || echo /usr/bin/redis-server) /etc/borntoshare/redis.conf
+ExecStart=$(command -v redis-server || command -v valkey-server || echo /usr/bin/redis-server) /etc/borntoshare/redis.conf
 Restart=on-failure
 NoNewPrivileges=yes
 PrivateTmp=yes

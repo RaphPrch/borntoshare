@@ -54,12 +54,13 @@ backup: .env
 	./scripts/backup.sh
 
 # What this server offers (podman, Python, Node.js, httpd, SELinux…) is read first: the step « Prérequis » shows it.
-# Without podman, the wizard runs in its own Python environment (installation without container).
+# Without podman (or with WIZARD=native: make wizard WIZARD=native), the wizard runs in its own Python environment
+# (installation without container).
 # After the installation, without a command: .env, make deploy, then the stop of the wizard (scripts/after-wizard.sh)
 wizard: .env
 	install -d -m 700 secrets
 	@scripts/host-check.sh
-	@if command -v podman >/dev/null 2>&1; then \
+	@if [ "$(WIZARD)" != native ] && command -v podman >/dev/null 2>&1; then \
 		podman-compose --profile wizard -f podman-compose.yml up -d --build wizard-ui && \
 		setsid -f scripts/after-wizard.sh >> secrets/.after-wizard.log 2>&1 < /dev/null; \
 	else \
