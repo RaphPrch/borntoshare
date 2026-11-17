@@ -46,7 +46,8 @@
 
   onMount(async () => {
     [roots, endpoints, missingSecrets, lateTasks] = await Promise.all([
-      apiGetList<Root>(fetch, '/storage-roots/context').catch(() => []),
+      // The columns of the journal and the tiles only (the whole folder list weighed megabytes)
+      apiGetList<Root>(fetch, '/storage-roots/context', { fields: 'storage_root_id,storage_root_name,root_path,dfs_path,zone_name,storage_endpoint_id,storage_endpoint_name,content_size_bytes,estimated_size_bytes,content_files,measure_status,password_files,key_files,quota_used_percent,quota_pending_requests,guardians_count,open_alerts_count' }).catch(() => []),
       apiGetList<Endpoint>(fetch, '/storage-endpoints/context').catch(() => []),
       apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing').catch(() => []),
       apiGetList<LateTask>(fetch, '/infrastructure/schedules/late').catch(() => [])

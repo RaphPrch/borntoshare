@@ -802,7 +802,7 @@
   .fx__note.is-warn { background: #fdefd9; color: #6b3a00; }
   .fx__file-acts { display: flex; flex-wrap: wrap; gap: 8px; }
   tr.is-file { cursor: pointer; }
-  .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; max-width: 1480px; padding: 26px 28px 80px; }
+  .fx { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; min-width: 0; padding: 26px 28px 80px; }
   .fx__head { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; justify-content: space-between; }
   .fx__crumbs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 13px; }
   .fx__crumbs button { border: 0; background: none; padding: 2px 4px; color: var(--b2s-color-primary, #2563eb); cursor: pointer; font: inherit; }

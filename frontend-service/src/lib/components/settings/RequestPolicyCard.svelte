@@ -9,7 +9,7 @@
 
   
   interface Props {
-    /** Advanced settings › Governance: the durations offered to a new request, the permanent access, the reason. */
+    /** Advanced settings › Governance: the durations offered to a new request, the longest access, the reason. */
     requests?: { durations?: number[]; allowPermanent?: boolean; maxDays?: number; minReasonLength?: number };
   }
 
@@ -17,8 +17,9 @@
 
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
   let durations = $state([...(requests.durations ?? [7, 30, 90])]);
+  // Not shown any more (Advanced settings › Governance): the value saved stays as it is
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  let allowPermanent = $state(requests.allowPermanent ?? true);
+  const allowPermanent = requests.allowPermanent ?? true;
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
   let maxDays = $state(requests.maxDays ?? 365);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
@@ -35,7 +36,7 @@
     newDuration = '';
   }
   let error = $derived(!durations.length && !allowPermanent
-    ? t('Offer at least one duration, or allow the permanent access.')
+    ? t('Offer at least one duration.')
     : durations.some((days) => days > maxDays)
       ? t('A duration offered goes beyond the longest access.')
       : null);
@@ -68,12 +69,6 @@
     </SettingRow>
     <SettingRow label={t('Longest access (days)')}>
       <input class="b2s-input" type="number" min="1" max="3650" bind:value={maxDays} />
-    </SettingRow>
-    <SettingRow label={t('Permanent access')}>
-      <div class="form-check form-switch">
-        <input class="form-check-input" type="checkbox" role="switch" id="rp-permanent" bind:checked={allowPermanent} />
-        <label class="form-check-label" for="rp-permanent">{allowPermanent ? t('Allowed') : t('Refused: every access has an end date')}</label>
-      </div>
     </SettingRow>
     <SettingRow label={t('Shortest reason (characters)')}>
       <input class="b2s-input" type="number" min="1" max="500" bind:value={minReasonLength} />

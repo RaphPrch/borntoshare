@@ -1858,5 +1858,18 @@
   "The sub-folders whose name matches (chemin:…) or that hold the files found (est:mot-de-passe…) get the tag too; it follows the condition.": "The sub-folders whose name matches (chemin:…) or that hold the files found (est:mot-de-passe…) get the tag too; it follows the condition.",
   "Only chemin:… and the sensitivity states (est:sensible, est:mot-de-passe…) are judged on the sub-folders.": "Only chemin:… and the sensitivity states (est:sensible, est:mot-de-passe…) are judged on the sub-folders.",
   "Tagged sub-folders": "Tagged sub-folders",
-  "from the measure of the parent folder": "from the measure of the parent folder"
+  "from the measure of the parent folder": "from the measure of the parent folder",
+  "Offer at least one duration.": "Offer at least one duration.",
+  "Rights inherited from {name}": "Rights inherited from {name}",
+  "The new folder takes the rights of its parent: whoever reaches {name} reaches it too.": "The new folder takes the rights of its parent: whoever reaches {name} reaches it too.",
+  "Reading the rights…": "Reading the rights…",
+  "The rights of the parent folder are not read yet: they will be read at its next test.": "The rights of the parent folder are not read yet: they will be read at its next test.",
+  "{done} folder(s) changed, {failed} refused: {reason}": "{done} folder(s) changed, {failed} refused: {reason}",
+  "{count} folder(s) changed.": "{count} folder(s) changed.",
+  "Ask a question on your folders, the people who reach them, their measures: the answer comes as a list, ready to export. Ask for a tag to be put or taken off: the folders are listed first, nothing changes before « Apply ».": "Ask a question on your folders, the people who reach them, their measures: the answer comes as a list, ready to export. Ask for a tag to be put or taken off: the folders are listed first, nothing changes before « Apply ».",
+  "Done: {done} folder(s) changed.": "Done: {done} folder(s) changed.",
+  "{count} refused.": "{count} refused.",
+  "Put the tag « {tag} » on {count} folder(s)?": "Put the tag « {tag} » on {count} folder(s)?",
+  "Take the tag « {tag} » off {count} folder(s)?": "Take the tag « {tag} » off {count} folder(s)?",
+  "Only an administrator can apply this change.": "Only an administrator can apply this change."
 }

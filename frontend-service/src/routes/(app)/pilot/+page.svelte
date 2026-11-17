@@ -7,12 +7,16 @@
   import { downloadCsv } from '$lib/utils/csv';
   import { toast } from '$lib/stores/toast';
   import { dur, MOTION } from '$lib/utils/motion';
-  import { askPilot, PILOT_EXAMPLES, type PilotAnswer, type PilotCell } from '$lib/components/pilot/pilot-engine';
+  import { applyPilotAction, askPilot, PILOT_EXAMPLES, type PilotAnswer, type PilotCell } from '$lib/components/pilot/pilot-engine';
 
   /**
    * Pilot: ask a question on the folders in plain French, get the answer as a list ready to export.
-   * The answers are read from the data BornToShare already holds; nothing is changed from here.
+   * The answers are read from the data BornToShare already holds. A change (« ajoute le tag … ») is listed first and
+   * applied only on « Appliquer », by an administrator.
    */
+  const isAdmin = $derived(Boolean(($page.data as { me?: { is_admin?: boolean } }).me?.is_admin));
+  // Per answer: the result of its action once applied
+  let applied = $state<Record<number, { done: number; failed: string[] } | 'busy'>>({});
   let draft = $state('');
   let busy = $state(false);
   let answers = $state<PilotAnswer[]>([]);
@@ -29,6 +33,7 @@
       const answer = await askPilot(fetch, text);
       answers = [answer, ...answers].slice(0, 6);
       expanded = {};
+      applied = {};
       history = [text, ...history.filter((item) => item !== text)].slice(0, 8);
       remember('pilot', { history });
       draft = '';
@@ -43,6 +48,15 @@
     if (!answer.file) return;
     downloadCsv(answer.file, answer.columns.map((header, index) => ({ header, value: (row: PilotCell[]) => row[index]?.text ?? '' })), answer.rows);
     toast.success(t('{file} downloaded: {count} line(s).', { file: answer.file, count: answer.rows.length }));
+  }
+
+  async function apply(answer: PilotAnswer, index: number) {
+    if (!answer.action || applied[index]) return;
+    applied = { ...applied, [index]: 'busy' };
+    const result = await applyPilotAction(fetch, answer.action);
+    applied = { ...applied, [index]: result };
+    if (result.failed.length) toast.error(t('{done} folder(s) changed, {failed} refused: {reason}', { done: result.done, failed: result.failed.length, reason: result.failed[0] }));
+    else toast.success(t('{count} folder(s) changed.', { count: result.done }));
   }
 
   async function copyRows(answer: PilotAnswer) {
@@ -63,7 +77,7 @@
   <div class="pl-hero">
     <span class="pl-kick">Workspace</span>
     <h1>Pilot</h1>
-    <p>{t('Ask a question on your folders, the people who reach them, their measures: the answer comes as a list, ready to export. Nothing is changed from here.')}</p>
+    <p>{t('Ask a question on your folders, the people who reach them, their measures: the answer comes as a list, ready to export. Ask for a tag to be put or taken off: the folders are listed first, nothing changes before « Apply ».')}</p>
     <form class="pl-ask" onsubmit={(event) => { event.preventDefault(); void ask(draft); }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
       <input type="text" bind:value={draft} placeholder={t('Export all the users of the folder Finance…')} aria-label={t('Your question')} disabled={busy} />
@@ -95,6 +109,20 @@
           <button type="button" class="b2s-link-btn" onclick={() => (expanded = { ...expanded, [index]: true })}>{t('Show the {count} other line(s)', { count: answer.rows.length - PREVIEW })}</button>
         {/if}
       {/if}
+      {#if answer.action}
+        {@const state = applied[index]}
+        <div class="pl-act" class:is-done={state && state !== 'busy'}>
+          <i class={`bi ${answer.action.kind === 'tag-add' ? 'bi-tag' : 'bi-tag-fill'}`} aria-hidden="true"></i>
+          {#if state && state !== 'busy'}
+            <span>{t('Done: {done} folder(s) changed.', { done: state.done })}{state.failed.length ? ` ${t('{count} refused.', { count: state.failed.length })}` : ''}</span>
+          {:else if isAdmin}
+            <span>{answer.action.kind === 'tag-add' ? t('Put the tag « {tag} » on {count} folder(s)?', { tag: answer.action.tagName, count: answer.action.rootIds.length }) : t('Take the tag « {tag} » off {count} folder(s)?', { tag: answer.action.tagName, count: answer.action.rootIds.length })}</span>
+            <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={() => apply(answer, index)} disabled={state === 'busy'}>{state === 'busy' ? t('Applying…') : t('Apply')}</button>
+          {:else}
+            <span>{t('Only an administrator can apply this change.')}</span>
+          {/if}
+        </div>
+      {/if}
       <div class="pl-acts">
         {#if answer.file}
           <button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" onclick={() => exportCsv(answer)}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV ({count} lines)', { count: answer.rows.length })}</button>
@@ -115,7 +143,6 @@
 </section>
 
 <style>
-  .pl { max-width: 1180px; }
   .pl-hero { display: flex; flex-direction: column; gap: 14px; padding: 28px; border-radius: 22px; background: var(--b2s-color-surface-soft); }
   .pl-kick { color: var(--b2s-accent-strong); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
   .pl-hero h1 { margin: 0; font-size: 52px; font-weight: 700; letter-spacing: -0.045em; line-height: 1; }
@@ -141,5 +168,8 @@
   .pl-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pl-row span.v2-tag { justify-self: start; }
   .mono { font-family: var(--b2s-font-mono); font-size: 12px; color: var(--b2s-color-text-muted); }
+  .pl-act { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border: 1px solid var(--b2s-color-border-soft); border-radius: 14px; background: var(--b2s-accent-soft); }
+  .pl-act span { flex: 1; font-weight: 500; }
+  .pl-act.is-done { background: #ecfdf3; border-color: #bbf7d0; }
   .pl-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 </style>

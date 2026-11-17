@@ -9,58 +9,30 @@ import { normalizeMe } from '$lib/types/me';
 export const load: LayoutServerLoad = async (event) => {
   const rawMe = await requireAuth(event);
   const me = normalizeMe(rawMe);
-  let topbarAlertsCount = 0;
-  let topbarCriticalAlerts = 0;
-  let guardianRootIds: number[] = [];
+  // Everything the shell needs, asked at once: these calls ran one after the other on every page change
+  type Access = { storage_root_id?: number; role?: string; identity_id?: number };
+  const [accessRows, counts, setup, badge, publicSettings, featureList] = await Promise.all([
+    me.is_admin ? Promise.resolve([] as Access[]) : apiServerGetList<Access>('/storage-roots/effective-access', event).catch(() => [] as Access[]),
+    apiServerGetData<Record<string, number>>('/access-requests/counts-by-status', event).catch(() => null),
+    me.is_admin ? apiServerGetData<{ completed?: boolean }>('/admin/setup/status', event).catch(() => null) : Promise.resolve(null),
+    me.is_admin ? apiServerGetData<{ critical_open?: number }>('/observability/badge', event).catch(() => null) : Promise.resolve(null),
+    // Banner of Advanced settings › Notifications, shown to every user
+    apiServerGetData<{ banner?: { enabled?: boolean; message?: string; tone?: string } }>('/admin/config/public', event).catch(() => null),
+    // Optional modules opened by a license and switched on (5S…): their menus follow
+    apiServerGetData<{ features?: Array<{ key: string; enabled: boolean }> }>('/features', event).catch(() => null)
+  ]);
 
-  if (!me.is_admin) {
-    try {
-      const rows = await apiServerGetList<{ storage_root_id?: number; role?: string; identity_id?: number }>(
-        '/storage-roots/effective-access',
-        event
-      );
-      guardianRootIds = (Array.isArray(rows) ? rows : [])
-        .filter((row) => String(row?.role ?? '').trim().toLowerCase() === 'guardian')
-        .map((row) => Number(row?.storage_root_id ?? 0))
-        .filter((value, index, all) => Number.isFinite(value) && value > 0 && all.indexOf(value) === index);
-    } catch {
-      guardianRootIds = [];
-    }
-  }
-
-  try {
-    const counts = await apiServerGetData<Record<string, number>>('/access-requests/counts-by-status', event);
-    topbarAlertsCount = Number(counts?.pending ?? 0) || 0;
-  } catch {
-    topbarAlertsCount = 0;
-  }
+  const guardianRootIds = (Array.isArray(accessRows) ? accessRows : [])
+    .filter((row) => String(row?.role ?? '').trim().toLowerCase() === 'guardian')
+    .map((row) => Number(row?.storage_root_id ?? 0))
+    .filter((value, index, all) => Number.isFinite(value) && value > 0 && all.indexOf(value) === index);
+  const topbarAlertsCount = Number(counts?.pending ?? 0) || 0;
+  const topbarCriticalAlerts = Number(badge?.critical_open ?? 0) || 0;
 
   // Empty application: the administrator goes through the guided setup first
-  if (me.is_admin) {
-    const setup = await apiServerGetData<{ completed?: boolean }>('/admin/setup/status', event).catch(() => null);
-    if (setup && !setup.completed) throw redirect(302, '/setup');
-  }
+  if (me.is_admin && setup && !setup.completed) throw redirect(302, '/setup');
 
-  if (me.is_admin) {
-    try {
-      const badge = await apiServerGetData<{ critical_open?: number }>('/observability/badge', event);
-      topbarCriticalAlerts = Number(badge?.critical_open ?? 0) || 0;
-    } catch {
-      topbarCriticalAlerts = 0;
-    }
-  }
-
-  /* ======================================================
-   * AUTH GUARD (SSR)
-   * - Identity only
-   * - NO authorization logic here
-   * ====================================================== */
-  // Banner of Advanced settings › Notifications, shown to every user
-  const publicSettings = await apiServerGetData<{ banner?: { enabled?: boolean; message?: string; tone?: string } }>('/admin/config/public', event).catch(() => null);
   const banner = publicSettings?.banner?.enabled && publicSettings.banner.message ? publicSettings.banner : null;
-
-  // Optional modules opened by a license and switched on (5S…): their menus follow
-  const featureList = await apiServerGetData<{ features?: Array<{ key: string; enabled: boolean }> }>('/features', event).catch(() => null);
   const features = (featureList?.features ?? []).filter((feature) => feature.enabled).map((feature) => feature.key);
   // Unknown (the core did not answer): the governance stays shown, as on every installation before the 5S-only one
   if (!featureList) features.push('governance');

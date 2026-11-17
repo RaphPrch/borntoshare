@@ -1204,9 +1204,9 @@
   .ar-side {
     flex: 0 0 420px;
     position: sticky;
-    top: 16px;
-    /* Below the page head: the decision buttons stay on screen without scrolling the page */
-    max-height: calc(100vh - 190px);
+    top: calc(var(--b2s-shell-top) + 16px);
+    /* Under the bars: the decision buttons stay on screen without scrolling the page */
+    max-height: calc(100vh - var(--b2s-shell-top) - 48px);
     overflow-y: auto;
     padding: 20px;
     display: flex;

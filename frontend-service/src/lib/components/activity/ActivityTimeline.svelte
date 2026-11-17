@@ -72,9 +72,6 @@
   $effect.pre(() => {
     if (filter || period || query !== undefined) shown = PAGE;
   });
-  let authors = $derived([...visible.reduce((map, row) => map.set(row.actor, (map.get(row.actor) ?? 0) + 1), new Map<string, number>())]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5));
 
   const today = dayKey(Date.now());
   const yesterday = dayKey(Date.now() - 86_400_000);
@@ -175,14 +172,6 @@
           <p class="at__muted">{t('Click an event to see who did what, and the values before and after.')}</p>
         {/if}
       </section>
-      {#if authors.length && !latest}
-        <section class="at__card" aria-label={t('Authors')}>
-          <h2>{t('Authors')}</h2>
-          {#each authors as [name, count] (name)}
-            <div class="at__author"><span class="at__face is-lg">{initials(name)}</span><span><b>{name}</b><small>{t('{count} event(s)', { count })}</small></span></div>
-          {/each}
-        </section>
-      {/if}
     </div>
   </div>
 </div>
@@ -226,7 +215,6 @@
   .at__body small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
   .at__actor { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .at__face { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text); font-size: 9px; font-weight: 700; }
-  .at__face.is-lg { width: 30px; height: 30px; font-size: 11px; }
   .at__time { padding-top: 2px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); white-space: nowrap; }
   .at__empty, .at__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .at__empty { padding: 20px; text-align: center; }
@@ -239,9 +227,6 @@
   .at__detail td { padding: 4px 6px; border-bottom: 1px solid var(--b2s-color-border); overflow-wrap: anywhere; }
   .at__detail summary { cursor: pointer; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .at__detail pre { max-height: 240px; margin: 6px 0 0; padding: 10px; overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); font-family: var(--b2s-font-mono); font-size: 11px; white-space: pre-wrap; }
-  .at__author { display: flex; align-items: center; gap: 10px; }
-  .at__author b { display: block; font-weight: 500; font-size: var(--b2s-fs-sm); }
-  .at__author small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .at__latest { margin: 0 0 4px; font-size: var(--b2s-fs-md); }
   .at__more { margin: 12px 0 0; font-size: var(--b2s-fs-sm); }
 </style>

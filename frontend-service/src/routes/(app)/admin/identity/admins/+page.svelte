@@ -125,7 +125,7 @@
 </section>
 
 <style>
-  .ad { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 18px; max-width: 1240px; }
+  .ad { padding: var(--b2s-page-padding, 24px 28px); display: flex; flex-direction: column; gap: 18px; }
   .ad__back { display: inline-flex; align-items: center; gap: 4px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); text-decoration: none; }
   .ad__top h1 { margin: 0; font-size: var(--b2s-fs-overview-title, 38px); line-height: 1.05; font-weight: 600; letter-spacing: -0.03em; }
   .ad__top p { margin: 6px 0 0; color: var(--b2s-color-text-muted); font-size: 15px; }

@@ -278,7 +278,8 @@
   // A disabled server takes nothing new (folders, shares, requests); one with folders cannot be deleted
   const endpointInactive = (ep: any): boolean =>
     ep?.is_active === false || ep?.is_active === 0 || String(ep?.status ?? '').toLowerCase() === 'disabled';
-  const endpointFolderCount = (ep: any): number => rootsForEndpoint(ep).length;
+  // The folders of the server shown are loaded; the other servers give their count
+  const endpointFolderCount = (ep: any): number => rootsForEndpoint(ep).length || Number(ep?.roots_count ?? 0);
 
   // Right click on a server of the list
   let menuEndpoint = $state<any | null>(null);
@@ -753,7 +754,7 @@
 
   function openDeleteModal(ep: any) {
     if (!ep) return;
-    const attachedRootCount = roots.filter((row) => Number(row?.storage_endpoint_id ?? 0) === endpointId(ep)).length;
+    const attachedRootCount = endpointFolderCount(ep);
     if (attachedRootCount > 0) {
       toast.error(dependencyCountDeleteMessage('storage endpoint', attachedRootCount, 'storage root'));
       return;

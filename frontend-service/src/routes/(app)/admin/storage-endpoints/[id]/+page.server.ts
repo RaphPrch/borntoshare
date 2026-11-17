@@ -17,10 +17,11 @@ export const load: PageServerLoad = async (event) => {
 
   const [endpointRows, roots, tags, activity, storageRootAlerts, identitySources, catalog] = await Promise.all([
     apiServerGetList<StorageEndpointContext>('/storage-endpoints/context', event),
-    apiServerGetList('/storage-roots/context', event),
+    // The folders and alerts of this server only: the whole lists weighed megabytes with thousands of folders
+    apiServerGetList(`/storage-roots/context?storage_endpoint_id=${id}`, event),
     parentTags ? Promise.resolve(parentTags) : apiServerGetList('/tags', event),
     apiServerGetList(`/activity/by-target?target_type=storage_endpoint&target_id=${id}&limit=120`, event),
-    apiServerGetList('/governance-alerts?scope_type=storage_root&status=open&limit=2000', event).catch(() => []),
+    apiServerGetList(`/governance-alerts?scope_type=storage_root&status=open&storage_endpoint_id=${id}&limit=2000`, event).catch(() => []),
     // Names only, for the Connection card
     apiServerGetList<{ id: number; name: string }>('/identity-sources', event).catch(() => []),
     // Shares found by the last search, managed or not

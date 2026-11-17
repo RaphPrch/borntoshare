@@ -3,7 +3,7 @@
  * of the storage roots, the permissions of a folder: ACL read × directory × requests). No model, no guess: a few
  * intents read from the words of the question; the answer says how the question was understood.
  */
-import { apiGetData, apiGetList, type FetchLike } from '$lib/api/client';
+import { apiGetData, apiGetList, apiPostData, type FetchLike } from '$lib/api/client';
 import { getStorageRootPermissions, type PermissionPerson } from '$lib/api/storage-root-permissions';
 import { formatBytes, formatDate } from '$lib/utils/format';
 
@@ -22,7 +22,11 @@ export type PilotAnswer = {
   /** Folders the answer is about, to open them */
   links: Array<{ label: string; href: string }>;
   ok: boolean;
+  /** A change asked for (« ajoute le tag … »): shown first, applied only on a click on « Appliquer » */
+  action?: PilotAction;
 };
+
+export type PilotAction = { kind: 'tag-add' | 'tag-remove'; tagId: number; tagName: string; rootIds: number[] };
 
 type Root = Record<string, any>;
 
@@ -47,7 +51,9 @@ export const PILOT_EXAMPLES = [
   'Fichiers sensibles ouverts à tous',
   'Dossiers avec des droits à revoir',
   'Fichiers du propriétaire CORP\\jane',
-  'Fichiers pdf de plus de 100 Mo'
+  'Fichiers pdf de plus de 100 Mo',
+  'Ajoute le tag Confidentiel au dossier Finance',
+  'Retire le tag Archive des dossiers du serveur FILER01'
 ];
 
 /** The folder named in the question: after « dossier », else any folder whose name is in the question (longest first). */
@@ -80,6 +86,9 @@ export async function askPilot(fetchFn: FetchLike, question: string): Promise<Pi
   const roots = await apiGetList<Root>(fetchFn, '/storage-roots/context').catch(() => [] as Root[]);
   const base = { question, ok: true, links: [] as PilotAnswer['links'] };
   const table = (rows: Root[]) => rows.slice(0, 200);
+
+  // ---- actions: put a tag on folders or take it off (nothing changes before « Appliquer ») ----
+  if (ACTION_VERB.test(q) && /\btags?\b/.test(q)) return planTagAction(fetchFn, q, roots, base);
 
   // ---- 5S module: files of the inventory, sensitive files open to all, rights to review ----
   const fives = await askFives(fetchFn, question, q, roots, base);
@@ -249,4 +258,94 @@ async function askFives(fetchFn: FetchLike, question: string, q: string, roots: 
       file: data.files.length ? 'fichiers.csv' : null };
   }
   return null;
+}
+
+
+const ACTION_VERB = /\b(ajoute|ajouter|pose|poser|mets|mettre|applique|appliquer|tague|taguer|retire|retirer|enleve|enlever|supprime|supprimer|ote|oter)\b/;
+const REMOVE_VERB = /\b(retire|retirer|enleve|enlever|supprime|supprimer|ote|oter)\b/;
+const hasTag = (row: Root, tagId: number) => Array.isArray(row.tags) && row.tags.some((tag: Root) => Number(tag?.id) === tagId);
+
+/** The folders named after the tag: « du serveur X », « sans gardien », « jamais mesurés », « sensibles », or names (« dossiers A, B et C »). */
+export function pilotTargets(rest: string, roots: Root[]): { list: Root[]; label: string; missing: string[] } {
+  const server = rest.match(/serveur\s+([\w.-]+)/);
+  if (server) return { list: roots.filter((row) => fold(row.storage_endpoint_name).includes(server[1])), label: `dossiers du serveur ${server[1]}`, missing: [] };
+  if (/sans gardien/.test(rest)) return { list: roots.filter((row) => num(row.guardians_count) === 0), label: 'dossiers sans gardien', missing: [] };
+  if (/jamais mesur|non mesur|pas mesur/.test(rest)) return { list: roots.filter((row) => row.content_size_bytes == null && !['done', 'running'].includes(String(row.measure_status ?? ''))), label: 'dossiers jamais mesurés', missing: [] };
+  if (/sensib|mots? de passe|secret/.test(rest)) return { list: roots.filter((row) => num(row.password_files) + num(row.key_files) + num(row.sensitive_files) > 0), label: 'dossiers sensibles', missing: [] };
+  const names = rest.replace(/^(?:(?:le|les|la|l')\s*)?dossiers?\s+/, '').split(/\s*,\s*|\s+et\s+/).map((item) => item.replace(/^[«"'\s]+|[»"'\s]+$/g, '')).filter(Boolean);
+  const list: Root[] = [];
+  const missing: string[] = [];
+  for (const wanted of names) {
+    const exact = roots.find((row) => fold(name(row)) === wanted || fold(row.storage_root_code) === wanted);
+    const partial = exact ? [] : roots.filter((row) => fold(name(row)).includes(wanted));
+    const hit = exact ?? (partial.length === 1 ? partial[0] : null);
+    if (hit && !list.includes(hit)) list.push(hit);
+    else if (!hit) missing.push(partial.length > 1 ? `${wanted} (${partial.length} dossiers possibles)` : wanted);
+  }
+  return { list, label: list.map(name).join(', ') || 'aucun dossier', missing };
+}
+
+async function planTagAction(fetchFn: FetchLike, q: string, roots: Root[], base: { question: string; ok: boolean; links: PilotAnswer['links'] }): Promise<PilotAnswer> {
+  const remove = REMOVE_VERB.test(q);
+  const refuse = (intent: string, text: string): PilotAnswer => ({ ...base, ok: false, intent, text, source: '', columns: [], rows: [], file: null });
+  const tags = await apiGetList<Root>(fetchFn, '/tags').catch(() => [] as Root[]);
+  const after = q.slice(q.search(/\btags?\b/)).replace(/^tags?\s*/, '').replace(/^[«"'\s]+/, '').replace(/[?.!\s]+$/, '');
+  // The tag is the longest known name right after « tag » (a name may hold « de », « à »…)
+  const hit = tags
+    .flatMap((tag) => [tag.name, tag.label, tag.code].map(fold).filter(Boolean).map((key) => ({ tag, key })))
+    .filter(({ key }) => after.startsWith(key) && (after.length === key.length || /[\s»"',]/.test(after[key.length])))
+    .sort((a, b) => b.key.length - a.key.length)[0];
+  if (!hit) {
+    const typed = after.split(/\s+(?:a|au|aux|sur|du|des|de|dans)\s+/)[0] || '?';
+    const known = tags.map((tag) => String(tag.name ?? tag.label ?? '')).filter(Boolean).slice(0, 12).join(', ');
+    return refuse(`tag:${typed} ?`, `Aucun tag « ${typed} ». Créez-le d’abord dans Administration › Tags.${known ? ` Tags existants : ${known}${tags.length > 12 ? '…' : ''}.` : ''}`);
+  }
+  const tagId = Number(hit.tag.id);
+  const tagName = String(hit.tag.name ?? hit.tag.label ?? hit.key);
+  const rest = after.slice(hit.key.length).replace(/^[»"'\s]+/, '').replace(/^(?:a la|de la|a|au|aux|sur|du|des|de|dans|pour)\s+/, '');
+  if (!rest) return refuse(`tag:${tagName} → ?`, `Sur quels dossiers ? Écrivez par exemple « ${remove ? 'retire' : 'ajoute'} le tag ${tagName} ${remove ? 'du' : 'au'} dossier Finance ».`);
+  const { list, label, missing } = pilotTargets(rest, roots);
+  const todo = list.filter((row) => hasTag(row, tagId) === remove);
+  const skipped = list.length - todo.length;
+  const intent = `tag:${tagName} → ${remove ? 'retirer de' : 'poser sur'} ${label.length > 60 ? `${list.length} dossiers` : label}`;
+  const missed = missing.length ? ` Introuvable : ${missing.join(', ')}.` : '';
+  if (!todo.length) {
+    return refuse(intent, list.length ? `Rien à faire : ${remove ? 'aucun de ces dossiers ne porte' : 'ces dossiers portent déjà'} le tag « ${tagName} ».${missed}` : `Aucun dossier trouvé.${missed}`);
+  }
+  const verb = remove ? 'perdront' : 'recevront';
+  return { ...base, intent, source: 'Storage Roots · tags', action: { kind: remove ? 'tag-remove' : 'tag-add', tagId, tagName, rootIds: todo.map((row) => Number(row.storage_root_id)) },
+    text: `${todo.length} dossier(s) ${verb} le tag « ${tagName} »${skipped ? ` (${skipped} ${remove ? 'ne le portent pas' : 'l’ont déjà'})` : ''}.${missed} Rien n’est changé avant votre clic sur « Appliquer ».`,
+    columns: ['Dossier', 'Serveur', 'Zone', 'Tags actuels'],
+    rows: table200(todo).map((row) => [{ text: name(row) }, { text: String(row.storage_endpoint_name ?? '—'), mono: true }, { text: String(row.zone_name ?? '—') },
+      { text: (Array.isArray(row.tags) ? row.tags.map((tag: Root) => String(tag?.name ?? '')).filter(Boolean).join(', ') : '') || '—', tone: 'mut' }]),
+    file: null, links: todo.slice(0, 5).map(rootLink) };
+}
+const table200 = (rows: Root[]) => rows.slice(0, 200);
+
+/** Applies a planned action; each folder is answered for (the API refuses non-administrators). */
+export async function applyPilotAction(fetchFn: FetchLike, action: PilotAction): Promise<{ done: number; failed: string[] }> {
+  let done = 0;
+  const failed: string[] = [];
+  if (action.kind === 'tag-add') {
+    for (let start = 0; start < action.rootIds.length; start += 100) {
+      const ids = action.rootIds.slice(start, start + 100);
+      try {
+        const data = await apiPostData<{ updated?: number[]; failed?: Array<{ message?: string }> }>(fetchFn, '/storage-roots/bulk-tags', { root_ids: ids, tag_ids: [action.tagId] });
+        done += data?.updated?.length ?? 0;
+        failed.push(...(data?.failed ?? []).map((item) => String(item.message ?? 'refusé')));
+      } catch (error) {
+        failed.push(...ids.map(() => (error instanceof Error ? error.message : 'refusé')));
+      }
+    }
+    return { done, failed };
+  }
+  for (const id of action.rootIds) {
+    try {
+      await apiPostData(fetchFn, '/tags/detach', { tag_id: action.tagId, resource_type: 'storage_root', resource_id: id });
+      done += 1;
+    } catch (error) {
+      failed.push(error instanceof Error ? error.message : 'refusé');
+    }
+  }
+  return { done, failed };
 }

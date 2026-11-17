@@ -7,7 +7,7 @@
 .b2s-list-pane { top: calc(var(--b2s-shell-top) + 16px) !important; max-height: calc(100vh - var(--b2s-shell-top) - 32px) !important; box-shadow: none !important; }
 .b2s-adv-sidebar { top: 78px !important; }
 
-.v2 { display: flex; flex-direction: column; gap: 26px; width: 100%; max-width: 1480px; padding: 26px 28px 80px; }
+.v2 { display: flex; flex-direction: column; gap: 26px; width: 100%; box-sizing: border-box; padding: 26px 28px 80px; }
 
 /* ---- Page head ---- */
 .v2-head { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px; }
@@ -143,14 +143,6 @@ button.v2-fi { width: 100%; border: 0; border-bottom: 1px solid #f0f2f5; backgro
 /* Dark button (the main action of a side panel) */
 .b2s-btn.b2s-btn-dark { border-color: #0e1218; background: #0e1218; color: #fff; }
 .b2s-btn.b2s-btn-dark:hover { border-color: #252b35; background: #252b35; color: #fff; }
-
-/* ---- Long lists: the column headers stay under the bars while scrolling (wide screens: the boxes that scrolled
-   sideways no longer need to, so they no longer catch the sticky headers) ---- */
-@media (min-width: 1440px) {
-  .v2-list, .b2s-table-wrap { overflow-x: clip; }
-  .v2-row.is-head { top: var(--b2s-shell-top); }
-  .b2s-table thead th { position: sticky; top: var(--b2s-shell-top); z-index: 2; }
-}
 
 /* ---- Compact display (account menu): more lines on screen ---- */
 .b2s-compact .v2-row { padding-top: 5px; padding-bottom: 5px; }

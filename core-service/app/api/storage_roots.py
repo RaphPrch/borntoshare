@@ -735,6 +735,8 @@ LIST_HEAVY_FIELDS = frozenset({"discovered_permissions_json", "discovered_permis
 def list_storage_roots_context(
     request: Request,
     zone_id: int | None = None,
+    storage_endpoint_id: int | None = None,
+    fields: str | None = None,
     db: Session = Depends(get_db),
 ):
     """
@@ -752,6 +754,9 @@ def list_storage_roots_context(
     repo = StorageRootsViewsRepo(db)
     rows = repo.list_context(zone_id=zone_id)
     rows = filter_storage_root_rows(db, actor, rows)
+    # The folders of one server only (its page), not the thousands of the others
+    if storage_endpoint_id is not None:
+        rows = [row for row in rows if int(row.get("storage_endpoint_id") or 0) == int(storage_endpoint_id)]
     # The DFS path is the name users know the folder by
     from app.services.dfs_links import dfs_paths_and_replicas
 
@@ -764,6 +769,10 @@ def list_storage_roots_context(
     # The list does not carry the raw measure and ACL of each folder (its sheet reads them through /overview): they
     # weighed five sixths of the answer, twice over, with thousands of folders. What the list shows is derived from them.
     rows = [{key: value for key, value in row.items() if key not in LIST_HEAVY_FIELDS} for row in rows]
+    # Only the columns a page reads (fields=a,b,c): a screen that lists names and states gets kilobytes, not megabytes
+    wanted = {name.strip() for name in str(fields or "").split(",") if name.strip()}
+    if wanted:
+        rows = [{key: value for key, value in row.items() if key in wanted} for row in rows]
     return ui_list(
         rows,
         meta={

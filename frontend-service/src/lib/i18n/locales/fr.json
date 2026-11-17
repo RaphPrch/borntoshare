@@ -5733,5 +5733,18 @@
   "No access to remove so far.": "Aucun accès à retirer pour l'instant.",
   "The review becomes read only; its export (who decided what, when, and the result) is the evidence for the audit.": "La revue passe en lecture seule ; son export (qui a décidé quoi, quand, et le résultat) sert de preuve pour l'audit.",
   "Withdraw": "Retirer",
-  "Review summary": "Bilan"
+  "Review summary": "Bilan",
+  "Offer at least one duration.": "Proposez au moins une durée.",
+  "Rights inherited from {name}": "Droits hérités de {name}",
+  "The new folder takes the rights of its parent: whoever reaches {name} reaches it too.": "Le nouveau dossier reprend les droits de son parent : qui accède à {name} y accède aussi.",
+  "Reading the rights…": "Lecture des droits…",
+  "The rights of the parent folder are not read yet: they will be read at its next test.": "Les droits du dossier parent ne sont pas encore lus : ils le seront à son prochain test.",
+  "{done} folder(s) changed, {failed} refused: {reason}": "{done} dossier(s) modifié(s), {failed} refusé(s) : {reason}",
+  "{count} folder(s) changed.": "{count} dossier(s) modifié(s).",
+  "Ask a question on your folders, the people who reach them, their measures: the answer comes as a list, ready to export. Ask for a tag to be put or taken off: the folders are listed first, nothing changes before « Apply ».": "Posez une question sur vos dossiers, les personnes qui y accèdent, leurs mesures : la réponse arrive sous forme de liste, prête à exporter. Demandez à poser ou retirer un tag : les dossiers sont d’abord listés, rien ne change avant « Appliquer ».",
+  "Done: {done} folder(s) changed.": "Fait : {done} dossier(s) modifié(s).",
+  "{count} refused.": "{count} refusé(s).",
+  "Put the tag « {tag} » on {count} folder(s)?": "Poser le tag « {tag} » sur {count} dossier(s) ?",
+  "Take the tag « {tag} » off {count} folder(s)?": "Retirer le tag « {tag} » de {count} dossier(s) ?",
+  "Only an administrator can apply this change.": "Seul un administrateur peut appliquer ce changement."
 }

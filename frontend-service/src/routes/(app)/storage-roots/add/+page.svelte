@@ -133,7 +133,7 @@
     try {
       // The folders already governed, to mark the sub-folders that are (read once)
       if (!governedPaths) {
-        const roots = await apiGetData<any[]>(fetch, '/storage-roots/context').catch(() => []);
+        const roots = await apiGetData<any[]>(fetch, '/storage-roots/context', { fields: 'root_path' }).catch(() => []);
         governedPaths = new Set((Array.isArray(roots) ? roots : []).map((row) => String(row?.root_path ?? '').toLowerCase()));
       }
       const answer = await apiGetData<{ folders: Array<{ name: string; root_path: string }> }>(fetch, `/storage-endpoints/${target.storage_endpoint_id}/browse`, { path: target.root_path });

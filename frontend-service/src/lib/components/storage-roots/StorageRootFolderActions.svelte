@@ -12,6 +12,7 @@
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
   import { createSubfolder, deleteStorageRootFolder, setFolderInheritance } from '$lib/api/storage-root-permissions';
+  import { apiGetData } from '$lib/api/client';
 
   
   
@@ -46,6 +47,32 @@
   let nameError = $state('');
 
   let nameInput: HTMLInputElement | null = $state(null);
+
+  // ---- a new sub-folder inherits the rights of its parent: they are shown before it is created ----
+  type Ace = { principal: string; access_level?: string | null; raw?: string | null };
+  let inherited = $state<Ace[] | null>(null);
+  let inheritedFor = $state<number | null>(null);
+  $effect(() => {
+    const id = kind === 'subfolder' ? target?.id ?? null : null;
+    if (!id || id === inheritedFor) return;
+    inheritedFor = id;
+    inherited = null;
+    void apiGetData<Record<string, any>>(fetch, `/storage-roots/${id}/overview`)
+      .then((overview) => {
+        const payload = overview?.discovered_permissions_json;
+        const list: Ace[] = Array.isArray(payload?.permissions) ? payload.permissions : [];
+        // One line per account and level (the ACL repeats an account for its parts: this folder, sub-folders, files)
+        const seen = new Set<string>();
+        inherited = list.filter((ace) => {
+          const key = `${String(ace.principal).toLowerCase()}|${ace.access_level ?? ''}`;
+          if (!ace.principal || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      })
+      .catch(() => (inherited = []));
+  });
+  const levelOf = (ace: Ace) => (/FULL/i.test(String(ace.raw ?? '')) ? t('Full control') : ace.access_level === 'write' ? t('Modify') : t('Read'));
   // The right click leaves the focus on the explorer row: put it in the name field
   async function focusName() {
     await tick();
@@ -187,6 +214,22 @@
       {#if nameError}<small class="sub__error">{nameError}</small>{/if}
       {#if folderName && !nameError}<small class="sub__path">{target?.path}\{folderName}</small>{/if}
     </label>
+    <div class="sub__acl">
+      <strong>{t('Rights inherited from {name}', { name: target?.name ?? '' })}</strong>
+      <small>{t('The new folder takes the rights of its parent: whoever reaches {name} reaches it too.', { name: target?.name ?? '' })}</small>
+      {#if inherited === null}
+        <small class="sub__muted">{t('Reading the rights…')}</small>
+      {:else if inherited.length}
+        <ul>
+          {#each inherited.slice(0, 12) as ace (ace.principal + (ace.access_level ?? ''))}
+            <li><span>{ace.principal}</span><b>{levelOf(ace)}</b></li>
+          {/each}
+        </ul>
+        {#if inherited.length > 12}<small class="sub__muted">{t('and {count} more', { count: inherited.length - 12 })}</small>{/if}
+      {:else}
+        <small class="sub__muted">{t('The rights of the parent folder are not read yet: they will be read at its next test.')}</small>
+      {/if}
+    </div>
     <label class="sub__check">
       <input type="checkbox" class="cap-switch" bind:checked={register} />
       <span>
@@ -198,6 +241,13 @@
 </ConfirmActionModal>
 
 <style>
+  .sub__acl { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .sub__acl ul { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
+  .sub__acl li { display: flex; justify-content: space-between; gap: 12px; }
+  .sub__acl li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sub__acl li b { flex: none; font-weight: 600; }
+  .sub__acl small { color: var(--b2s-color-text-muted); }
+  .sub__muted { color: var(--b2s-color-text-muted); }
   .sub {
     display: grid;
     gap: 16px;

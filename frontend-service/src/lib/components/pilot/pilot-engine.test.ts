@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { askPilot } from './pilot-engine';
+import { applyPilotAction, askPilot } from './pilot-engine';
 
 // The API of the core, simulated: two folders and the permissions of « Finance »
 const roots = [
   { storage_root_id: 1, storage_root_name: 'Finance', storage_endpoint_name: 'FILER01', root_path: '\\\\filer01\\DATA\\Finance', password_files: 2, key_files: 0, personal_files: 1,
-    quota_used_percent: 92, quota_used_bytes: 9e9, quota_limit_bytes: 1e10, quota_pending_requests: 1, guardians_count: 1, content_size_bytes: 9e9, content_files: 1200, cold_1y_bytes: 6e9 },
+    quota_used_percent: 92, quota_used_bytes: 9e9, quota_limit_bytes: 1e10, quota_pending_requests: 1, guardians_count: 1, content_size_bytes: 9e9, content_files: 1200, cold_1y_bytes: 6e9, tags: [{ id: 7, name: 'Archive' }] },
   { storage_root_id: 2, storage_root_name: 'TEST', storage_endpoint_name: 'FILER02', root_path: '\\\\filer02\\TEST', guardians_count: 0, content_size_bytes: null }
 ];
 const permissions = {
@@ -17,9 +17,18 @@ const permissions = {
   groups: [{ name: 'GG_B2S_FINANCE_RW', level: 'write', dn: null, ace: 'ok', rights_label: null, inherited_scope: true, members_count: 4 }], system: [], gaps: []
 };
 const searched: string[] = [];
-const fetchFn = (async (input: RequestInfo | URL) => {
+const posted: Array<{ url: string; body: any }> = [];
+const tags = [{ id: 7, name: 'Archive' }, { id: 8, name: 'Données de santé' }, { id: 9, name: 'Confidentiel' }];
+const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
-  const body = url.includes('/permissions') ? { data: permissions }
+  if (init?.method === 'POST') {
+    const sent = JSON.parse(String(init.body));
+    posted.push({ url, body: sent });
+    const data = url.includes('/bulk-tags') ? { updated: sent.root_ids, failed: [] } : { ok: true };
+    return new Response(JSON.stringify({ data }), { status: 200, headers: { 'content-type': 'application/json' } });
+  }
+  const body = /\/tags(\?|$)/.test(url) ? { data: tags }
+    : url.includes('/permissions') ? { data: permissions }
     : url.includes('/modules/fives/files/search') ? { data: { files: [{ storage_root_id: 1, folder_name: 'Finance', path: 'Finance\\Bilan.pdf', size: 2e8, modified: null, owner: 'CORP\\jane' }], total: 1, bytes: 2e8 }, search: url }
     : url.includes('/rights-review') ? { data: { folders: [{ path: 'Finance\\RH', codes: ['ORPHAN_SID', 'EXPLICIT_ENTRY'] }, { path: 'Finance\\Paie', codes: ['INHERITANCE_BROKEN'] }] } }
     : url.includes('/sensitivity') ? { data: { findings: [{ path: 'Finance\\mdp.txt', category: 'password', acl: { broad: true, by: ['CORP\\Utilisateurs du domaine'] } },
@@ -63,3 +72,27 @@ const orphans = await askPilot(fetchFn, 'Dossiers avec un SID orphelin');
 assert.equal(orphans.intent, 'dossiers → SID orphelins');
 assert.equal(orphans.rows.length, 1);
 assert.equal((await askPilot(fetchFn, 'Dossiers avec des droits à revoir')).rows.length, 2);
+
+
+// ---- actions: tags put or taken off, planned first, applied on demand ----
+const add = await askPilot(fetchFn, 'Ajoute le tag Données de santé aux dossiers Finance et TEST');
+assert.deepEqual(add.action, { kind: 'tag-add', tagId: 8, tagName: 'Données de santé', rootIds: [1, 2] });
+assert.equal(posted.length, 0, 'nothing is changed before « Appliquer »');
+assert.deepEqual(await applyPilotAction(fetchFn, add.action!), { done: 2, failed: [] });
+assert.deepEqual(posted[0].body, { root_ids: [1, 2], tag_ids: [8] });
+const already = await askPilot(fetchFn, 'ajoute le tag Archive au dossier Finance');
+assert.equal(already.action, undefined);
+assert.equal(already.ok, false);
+const remove = await askPilot(fetchFn, 'Retire le tag Archive des dossiers du serveur FILER');
+assert.deepEqual(remove.action?.rootIds, [1]);
+await applyPilotAction(fetchFn, remove.action!);
+assert.deepEqual(posted[1].body, { tag_id: 7, resource_type: 'storage_root', resource_id: 1 });
+const sansGardien = await askPilot(fetchFn, 'Pose le tag « Confidentiel » sur les dossiers sans gardien');
+assert.deepEqual(sansGardien.action?.rootIds, [2]);
+const missingTag = await askPilot(fetchFn, 'Ajoute le tag Secret défense au dossier Finance');
+assert.equal(missingTag.ok, false);
+assert.ok(missingTag.text.includes('Archive'));
+const missingFolder = await askPilot(fetchFn, 'Ajoute le tag Confidentiel aux dossiers Finance et NOPE');
+assert.deepEqual(missingFolder.action?.rootIds, [1]);
+assert.ok(missingFolder.text.includes('Introuvable : nope'));
+console.log('pilot-engine actions: ok');

@@ -52,7 +52,9 @@
       error = failure instanceof Error ? failure.message : t('Unable to load the scanner.');
     }
   }
-  const loadRoots = async () => (roots = await apiGetList<Root>(fetch, '/storage-roots/context').catch(() => roots));
+  // The columns this page reads only (the whole folder list weighed megabytes)
+  const ROOT_FIELDS = 'storage_root_id,storage_root_name,root_path,storage_endpoint_name,zone_name,measure_status,content_size_bytes,content_files,content_updated_at';
+  const loadRoots = async () => (roots = await apiGetList<Root>(fetch, '/storage-roots/context', { fields: ROOT_FIELDS }).catch(() => roots));
   // ---- quarantine and archives of every folder ----
   type QuarantineData = { moves: Move[]; counts: Record<string, number>; quarantine_bytes: number; purge_days: number };
   let quarantine = $state<QuarantineData | null>(null);
