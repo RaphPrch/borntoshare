@@ -126,8 +126,18 @@ else
   $COMPOSE up -d --force-recreate --no-deps redis
   # The scanners of the 5S: FIVES_SCANNERS instances (environment, else .env, else 1)
   SCALE=""
-  [ -n "$FIVES" ] && SCALE="--scale fives-scanner=${FIVES_SCANNERS:-$(env_value FIVES_SCANNERS 1)}"
+  WANTED=${FIVES_SCANNERS:-$(env_value FIVES_SCANNERS 1)}
+  [ -n "$FIVES" ] && SCALE="--scale fives-scanner=$WANTED"
   $COMPOSE up -d --force-recreate --no-deps $SCALE $SERVICES
+  # Fewer scanners than before: --scale does not remove the extra instances (they would keep the old image and keep
+  # taking scans). Stopped gracefully: a scan in progress is taken again by another instance (heartbeat, backoff).
+  if [ -n "$FIVES" ]; then
+    for name in $(podman ps -a --format '{{.Names}}' | grep -E '_fives-scanner_[0-9]+$' || true); do
+      if [ "${name##*_}" -gt "$WANTED" ]; then
+        podman stop "$name" >/dev/null && podman rm "$name" >/dev/null && echo "  $name retiré (FIVES_SCANNERS=$WANTED)"
+      fi
+    done
+  fi
   if [ -n "${LAKE:-}" ]; then $COMPOSE up -d --force-recreate --no-deps fives-lake; fi
   # Hybrid: the container of the interface of an earlier installation in containers is stopped (httpd replaces it)
   if [ "$MODE" = hybrid ] && podman container exists frontend-service; then
