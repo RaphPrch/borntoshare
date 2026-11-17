@@ -64,18 +64,22 @@ PACKS="135_access_expiry_schedule 136_storage_root_acl_exceptions 137_close_phan
 # Views whose definition changed since the installation: replayed too (CREATE OR REPLACE)
 VIEWS="141_views_workflow 141_views_naming_policy_effective 142_views_zone_policy"
 phase database "compte $MIGRATE_USER${FIVES:+, module 5S}"
-for pack in $PACKS; do
-  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$(env_value DB_NAME borntoshare)" < "wizard-ui/backend/app/sql/schema/$pack.sql" >/dev/null
-done
-for view in $VIEWS; do
-  b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$(env_value DB_NAME borntoshare)" < "wizard-ui/backend/app/sql/views/$view.sql" >/dev/null
-done
+# One pack: tried again up to 3 times when the client container could not start (rootless network of podman:
+# « pasta failed », seen once in a while); a pack is idempotent, so a second try is safe. An SQL error stops at once.
+apply_pack() {  # database file
+  local try out
+  for try in 1 2 3; do
+    if out=$(b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "$1" < "$2" 2>&1 >/dev/null); then return 0; fi
+    case "$out" in *"pasta failed"*|*"netlink"*) echo "  $(basename "$2"): conteneur client non démarré (essai $try), nouvel essai" >&2; sleep 2 ;; *) echo "$out" >&2; return 1 ;; esac
+  done
+  echo "$out" >&2; return 1
+}
+for pack in $PACKS; do apply_pack "$(env_value DB_NAME borntoshare)" "wizard-ui/backend/app/sql/schema/$pack.sql"; done
+for view in $VIEWS; do apply_pack "$(env_value DB_NAME borntoshare)" "wizard-ui/backend/app/sql/views/$view.sql"; done
 if [ -n "$FIVES" ]; then
   FIVES_DB="$(env_value FIVES_DB_NAME)"; INVENTORY_DB="$(env_value FIVES_INVENTORY_DB_NAME)"
-  for pack in wizard-ui/backend/app/sql/fives/*.sql; do b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "${FIVES_DB:-b2s_fives}" < "$pack" >/dev/null; done
-  for pack in wizard-ui/backend/app/sql/fives_inventory/*.sql; do
-    b2s_db b2s_db_migrate "$MIGRATE_USER" mariadb "${INVENTORY_DB:-b2s_fives_inventory}" < "$pack" >/dev/null
-  done
+  for pack in wizard-ui/backend/app/sql/fives/*.sql; do apply_pack "${FIVES_DB:-b2s_fives}" "$pack"; done
+  for pack in wizard-ui/backend/app/sql/fives_inventory/*.sql; do apply_pack "${INVENTORY_DB:-b2s_fives_inventory}" "$pack"; done
 fi
 
 # Shown in the menu of the application: commit and date of this deploy
@@ -109,9 +113,16 @@ else
   export B2S_API_BIND=127.0.0.1
   [ "$WEB" = annex ] && export B2S_API_BIND=0.0.0.0
   $COMPOSE build $SERVICES
+  # The scanner of earlier versions had a fixed name: replaced by its instances (no fixed name, FIVES_SCANNERS)
+  if [ -n "$FIVES" ] && podman container exists fives-scanner 2>/dev/null; then
+    podman stop fives-scanner >/dev/null && podman container rm fives-scanner >/dev/null && echo "  ancien conteneur fives-scanner remplacé par ses instances"
+  fi
   # The job queue is not rebuilt, but nothing works without it (recreated: its password is a secret, its data a volume)
   $COMPOSE up -d --force-recreate --no-deps redis
-  $COMPOSE up -d --force-recreate --no-deps $SERVICES
+  # The scanners of the 5S: FIVES_SCANNERS instances (environment, else .env, else 1)
+  SCALE=""
+  [ -n "$FIVES" ] && SCALE="--scale fives-scanner=${FIVES_SCANNERS:-$(env_value FIVES_SCANNERS 1)}"
+  $COMPOSE up -d --force-recreate --no-deps $SCALE $SERVICES
   # Hybrid: the container of the interface of an earlier installation in containers is stopped (httpd replaces it)
   if [ "$MODE" = hybrid ] && podman container exists frontend-service; then
     podman stop frontend-service >/dev/null && echo "  conteneur frontend-service arrêté : l'interface passe par httpd"
@@ -149,7 +160,8 @@ wait_healthy() {
     return 0
   fi
   local pattern unhealthy
-  pattern="^($(echo "$SERVICES" | tr ' ' '|')) "
+  # A service by its name, or its instances (« <project>_fives-scanner_2 »: no fixed name, several of them)
+  pattern="^([a-z0-9-]+_)?($(echo "$SERVICES" | tr ' ' '|'))(_[0-9]+)? "
   for _ in $(seq 1 40); do
     sleep 5
     unhealthy=$(podman ps --format '{{.Names}} {{.Status}}' | grep -E "$pattern" | grep -vc "(healthy)" || true)

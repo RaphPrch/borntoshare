@@ -197,10 +197,12 @@ services:
   # Scanner of the 5S module: walks the folders ON their Windows file servers (WinRM, Kerberos, no agent), from the
   # queue in b2s_fives; several instances possible (one per site: SCANNER_ID). Built from the root of the repository
   # (it reuses the WinRM code of capsule-runner).
+  # No fixed container name: several instances (FIVES_SCANNERS, or one per site with SCANNER_ID set) take the queue
+  # together; each one is known by its own name (SCANNER_ID, else the name of its container).
   fives-scanner:
     <<: *hardening
-    container_name: fives-scanner
     image: b2s-fives-scanner:latest
+    scale: ${FIVES_SCANNERS:-1}
     build:
       context: .
       dockerfile: fives-scanner/Containerfile
@@ -208,7 +210,7 @@ services:
     environment:
       <<: *common-env
       CORE_URL: http://core-service:8000
-      SCANNER_ID: ${FIVES_SCANNER_ID:-scanner-1}
+      SCANNER_ID: ${FIVES_SCANNER_ID:-}
       FIVES_DB_HOST: ${DB_HOST}
       FIVES_DB_PORT: ${DB_PORT:-3306}
       FIVES_DB_USER: ${FIVES_DB_USER:-b2s_fives}
