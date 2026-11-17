@@ -4,8 +4,8 @@
 
 | Élément | Attendu |
 |---|---|
-| Hôte | Linux (RHEL 9 ou équivalent), `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum. Selon la façon d'installer (section 2) : Podman 4+ et podman-compose ; ou Python 3.12, Redis, Node.js 22+, httpd et mod_ssl |
-| Base | MariaDB 10.6+ ou 11.x, joignable en 3306 ; un compte avec les droits de création (root) le temps du wizard |
+| Hôte | Linux (RHEL 9 ou équivalent), `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum. Selon la façon d'installer (section 2) : Podman 4+ et podman-compose (RHEL / AlmaLinux 9 et 10 : `dnf install epel-release` puis `dnf install podman-compose`) ; ou Python 3.12, Redis, Node.js 22+, httpd et mod_ssl |
+| Base | MariaDB 10.6+ ou 11.x, joignable en 3306 ; un compte avec les droits de création (root) le temps du wizard. MariaDB sur le même hôte que des services en conteneurs (conteneurs, hybride) : il doit écouter sur l'adresse de l'hôte (`bind-address`), et 3306 être ouvert aux réseaux de podman (`10.88.0.0/14` en root) ; `DB_HOST` = l'adresse de l'hôte, jamais 127.0.0.1 (dans un conteneur, c'est le conteneur) |
 | Réseau | Les flux de [architecture.md](architecture.md#flux-à-ouvrir-vers-lextérieur) ouverts depuis l'hôte |
 | Annuaire | Un AD joignable en LDAPS (636) et Kerberos (88) avec le certificat de son autorité ; un compte de lecture, un compte de connexion et, pour les accès, un compte délégué sur l'OU des groupes seulement (voir [droits-ad.md](droits-ad.md)) |
 | Serveurs de fichiers | SMB 3 (445) et WinRM (5985, Kerberos) ; un compte administrateur local par serveur, sans droit dans l'AD (voir [droits-ad.md](droits-ad.md)) |

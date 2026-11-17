@@ -16,12 +16,17 @@ if ! systemctl is-active -q firewalld; then
   echo "  firewalld inactif : les ports $PORTS sont ouverts à tous. À filtrer sur le pare-feu du réseau (seul $IP)." >&2
   exit 0
 fi
+# Each rule twice, permanent and at once, never « firewall-cmd --reload »: a reload drops the rules podman put for its
+# networks (the services in containers no longer find each other by name)
 for port in $PORTS; do
   # Earlier rules of BornToShare on this port (another annex address)
-  firewall-cmd --permanent --list-rich-rules | grep -E "port port=\"$port\" protocol=\"tcp\" accept" | while read -r rule; do
-    firewall-cmd -q --permanent --remove-rich-rule="$rule"
+  for scope in --permanent ""; do
+    # shellcheck disable=SC2086
+    firewall-cmd $scope --list-rich-rules | grep -E "port port=\"$port\" protocol=\"tcp\" accept" | while read -r rule; do
+      firewall-cmd -q $scope --remove-rich-rule="$rule"
+    done
+    # shellcheck disable=SC2086
+    firewall-cmd -q $scope --add-rich-rule="rule family=\"$FAMILY\" source address=\"$IP\" port port=\"$port\" protocol=\"tcp\" accept"
   done
-  firewall-cmd -q --permanent --add-rich-rule="rule family=\"$FAMILY\" source address=\"$IP\" port port=\"$port\" protocol=\"tcp\" accept"
 done
-firewall-cmd -q --reload
 echo "  ports $PORTS ouverts à $IP seulement"

@@ -113,10 +113,15 @@ if [ "$(getenforce 2>/dev/null || echo Disabled)" != Disabled ]; then
   restorecon -F "$CERT" "$KEY" 2>/dev/null || true
   if [ "$HTTPS_PORT" != 443 ]; then semanage port -a -t http_port_t -p tcp "$HTTPS_PORT" 2>/dev/null || true; fi
 fi
+# Each rule twice, permanent and at once, never « firewall-cmd --reload »: a reload drops the rules podman put for its
+# networks, and the services in containers of the same host (hybrid) no longer find each other by name
 if systemctl is-active -q firewalld; then
-  firewall-cmd -q --permanent --add-service=http
-  if [ "$HTTPS_PORT" = 443 ]; then firewall-cmd -q --permanent --add-service=https; else firewall-cmd -q --permanent --add-port="$HTTPS_PORT/tcp"; fi
-  firewall-cmd -q --reload
+  for scope in --permanent ""; do
+    # shellcheck disable=SC2086
+    firewall-cmd -q $scope --add-service=http
+    # shellcheck disable=SC2086
+    if [ "$HTTPS_PORT" = 443 ]; then firewall-cmd -q $scope --add-service=https; else firewall-cmd -q $scope --add-port="$HTTPS_PORT/tcp"; fi
+  done
 fi
 
 # A new httpd of RHEL/AlmaLinux: ssl.conf names the certificate httpd-init makes at the first start (localhost.crt)
