@@ -146,5 +146,5 @@
 <style>
   .rp__ins { gap: 16px; padding: 16px 4px; }
   .rp__big { min-width: 120px; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
-  .rp__icon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 9px; background: #f0f2f5; color: #2b323d; font-size: 16px; }
+  .rp__icon { display: grid; place-items: center; width: 34px; height: 34px; flex: none; border-radius: 9px; background: var(--b2s-color-surface-muted); color: var(--b2s-color-text-strong); font-size: 16px; }
 </style>

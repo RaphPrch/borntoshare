@@ -99,7 +99,7 @@
 <style>
   .error-root {
     min-height: 100vh;
-    background: radial-gradient(circle at top, #0b1530 0, #020617 35%, #020617 100%);
+    background: var(--b2s-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -109,19 +109,19 @@
   .error-card {
     max-width: 480px;
     width: 100%;
-    background: #020617;
+    background: var(--b2s-color-surface);
     border-radius: var(--b2s-radius-lg);
     padding: 2rem 1.8rem;
-    box-shadow: 0 25px 60px rgba(15, 23, 42, 0.95);
-    border: 1px solid rgba(148, 163, 184, 0.4);
-    color: #e5e7eb;
+    box-shadow: var(--b2s-shadow-md);
+    border: 1px solid var(--b2s-color-border-soft);
+    color: var(--b2s-color-text);
   }
 
   .error-card h1 {
     margin: 0;
     font-size: 3rem;
     font-weight: 700;
-    color: #38bdf8;
+    color: var(--b2s-accent);
   }
 
   .error-card h2 {
@@ -133,16 +133,16 @@
   .error-card p {
     margin: 0 0 0.9rem;
     font-size: var(--b2s-fs-md);
-    color: #9ca3af;
+    color: var(--b2s-color-text-muted);
   }
 
   .error-message {
-    background: #020617;
+    background: var(--b2s-color-surface-soft);
     border-radius: var(--b2s-radius-md);
     padding: 0.7rem 0.8rem;
     font-size: var(--b2s-fs-sm);
-    color: #e5e7eb;
-    border: 1px solid rgba(148, 163, 184, 0.4);
+    color: var(--b2s-color-text-soft);
+    border: 1px solid var(--b2s-color-border-soft);
     max-height: 160px;
     overflow: auto;
     white-space: pre-wrap;

@@ -45,7 +45,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    border: 1px solid var(--b2s-search-border, var(--b2s-color-border, #d8e1ec));
+    border: 1px solid var(--b2s-search-border, var(--b2s-color-border));
     border-radius: var(--b2s-search-radius, 10px);
     padding: var(--b2s-search-padding, 0.5rem 0.65rem);
     background: var(--b2s-search-bg, #fff);
@@ -78,6 +78,6 @@
 
   .b2s-search-field:focus-within {
     border-color: var(--b2s-search-focus-border, var(--b2s-color-primary, var(--b2s-color-info)));
-    box-shadow: var(--b2s-search-focus-ring, 0 0 0 3px rgba(59, 130, 246, 0.12));
+    box-shadow: var(--b2s-search-focus-ring, 0 0 0 3px rgba(7, 156, 156, 0.12));
   }
 </style>

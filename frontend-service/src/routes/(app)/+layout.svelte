@@ -31,7 +31,6 @@
   import { invalidate, onNavigate } from "$app/navigation";
   import { onDestroy, onMount } from "svelte";
   import { connectLive, live, onLiveChange } from "$lib/stores/live";
-  import RecentTasks from "$lib/components/layout/RecentTasks.svelte";
   import UnsavedChangesDialog from "$lib/components/ui/UnsavedChangesDialog.svelte";
   import { unsavedPrompt } from "$lib/utils/unsaved";
   import { installCopyOnClick } from "$lib/utils/copy-on-click";
@@ -130,7 +129,6 @@
     {/if}
     {@render children?.()}
   </main>
-  {#if admin}<RecentTasks />{/if}
 </div>
 
 <UnsavedChangesDialog open={$unsavedPrompt.open} impact={t("The edits made on this page will be lost.")}

@@ -106,7 +106,7 @@
   .ld { display: flex; flex-direction: column; gap: 12px; }
   .ld p { margin: 0; }
   .ld__list { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
-  .ld__list li { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 8px; background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .ld__list li { display: flex; flex-direction: column; padding: 6px 10px; border-radius: 8px; background: var(--b2s-color-surface-soft); }
   .ld__list small { color: var(--b2s-color-text-muted); }
   .ld__more { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .ld__field { display: flex; flex-direction: column; gap: 6px; font-size: var(--b2s-fs-sm); font-weight: 600; }

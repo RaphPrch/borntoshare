@@ -110,7 +110,7 @@
 
   :global(.b2s-toaster .toast.text-bg-warning) {
     background: var(--b2s-color-warning);
-    color: #111827;
+    color: var(--b2s-color-text-strong);
     border: 1px solid var(--b2s-color-warning-strong);
   }
 
@@ -123,6 +123,6 @@
   :global(.b2s-toaster .toast.text-bg-secondary) {
     background: var(--b2s-color-text-strong);
     color: #ffffff;
-    border: 1px solid #1f2937;
+    border: 1px solid var(--b2s-topbar-bg);
   }
 </style>

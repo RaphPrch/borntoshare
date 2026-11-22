@@ -76,7 +76,7 @@
   .mc b { display: block; margin-bottom: 4px; }
   .mc ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; }
   .mc small { color: var(--b2s-color-text-muted); }
-  .mc--partial { border-color: #f5d08a; background: #fffbeb; color: #78350f; }
-  .mc--sampled { border-color: #bfdbfe; background: #eff6ff; color: #1e3a8a; }
+  .mc--partial { border-color: var(--b2s-color-warning-border); background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .mc--sampled { border-color: var(--b2s-accent-border); background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); }
   .mc--complete { border-color: var(--b2s-color-border); background: var(--b2s-color-surface); }
 </style>

@@ -215,7 +215,7 @@
   .muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); overflow-wrap: anywhere; }
   .tokens { display: flex; flex-wrap: wrap; gap: 6px; }
   .token { padding: 2px 8px; border: 1px dashed var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-sm); background: var(--b2s-color-neutral-soft); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); cursor: pointer; }
-  .token:hover { border-color: var(--b2s-color-text); }
+  .token:hover { border-color: var(--b2s-accent-vivid); }
   .panel { position: sticky; top: calc(var(--b2s-shell-top) + 16px); display: flex; flex-direction: column; gap: 14px; padding: 18px; }
   .checks { display: grid; gap: 11px; margin: 0; padding: 0; list-style: none; }
   .checks li { display: grid; grid-template-columns: 18px 1fr; gap: 9px; font-size: var(--b2s-text-sm); }

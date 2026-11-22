@@ -186,7 +186,7 @@
 />
 
 <style>
-  .todo { overflow: hidden; border: 1px solid var(--b2s-color-warning-border, #f3d9ad); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
+  .todo { overflow: hidden; border: 1px solid var(--b2s-color-warning-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .todo h2 { display: flex; align-items: center; gap: 8px; margin: 0; padding: 11px 16px; background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-sm); font-weight: 600; }
   .todo__row { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--b2s-color-border); }
   .todo h2 + .todo__row { border-top: 0; }

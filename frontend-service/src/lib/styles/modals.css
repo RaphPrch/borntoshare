@@ -5,7 +5,7 @@
 .b2s-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: rgba(18, 59, 73, 0.55);
   z-index: 1300;
 
   /* Center modal + allow scroll when viewport is small */
@@ -25,7 +25,7 @@
   top: 5vh;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--b2s-color-surface, #ffffff);
+  background: var(--b2s-color-surface);
   border-radius: var(--b2s-modal-radius, 20px);
   box-shadow: var(--b2s-modal-shadow, 0 40px 120px rgba(0, 0, 0, 0.35));
   z-index: 1301;
@@ -113,7 +113,7 @@
   align-items: flex-start;
   gap: 12px;
   padding: 22px 24px 18px;
-  border-bottom: 1px solid #e8edf6;
+  border-bottom: 1px solid var(--b2s-color-border-soft);
 }
 
 .b2s-modal__icon {
@@ -123,9 +123,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid #d7e1f0;
+  border: 1px solid var(--b2s-accent-border);
   border-radius: var(--b2s-radius-md);
-  background: #edf4ff;
+  background: var(--b2s-accent-soft);
   color: var(--b2s-topbar-bg);
 }
 
@@ -163,8 +163,8 @@
 }
 
 .b2s-modal__close:hover {
-  background: #f2f5fb;
-  color: #1f2a44;
+  background: var(--b2s-color-surface-muted);
+  color: var(--b2s-color-text-strong);
 }
 
 .b2s-modal__footer {
@@ -173,7 +173,7 @@
   justify-content: flex-end;
   gap: 12px;
   padding: 16px 24px;
-  border-top: 1px solid #e8edf6;
+  border-top: 1px solid var(--b2s-color-border-soft);
 }
 
 .b2s-modal__footer-start {

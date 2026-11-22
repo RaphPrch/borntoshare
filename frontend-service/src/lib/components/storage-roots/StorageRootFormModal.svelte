@@ -389,10 +389,10 @@
               <EntityActionButton variant="secondary" icon="bi-search" label={discoverBusy ? t('Discovering…') : t('Discover roots')} busy={discoverBusy} disabled={discoverBusy || probeBusy || !form.storage_endpoint_id} onClick={discoverRoots} />
             </div>
             {#if probeOk}
-              <small class="sr-muted" style="color: #15803d;">{t('Connection successful.')}</small>
+              <small class="sr-muted" style="color: var(--b2s-color-success-strong);">{t('Connection successful.')}</small>
             {/if}
             {#if probeError}
-              <small class="sr-muted" style="color: #b91c1c;">{probeError}</small>
+              <small class="sr-muted" style="color: var(--b2s-color-danger-strong);">{probeError}</small>
             {/if}
           </div>
 
@@ -506,7 +506,7 @@
   }
 
   .sr-discovered-item:hover {
-    border-color: rgba(59, 130, 246, 0.6);
+    border-color: rgba(7, 156, 156, 0.6);
     background: rgba(239, 246, 255, 0.8);
   }
 

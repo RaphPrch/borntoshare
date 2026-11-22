@@ -109,12 +109,12 @@
   .ap__finding { display: flex; gap: 8px; align-items: flex-start; margin: 0; padding: 6px 10px; border-radius: 8px; font-size: var(--b2s-fs-sm); }
   .ap__finding span { display: grid; }
   .ap__finding small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
-  .ap__finding.is-bad { background: #fde8e8; color: #991b1b; }
-  .ap__finding.is-warn { background: #fff4e5; color: #8a4b00; }
+  .ap__finding.is-bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+  .ap__finding.is-warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .ap__drift { display: grid; gap: 2px; font-size: var(--b2s-fs-xs); }
   .ap__drift small { color: var(--b2s-color-text-muted); }
-  .ap__drift .is-add { color: #9a3412; }
-  .ap__drift .is-del { color: #1d4ed8; }
+  .ap__drift .is-add { color: var(--b2s-color-warning-strong); }
+  .ap__drift .is-del { color: var(--b2s-accent); }
   .ap__princ, .ap__people { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
   .ap__princ li, .ap__people li { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
   .ap__princ li span, .ap__people li span { display: grid; min-width: 0; }

@@ -255,7 +255,7 @@
   .ov__add:hover { border-color: var(--b2s-color-info); color: var(--b2s-color-info-strong); }
   /* The file server: a link that reads as plain text (underlined on hover only) */
   .ov__plain { color: inherit; text-decoration: none; font-weight: 500; }
-  .ov__plain:hover { color: var(--b2s-color-primary, #2563eb); text-decoration: underline; }
+  .ov__plain:hover { color: var(--b2s-color-primary); text-decoration: underline; }
   .ov__subtags { display: grid; gap: 6px; }
   .ov__subtag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .ov__subtag a { display: inline-flex; align-items: center; gap: 6px; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }

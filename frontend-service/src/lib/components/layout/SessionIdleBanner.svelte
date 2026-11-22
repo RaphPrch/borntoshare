@@ -139,21 +139,21 @@
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    border: 1px solid var(--line2, #cdd2db);
+    border: 1px solid var(--line2, var(--b2s-color-border));
     border-radius: var(--b2s-radius-md);
-    background: #fdefd9;
-    color: #0e1218;
-    box-shadow: 0 8px 24px rgb(14 18 24 / 18%);
+    background: var(--b2s-color-warning-soft);
+    color: var(--b2s-color-text);
+    box-shadow: 0 8px 24px rgb(18 59 73 / 18%);
     font-size: 14px;
     white-space: nowrap;
   }
 
   .idle-banner i {
-    color: #a85a00;
+    color: var(--b2s-color-warning-strong);
   }
 
   .idle-banner small {
     margin-left: 6px;
-    color: #596273;
+    color: var(--b2s-color-text-muted);
   }
 </style>

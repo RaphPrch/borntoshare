@@ -241,7 +241,7 @@
 </ConfirmActionModal>
 
 <style>
-  .sub__acl { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .sub__acl { display: grid; gap: 6px; padding: 12px 14px; border-radius: 12px; background: var(--b2s-color-surface-soft); }
   .sub__acl ul { display: grid; gap: 4px; margin: 4px 0 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
   .sub__acl li { display: flex; justify-content: space-between; gap: 12px; }
   .sub__acl li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

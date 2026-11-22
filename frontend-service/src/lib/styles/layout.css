@@ -1,8 +1,8 @@
 .b2s-card {
-  border: 1px solid var(--b2s-border, #e5e7eb);
-  border-radius: var(--b2s-radius-md);
-  background: #fff;
-  box-shadow: 0 3px 10px rgba(18, 31, 64, 0.05);
+  border: 1px solid var(--b2s-color-border-soft);
+  border-radius: var(--b2s-radius-lg);
+  background: var(--b2s-color-surface);
+  box-shadow: var(--b2s-shadow-sm);
 }
 
 .b2s-table-wrap {
@@ -39,11 +39,11 @@
 }
 
 .b2s-table td {
-  height: 56px;
-  padding: 10px 16px;
+  height: 48px;
+  padding: 8px 16px;
   text-align: left;
   vertical-align: middle;
-  border-bottom: 1px solid #edf1f7;
+  border-bottom: 1px solid var(--b2s-color-border-soft);
 }
 
 .b2s-table-wrap.is-sticky .b2s-table thead th {
@@ -62,14 +62,17 @@
 }
 
 .b2s-table tbody tr {
-  transition: background-color 120ms ease;
+  transition: background-color var(--b2s-motion-fast) var(--b2s-ease-out);
 }
 
-.b2s-table tbody tr:hover,
+.b2s-table tbody tr:hover {
+  background: var(--b2s-color-surface-hover);
+}
+
 .b2s-table tbody tr.selected,
 .b2s-table tbody tr.is-selected,
 .b2s-table tbody tr.active {
-  background: #f5f9ff;
+  background: var(--b2s-accent-soft);
 }
 
 .b2s-table tbody tr:last-child td {
@@ -106,49 +109,49 @@
 .b2s-status.is-succeeded {
   background: var(--b2s-success-bg, var(--b2s-color-success-soft));
   color: var(--b2s-success, var(--b2s-color-success-strong));
-  border-color: rgba(22, 101, 52, .25);
+  border-color: var(--b2s-color-success-border);
 }
 
 .b2s-status.is-running {
   background: var(--b2s-warning-bg, var(--b2s-color-warning-soft));
   color: var(--b2s-warning, var(--b2s-color-warning-strong));
-  border-color: rgba(146, 64, 14, .25);
+  border-color: var(--b2s-color-warning-border);
 }
 
 .b2s-status.is-failed {
   background: var(--b2s-danger-bg, var(--b2s-color-danger-soft));
   color: var(--b2s-danger, var(--b2s-color-danger-strong));
-  border-color: rgba(153, 27, 27, .25);
+  border-color: var(--b2s-color-danger-border);
 }
 
 .b2s-status.is-retrying {
-  background: var(--b2s-primary-light, var(--b2s-color-info-soft));
-  color: var(--b2s-primary, var(--b2s-color-info));
-  border-color: rgba(37, 99, 235, .25);
+  background: var(--b2s-accent-soft);
+  color: var(--b2s-accent-strong);
+  border-color: var(--b2s-accent-border);
 }
 
 .b2s-status.is-success {
   background: var(--b2s-success-bg, var(--b2s-color-success-soft));
   color: var(--b2s-success-text, var(--b2s-color-success-strong));
-  border-color: rgba(22, 101, 52, .25);
+  border-color: var(--b2s-color-success-border);
 }
 
 .b2s-status.is-warning {
   background: var(--b2s-warning-bg, var(--b2s-color-warning-soft));
   color: var(--b2s-warning-text, var(--b2s-color-warning-strong));
-  border-color: rgba(146, 64, 14, .25);
+  border-color: var(--b2s-color-warning-border);
 }
 
 .b2s-status.is-info {
-  background: var(--b2s-primary-light, var(--b2s-color-info-soft));
-  color: var(--b2s-primary, var(--b2s-color-info));
-  border-color: rgba(37, 99, 235, .25);
+  background: var(--b2s-accent-soft);
+  color: var(--b2s-accent-strong);
+  border-color: var(--b2s-accent-border);
 }
 
 .b2s-status.is-error {
   background: var(--b2s-danger-bg, var(--b2s-color-danger-soft));
   color: var(--b2s-danger-text, var(--b2s-color-danger-strong));
-  border-color: rgba(153, 27, 27, .25);
+  border-color: var(--b2s-color-danger-border);
 }
 
 .b2s-status.is-disabled {
@@ -206,13 +209,13 @@
 .b2s-inline-alert.is-info {
   background: var(--b2s-color-info-soft);
   border-color: var(--b2s-color-info-border);
-  color: #1e3a8a;
+  color: var(--b2s-accent-strong);
 }
 
 .b2s-inline-alert.is-warning {
   background: var(--b2s-color-warning-soft);
   border-color: var(--b2s-color-warning-border);
-  color: #9a3412;
+  color: var(--b2s-color-warning-strong);
 }
 
 .b2s-inline-alert.is-error {
@@ -323,7 +326,7 @@
   height: 16px;
   flex: 0 0 auto;
   display: inline-block;
-  border: 2px solid #d7e1f0;
+  border: 2px solid var(--b2s-accent-border);
   border-top-color: var(--b2s-topbar-bg);
   border-radius: var(--b2s-radius-pill);
   animation: b2s-spin 0.8s linear infinite;
@@ -356,7 +359,7 @@
 .b2s-skeleton__tiles span {
   position: relative;
   overflow: hidden;
-  background: var(--b2s-color-neutral-soft, #eef1f6);
+  background: var(--b2s-color-neutral-soft);
   border-radius: var(--b2s-radius-sm);
 }
 
@@ -407,7 +410,7 @@
   border: 1px solid var(--b2s-color-border-soft);
   border-radius: 18px;
   background: var(--b2s-color-surface);
-  box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 8px 24px rgba(14, 18, 24, .06);
+  box-shadow: 0 1px 2px rgba(18, 59, 73, .05), 0 8px 24px rgba(18, 59, 73, .06);
   overflow: hidden;
 }
 
@@ -418,7 +421,7 @@
   gap: 12px;
   min-height: 56px;
   padding: 12px 20px;
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid var(--b2s-color-surface-muted);
 }
 
 .b2s-panel__head h2,
@@ -472,12 +475,12 @@
 
 /* Click-to-copy (data-copy): a path or a reference copies itself on click */
 [data-copy] { cursor: copy; border-radius: 4px; transition: background-color 120ms ease, box-shadow 120ms ease; }
-[data-copy]:hover { background-color: #eef4ff; box-shadow: 0 0 0 2px #eef4ff; }
-[data-copy].is-copied { background-color: #ecfdf5; box-shadow: 0 0 0 2px #ecfdf5; }
+[data-copy]:hover { background-color: var(--b2s-accent-soft); box-shadow: 0 0 0 2px var(--b2s-accent-soft); }
+[data-copy].is-copied { background-color: var(--b2s-color-success-soft); box-shadow: 0 0 0 2px var(--b2s-color-success-soft); }
 
 /* Column width handle (use:resizableColumns) */
 .b2s-col-resize { position: absolute; top: 0; right: -3px; z-index: 2; width: 7px; height: 100%; cursor: col-resize; }
 .b2s-col-resize::after { content: ''; position: absolute; top: 25%; bottom: 25%; left: 3px; width: 1px; background: transparent; transition: background-color 120ms ease; }
 th:hover > .b2s-col-resize::after { background: var(--b2s-color-border); }
-.b2s-col-resize:hover::after, body.is-col-resizing .b2s-col-resize::after { background: #2563eb; }
+.b2s-col-resize:hover::after, body.is-col-resizing .b2s-col-resize::after { background: var(--b2s-accent); }
 body.is-col-resizing { cursor: col-resize; user-select: none; }

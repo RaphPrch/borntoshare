@@ -3,17 +3,12 @@
   import { enhance } from '$app/forms';
   import LanguageSwitcher from '$lib/components/ui/LanguageSwitcher.svelte';
 
-  
-  
-  
   interface Props {
     form?: { error?: string } | null;
     /** Enabled SSO providers (Advanced Settings › Infrastructure › Keycloak) */
     ssoProviders?: { id: number; label: string }[];
     /** Page to open after the sign-in */
     redirectTo?: string | null;
-    /** Enabled sign-in providers: a directory adds the « Directory » tab */
-    providers?: string[];
     children?: import('svelte').Snippet;
   }
 
@@ -21,16 +16,11 @@
     form = {},
     ssoProviders = [],
     redirectTo = null,
-    providers = [],
     children
   }: Props = $props();
 
   let showPassword = $state(false);
   let loading = $state(false);
-
-  let hasDirectory = $derived(providers.some((name) => name !== 'local'));
-  let mode: 'directory' | 'local' | null = $state(null);
-  let activeMode = $derived(hasDirectory ? (mode ?? 'directory') : 'local');
 
   function togglePassword() {
     showPassword = !showPassword;
@@ -39,17 +29,16 @@
   const features = [
     { icon: 'bi-send-check', title: 'Request and approve', text: 'Users request access to a folder, its guardians decide, every decision is traced.' },
     { icon: 'bi-people', title: 'Active Directory and NTFS handled for you', text: 'AD groups, memberships and permissions are applied on the file server, then checked.' },
-    { icon: 'bi-shield-check', title: 'Always know who has access', text: 'Permissions set outside the process, ending accesses and unreachable servers are reported.' }
+    { icon: 'bi-shield-check', title: 'Always know who has access', text: 'Permissions set outside the process, ending accesses and unreachable servers are reported.' },
+    { icon: 'bi-bar-chart', title: 'Measure and tidy shares (5S)', text: 'Scan volumes, find duplicates and stale data, track storage hygiene over time.' }
   ];
 </script>
 
 <div class="lg">
   <section class="lg__hero">
-    <div class="lg__brand"><span class="lg__logo" aria-hidden="true">B</span><strong>BornToShare</strong></div>
-
     <div class="lg__pitch">
-      <p class="lg__headline">{t('Who can access what.')}<br /><mark>{t('And why.')}</mark></p>
-      <p class="lg__lead">{t('BornToShare governs access to your shared folders, from the request to the permissions on the file server.')}</p>
+      <p class="lg__headline">{t('Who accesses what.')}<br />{t('What is in there.')}<br /><mark>{t('And why.')}</mark></p>
+      <p class="lg__lead">{t('BornToShare governs your shared folders: who may access them, from the request to the permissions on the file server, and what they hold, with volumes, duplicates and dormant data measured over time.')}</p>
       <ul class="lg__features">
         {#each features as feature}
           <li>
@@ -59,6 +48,8 @@
         {/each}
       </ul>
     </div>
+
+    <p class="lg__trust"><i class="bi bi-shield-check" aria-hidden="true"></i>{t('Secure and compliant')}</p>
   </section>
 
   <main class="lg__panel">
@@ -66,15 +57,8 @@
 
     <div>
       <h1>{t('Sign in')}</h1>
-      <p class="lg__hint">{activeMode === 'directory' ? t('With your company account.') : t('Reserved for platform administration.')}</p>
+      <p class="lg__hint">{t('With your company account.')}</p>
     </div>
-
-    {#if hasDirectory}
-      <div class="lg__seg" role="group" aria-label={t('Account type')}>
-        <button type="button" class:on={activeMode === 'directory'} aria-pressed={activeMode === 'directory'} onclick={() => (mode = 'directory')}>{t('Directory')}</button>
-        <button type="button" class:on={activeMode === 'local'} aria-pressed={activeMode === 'local'} onclick={() => (mode = 'local')}>{t('Local account')}</button>
-      </div>
-    {/if}
 
     <form
       class="lg__form"
@@ -92,17 +76,20 @@
         };
       }}
     >
-      <input type="hidden" name="provider" value={activeMode === 'directory' ? 'ad' : 'local'} />
-
       <label class="lg__field">
-        <span>{activeMode === 'directory' ? t('Username or email') : t('Username')}</span>
-        <input type="text" name="username" autocomplete="username" required />
+        <span>{t('Username or email')}</span>
+        <span class="lg__control">
+          <i class="bi bi-person" aria-hidden="true"></i>
+          <input type="text" name="username" autocomplete="username" placeholder={t('Your username')} aria-describedby="lg-login-help" required />
+        </span>
+        <small class="lg__help" id="lg-login-help">{t('Email address or DOMAIN\\user for a directory account, user name for a local account.')}</small>
       </label>
 
       <label class="lg__field">
         <span>{t('Password')}</span>
-        <span class="lg__password">
-          <input type={showPassword ? 'text' : 'password'} name="password" autocomplete="current-password" required />
+        <span class="lg__control lg__password">
+          <i class="bi bi-lock" aria-hidden="true"></i>
+          <input type={showPassword ? 'text' : 'password'} name="password" autocomplete="current-password" placeholder={t('Your password')} required />
           <button type="button" onclick={togglePassword} aria-label={showPassword ? t('Hide password') : t('Show password')}>
             <i class="bi {showPassword ? 'bi-eye-slash' : 'bi-eye'}" aria-hidden="true"></i>
           </button>
@@ -114,15 +101,15 @@
       {/if}
 
       <button type="submit" class="lg__submit" disabled={loading}>
-        {#if loading}{t('Signing in…')}{:else}{t('Sign in')}{/if}
+        {#if loading}{t('Signing in…')}{:else}<i class="bi bi-box-arrow-in-right" aria-hidden="true"></i>{t('Sign in')}{/if}
       </button>
     </form>
 
     {#if ssoProviders.length}
       <div class="lg__or"><span>{t('or')}</span></div>
       {#each ssoProviders as provider (provider.id)}
-        <a class="lg__sso" href={`/sso/start/${provider.id}${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`}>
-          {t('Continue with {label}', { label: provider.label })}
+        <a class="lg__sso" href={`/sso/start/${provider.id}${redirectTo ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`} title={provider.label}>
+          <i class="bi bi-key" aria-hidden="true"></i>{t('Continue with SSO')}
         </a>
       {/each}
     {/if}
@@ -133,21 +120,17 @@
 
 <style>
   .lg {
-    --lg-bg: #f3f4f7;
-    --lg-surface: #fff;
-    --lg-line: #e1e4ea;
-    --lg-line2: #cdd2db;
-    --lg-text: #0e1218;
-    --lg-muted: #596273;
-    --lg-accent: #0e1218;
-    --lg-read: #1f5fd0;
-    --lg-write: #a85a00;
-    --lg-shadow: 0 1px 2px rgba(14, 18, 24, 0.05), 0 8px 24px rgba(14, 18, 24, 0.06);
+    position: relative;
     min-height: 100vh;
     display: flex;
-    background: var(--lg-bg);
-    color: var(--lg-text);
-    font-family: 'Geist Variable', var(--b2s-font-sans);
+    overflow: hidden;
+    /* Two soft teal bands behind the page: the only decoration, no motion */
+    background:
+      linear-gradient(135deg, transparent 52%, rgba(7, 156, 156, 0.07) 52%, rgba(7, 156, 156, 0.07) 66%, transparent 66%),
+      linear-gradient(135deg, transparent 70%, rgba(7, 156, 156, 0.11) 70%, rgba(7, 156, 156, 0.11) 82%, transparent 82%),
+      var(--b2s-bg);
+    color: var(--b2s-color-text);
+    font-family: var(--b2s-font-sans);
     font-size: 15px;
     line-height: 1.45;
   }
@@ -157,70 +140,47 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 64px;
-    padding: 44px clamp(24px, 5vw, 72px);
-  }
-
-  .lg__brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    font-size: 18px;
-  }
-
-  .lg__brand strong {
-    font-weight: 600;
-    letter-spacing: -0.01em;
-  }
-
-  .lg__logo {
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 12px;
-    background: var(--lg-accent);
-    color: #fff;
-    font-weight: 700;
+    gap: 48px;
+    padding: 44px clamp(24px, 5vw, 72px) 32px;
   }
 
   .lg__pitch {
     margin-block: auto;
     display: grid;
-    gap: 32px;
+    gap: 28px;
   }
 
   .lg__headline {
     margin: 0;
-    font-size: clamp(44px, 6vw, 84px);
-    font-weight: 600;
-    line-height: 1.14;
+    color: var(--b2s-color-heading);
+    font-size: clamp(40px, 4.6vw, 66px);
+    font-weight: 700;
+    line-height: 1.12;
     letter-spacing: -0.04em;
   }
 
   .lg__headline mark {
-    padding: 0 0.14em;
-    border-radius: 0.14em;
-    background: #dde1e8;
-    color: inherit;
+    padding: 0 0.16em;
+    border-radius: 0.16em;
+    background: linear-gradient(90deg, #8fe6c6, var(--b2s-brand));
+    color: var(--b2s-topbar-bg);
     -webkit-box-decoration-break: clone;
     box-decoration-break: clone;
   }
 
   .lg__lead {
-    max-width: 620px;
+    max-width: 640px;
     margin: 0;
-    color: var(--lg-muted);
+    color: var(--b2s-color-text-soft);
     font-size: 20px;
-    line-height: 1.4;
+    line-height: 1.45;
     letter-spacing: -0.01em;
   }
 
   .lg__features {
     display: grid;
     gap: 18px;
-    max-width: 620px;
+    max-width: 640px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -229,49 +189,67 @@
   .lg__features li {
     display: flex;
     align-items: flex-start;
-    gap: 14px;
+    gap: 16px;
   }
 
   .lg__features i {
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
     flex: none;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 10px;
-    background: #eef0f4;
-    color: #0e1218;
-    font-size: 17px;
+    border-radius: 12px;
+    background: var(--b2s-accent-soft);
+    color: var(--b2s-accent);
+    font-size: 20px;
   }
 
   .lg__features strong {
     display: block;
+    color: var(--b2s-color-heading);
     font-weight: 600;
   }
 
   .lg__features span {
-    color: var(--lg-muted);
+    color: var(--b2s-color-text-muted);
   }
 
-  .lg__features strong {
-    color: var(--lg-text);
+  .lg__trust {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    color: var(--b2s-accent);
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .lg__trust::before {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: var(--b2s-accent-vivid);
+  }
+
+  .lg__trust i {
+    font-size: 18px;
   }
 
   .lg__panel {
     position: relative;
     flex: 1 1 420px;
     max-width: 520px;
-    margin: 24px 24px 24px auto;
-    padding: 40px clamp(24px, 4vw, 48px);
+    align-self: center;
+    margin: 24px clamp(24px, 4vw, 64px) 24px auto;
+    padding: 48px clamp(24px, 3.5vw, 44px);
     display: flex;
     flex-direction: column;
-    justify-content: center;
     gap: 22px;
-    border: 1px solid var(--lg-line);
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: 24px;
-    background: var(--lg-surface);
-    box-shadow: var(--lg-shadow);
+    background: var(--b2s-color-surface);
+    box-shadow: 0 1px 2px rgba(18, 59, 73, 0.05), 0 24px 48px -12px rgba(18, 59, 73, 0.14);
   }
 
   .lg__lang {
@@ -282,78 +260,83 @@
 
   h1 {
     margin: 0;
-    font-size: 32px;
+    color: var(--b2s-color-heading);
+    font-size: 36px;
     font-weight: 600;
     letter-spacing: -0.025em;
   }
 
   .lg__hint {
     margin: 6px 0 0;
-    color: var(--lg-muted);
+    color: var(--b2s-color-text-muted);
+    font-size: 17px;
   }
 
-  .lg__seg {
-    display: flex;
-    gap: 3px;
-    padding: 3px;
-    border-radius: 12px;
-    background: #e9ebf0;
-  }
-
-  .lg__seg button {
-    flex: 1;
-    min-height: 40px;
-    border: 0;
-    border-radius: 9px;
-    background: transparent;
-    color: var(--lg-muted);
-    font: inherit;
-    font-weight: 500;
-    cursor: pointer;
-  }
-
-  .lg__seg button.on {
-    background: var(--lg-surface);
-    color: var(--lg-text);
-    box-shadow: 0 1px 2px rgba(14, 18, 24, 0.12);
+  .lg__password button:focus-visible,
+  .lg__submit:focus-visible,
+  .lg__sso:focus-visible {
+    outline: 0;
+    box-shadow: var(--b2s-focus-ring);
   }
 
   .lg__form {
     display: grid;
-    gap: 14px;
+    gap: 16px;
   }
 
   .lg__field {
     display: grid;
-    gap: 7px;
+    gap: 8px;
     margin: 0;
-    font-size: 13px;
+    color: var(--b2s-color-heading);
+    font-size: 14px;
     font-weight: 500;
   }
 
-  .lg__field input {
+  .lg__help {
+    color: var(--b2s-color-text-muted);
+    font-size: 12.5px;
+    font-weight: 400;
+  }
+
+  .lg__control {
+    position: relative;
+    display: block;
+  }
+
+  .lg__control > i {
+    position: absolute;
+    top: 50%;
+    left: 18px;
+    transform: translateY(-50%);
+    color: var(--b2s-color-text-muted);
+    font-size: 18px;
+    pointer-events: none;
+  }
+
+  .lg__control input {
     width: 100%;
-    min-height: 52px;
-    padding: 0 16px;
-    border: 1px solid var(--lg-line2);
+    min-height: 54px;
+    padding: 0 16px 0 50px;
+    border: 1px solid var(--b2s-color-border);
     border-radius: 14px;
     outline: 0;
-    background: var(--lg-surface);
-    color: var(--lg-text);
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text);
     font: inherit;
     font-size: 16px;
     font-weight: 400;
     box-sizing: border-box;
+    transition: border-color var(--b2s-motion-fast) var(--b2s-ease-out), box-shadow var(--b2s-motion-fast) var(--b2s-ease-out);
   }
 
-  .lg__field input:focus {
-    border-color: var(--lg-text);
-    box-shadow: 0 0 0 1px var(--lg-text);
+  .lg__control input::placeholder {
+    color: var(--b2s-color-text-faint);
   }
 
-  .lg__password {
-    position: relative;
-    display: block;
+  .lg__control input:focus {
+    border-color: var(--b2s-accent-vivid);
+    box-shadow: var(--b2s-focus-ring);
   }
 
   .lg__password input {
@@ -362,15 +345,19 @@
 
   .lg__password button {
     position: absolute;
-    top: 4px;
-    right: 4px;
+    top: 5px;
+    right: 5px;
     width: 44px;
     height: 44px;
     border: 0;
     border-radius: 10px;
     background: transparent;
-    color: var(--lg-muted);
+    color: var(--b2s-color-text-muted);
     cursor: pointer;
+  }
+
+  .lg__password button:hover {
+    color: var(--b2s-color-heading);
   }
 
   .lg__error {
@@ -380,10 +367,11 @@
 
   .lg__submit,
   .lg__sso {
-    min-height: 52px;
+    min-height: 54px;
     display: flex;
     align-items: center;
     justify-content: center;
+    gap: 10px;
     padding: 0 18px;
     border-radius: 14px;
     font: inherit;
@@ -391,16 +379,24 @@
     text-align: center;
     text-decoration: none;
     cursor: pointer;
+    transition: background-color var(--b2s-motion-base) var(--b2s-ease-out), border-color var(--b2s-motion-base) var(--b2s-ease-out);
   }
 
   .lg__submit {
-    border: 1px solid var(--lg-accent);
-    background: var(--lg-accent);
-    color: #fff;
+    margin-top: 6px;
+    border: 1px solid var(--b2s-accent);
+    background: var(--b2s-accent);
+    color: var(--b2s-on-accent);
+    font-size: 16px;
   }
 
-  .lg__submit:hover {
-    background: #252b35;
+  .lg__submit i {
+    font-size: 18px;
+  }
+
+  .lg__submit:hover:not(:disabled) {
+    border-color: var(--b2s-accent-strong);
+    background: var(--b2s-accent-strong);
   }
 
   .lg__submit:disabled {
@@ -409,22 +405,22 @@
   }
 
   .lg__sso {
-    border: 1px solid var(--lg-line2);
-    background: var(--lg-surface);
-    color: var(--lg-text);
+    border: 1px solid var(--b2s-color-border);
+    background: var(--b2s-color-surface);
+    color: var(--b2s-color-text);
     font-weight: 500;
   }
 
   .lg__sso:hover {
-    background: #f6f7f9;
-    color: var(--lg-text);
+    background: var(--b2s-color-surface-soft);
+    color: var(--b2s-color-text);
   }
 
   .lg__or {
     display: flex;
     align-items: center;
     gap: 12px;
-    color: var(--lg-muted);
+    color: var(--b2s-color-text-muted);
     font-size: 12px;
   }
 
@@ -433,7 +429,6 @@
     content: '';
     flex: 1;
     height: 1px;
-    background: var(--lg-line);
+    background: var(--b2s-color-border-soft);
   }
-
 </style>

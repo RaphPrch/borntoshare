@@ -1,5 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
+  import { fade } from 'svelte/transition';
+  import { pop, dur, MOTION } from '$lib/utils/motion';
 
   
   interface Props {
@@ -28,7 +30,7 @@
     <i class="bi bi-layout-three-columns" aria-hidden="true"></i>{t('Columns')}{#if hidden.length}<span class="cp__n">{columns.length - hidden.length}/{columns.length}</span>{/if}
   </button>
   {#if open}
-    <div class="cp__menu" role="group" aria-label={t('Columns')}>
+    <div class="cp__menu" role="group" aria-label={t('Columns')} in:pop={{ y: -6 }} out:fade={{ duration: dur(MOTION.fast) }}>
       {#each columns as column (column.key)}
         <label>
           <input type="checkbox" checked={!hidden.includes(column.key)} onchange={() => toggle(column.key)} />{column.label}
@@ -44,8 +46,8 @@
   .cp > button { display: inline-flex; align-items: center; gap: 6px; }
   .cp__n { font-size: 11px; color: var(--b2s-color-text-muted); }
   .cp__menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; width: 240px; display: grid; gap: 2px; padding: 8px; border: 1px solid var(--b2s-color-border); border-radius: 12px;
-    background: var(--b2s-color-surface); box-shadow: 0 14px 30px rgba(14, 18, 24, 0.14); }
+    background: var(--b2s-color-surface); box-shadow: 0 14px 30px rgba(18, 59, 73, 0.14); }
   .cp__menu label { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; font-size: var(--b2s-fs-sm); cursor: pointer; }
-  .cp__menu label:hover { background: var(--b2s-color-surface-muted, #f5f7fb); }
+  .cp__menu label:hover { background: var(--b2s-color-surface-muted); }
   .cp__menu small { padding: 6px 8px 2px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

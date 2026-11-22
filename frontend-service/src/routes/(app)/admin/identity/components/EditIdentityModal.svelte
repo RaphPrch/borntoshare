@@ -364,7 +364,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #2f6df6;
+    background: var(--b2s-accent);
     color: #fff;
     font-size: var(--b2s-fs-lg);
     font-weight: 700;
@@ -430,7 +430,7 @@
     width: 42px;
     height: 24px;
     border-radius: var(--b2s-radius-pill);
-    background: #cfd8e6;
+    background: var(--b2s-color-border);
     position: relative;
     transition: background 0.2s ease;
   }
@@ -443,12 +443,12 @@
     height: 18px;
     border-radius: var(--b2s-radius-pill);
     background: #fff;
-    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+    box-shadow: 0 2px 6px rgba(18, 59, 73, 0.18);
     transition: transform 0.2s ease;
   }
 
   .identity-edit-toggle input:checked + .identity-edit-toggle__track {
-    background: #2f6df6;
+    background: var(--b2s-accent);
   }
 
   .identity-edit-toggle input:checked + .identity-edit-toggle__track .identity-edit-toggle__thumb {
@@ -466,7 +466,7 @@
   }
 
   .identity-edit-role-card {
-    border: 1px solid #dbe3f0;
+    border: 1px solid var(--b2s-color-border);
     border-radius: var(--b2s-radius-md);
     background: #fff;
     padding: 14px 16px;
@@ -489,13 +489,13 @@
   }
 
   .identity-edit-role-card small {
-    color: #5d6f8a;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-sm);
   }
 
   .identity-edit-role-card.is-selected {
-    border-color: #2f6df6;
-    box-shadow: inset 0 0 0 1px #2f6df6;
+    border-color: var(--b2s-accent);
+    box-shadow: inset 0 0 0 1px var(--b2s-accent);
   }
 
   .identity-edit-password-grid {
@@ -506,7 +506,7 @@
 
   .identity-edit-helper {
     margin: 0;
-    color: #5d6f8a;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-sm);
     line-height: 1.5;
   }

@@ -89,7 +89,7 @@
 
 
 
-  const REQUEST_TONES: Record<string, string> = { approved: '#2f9e5b', applied: '#2f9e5b', active: '#2f9e5b', pending: '#3b6fd8', revoked: '#8a93a3', rejected: '#c0392b', cancelled: '#cdd2db', expired: '#b9c0cc' };
+  const REQUEST_TONES: Record<string, string> = { approved: '#138a5c', applied: '#138a5c', active: '#138a5c', pending: '#2b77b3', revoked: '#8a98a8', rejected: '#b3364b', cancelled: '#d5dee6', expired: '#bcc8d3' };
   const REQUEST_LABEL = (): Record<string, string> => ({ approved: t('approved'), applied: t('applied'), active: t('active'), pending: t('pending'), revoked: t('revoked'), rejected: t('rejected'), cancelled: t('cancelled'), expired: t('expired') });
 
   let id = $derived(Number(item?.id ?? 0));
@@ -231,10 +231,10 @@
             <header><h2>{t('Their requests')}</h2><small>{data.active_accesses ? t('{count} access(es) in progress', { count: data.active_accesses }) : t('no access in progress')}</small></header>
             {#if requestsTotal}
               <div class="iw__bar" role="img" aria-label={requestParts.map(([status, count]) => `${count} ${REQUEST_LABEL()[status] ?? status}`).join(', ')}>
-                {#each requestParts as [status, count] (status)}<span style={`flex:${count};background:${REQUEST_TONES[status] ?? '#8a93a3'}`}></span>{/each}
+                {#each requestParts as [status, count] (status)}<span style={`flex:${count};background:${REQUEST_TONES[status] ?? '#8a98a8'}`}></span>{/each}
               </div>
               <div class="iw__legend">
-                {#each requestParts as [status, count] (status)}<span><span class="iw__key" style={`background:${REQUEST_TONES[status] ?? '#8a93a3'}`} aria-hidden="true"></span>{count} {REQUEST_LABEL()[status] ?? status}</span>{/each}
+                {#each requestParts as [status, count] (status)}<span><span class="iw__key" style={`background:${REQUEST_TONES[status] ?? '#8a98a8'}`} aria-hidden="true"></span>{count} {REQUEST_LABEL()[status] ?? status}</span>{/each}
               </div>
             {:else}
               <EmptyStateInline message={t('No request yet.')} />
@@ -273,7 +273,7 @@
   .iw__plus { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .iw__seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
   .iw__seg button { padding: 8px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); font-weight: 600; cursor: pointer; }
-  .iw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
+  .iw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(18, 59, 73, 0.12); }
   .iw__seg button:disabled { cursor: default; }
   .iw__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .iw__tiles .b2s-stat-tile { text-align: left; border: 1px solid var(--b2s-color-border); font: inherit; color: inherit; }
@@ -289,17 +289,17 @@
   .iw__muted { margin: 0; }
   .iw__map { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
   .iw__site { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface); font: inherit; text-align: left; cursor: pointer; }
-  .iw__site:hover { border-color: var(--b2s-color-border-strong); background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .iw__site:hover { border-color: var(--b2s-color-border-strong); background: var(--b2s-color-surface-soft); }
   .iw__site-head { display: flex; justify-content: space-between; gap: 6px; font-size: var(--b2s-fs-xs); }
   .iw__site-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
   .iw__site-head span { color: var(--b2s-color-text-muted); }
   .iw__cells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
-  .iw__cell { display: block; height: 7px; border-radius: 2px; background: #3b6fd8; }
-  .iw__cell.is-sole { background: #c0392b; }
-  .iw__sole { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--b2s-color-danger-soft, #fdecea); font-size: var(--b2s-fs-sm); }
+  .iw__cell { display: block; height: 7px; border-radius: 2px; background: var(--b2s-accent); }
+  .iw__cell.is-sole { background: var(--b2s-color-danger-strong); }
+  .iw__sole { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--b2s-color-danger-soft); font-size: var(--b2s-fs-sm); }
   .iw__legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--b2s-color-text); font-size: var(--b2s-fs-xs); }
-  .iw__key { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: #3b6fd8; }
-  .iw__key.is-sole { background: #c0392b; }
+  .iw__key { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--b2s-accent); }
+  .iw__key.is-sole { background: var(--b2s-color-danger-strong); }
   .iw__partner { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--b2s-color-border); border-radius: 12px; }
   .iw__partner span:last-child { display: flex; flex-direction: column; }
   .iw__partner b { font-weight: 500; }
@@ -309,16 +309,16 @@
   .iw__chipsbar { display: flex; flex-wrap: wrap; gap: 6px; }
   .iw__chipsbar button { padding: 5px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); color: var(--b2s-color-text); font: inherit; font-size: var(--b2s-fs-xs); cursor: pointer; }
   .iw__chipsbar button span { color: var(--b2s-color-text-muted); }
-  .iw__chipsbar button.is-on { border-color: var(--b2s-color-text); background: var(--b2s-color-text); color: var(--b2s-color-surface); }
+  .iw__chipsbar button.is-on { border-color: var(--b2s-accent); background: var(--b2s-accent); color: var(--b2s-color-surface); }
   .iw__chipsbar button.is-on span { color: inherit; opacity: 0.7; }
   .iw__table { padding: 0; gap: 0; overflow: hidden; }
   .iw__row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 120px; gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--b2s-color-border); color: inherit; text-decoration: none; font-size: var(--b2s-fs-sm); }
   .iw__row:first-child { border-top: 0; }
-  .iw__row:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .iw__row:hover { background: var(--b2s-color-surface-soft); }
   .iw__fname { display: flex; flex-direction: column; min-width: 0; }
   .iw__fname b { font-weight: 500; }
   .iw__fname small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); }
   .iw__tag { justify-self: end; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: var(--b2s-fs-xs); font-weight: 500; }
-  .iw__tag.is-sole { background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); }
+  .iw__tag.is-sole { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
 </style>

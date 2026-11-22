@@ -225,7 +225,7 @@
   .ia__main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 14px; padding: 20px 24px; }
   .ia__kinds { align-self: flex-start; display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
   .ia__kinds button { padding: 8px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); font-weight: 600; cursor: pointer; }
-  .ia__kinds button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
+  .ia__kinds button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(18, 59, 73, 0.12); }
   .ia__searchrow { display: flex; gap: 10px; }
   .ia__searchrow select { max-width: 200px; }
   .ia__search { flex: 1; display: flex; align-items: center; gap: 10px; height: 50px; padding: 0 16px; border: 2px solid var(--b2s-color-text); border-radius: 14px; }
@@ -233,16 +233,16 @@
   .ia__results { display: flex; flex-direction: column; max-height: 360px; overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: 14px; }
   .ia__results button { display: flex; gap: 12px; align-items: center; padding: 11px 16px; border: 0; border-top: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .ia__results button:first-child { border-top: 0; }
-  .ia__results button:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
-  .ia__results button.is-on { background: #e8eef8; box-shadow: inset 3px 0 0 var(--b2s-color-text); }
+  .ia__results button:hover { background: var(--b2s-color-surface-soft); }
+  .ia__results button.is-on { background: var(--b2s-color-border-soft); box-shadow: inset 3px 0 0 var(--b2s-accent); }
   .ia__av, .ia__big { flex: 0 0 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: 12px; font-weight: 600; }
   .ia__av.is-group { border-radius: 9px; background: #efe7fb; color: #6b3fc4; }
   .is-in .ia__av { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .ia__who { display: flex; flex-direction: column; flex: 1; min-width: 0; }
   .ia__who b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ia__who small { color: var(--b2s-color-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  mark { background: #eef9d9; color: #1b2a05; border-radius: 3px; padding: 0 1px; }
-  .ia__state { padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: #eef9d9; color: #1b2a05; font-size: var(--b2s-fs-xs); white-space: nowrap; }
+  mark { background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); border-radius: 3px; padding: 0 1px; }
+  .ia__state { padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); font-size: var(--b2s-fs-xs); white-space: nowrap; }
   .ia__state.is-in { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .ia__empty { margin: 0; padding: 18px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ia__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
@@ -250,19 +250,19 @@
   .ia__form label { display: flex; flex-direction: column; gap: 5px; font-size: var(--b2s-fs-sm); font-weight: 500; }
   .ia__form small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 400; }
   .ia__form .ia__check { flex-direction: row; align-items: center; gap: 8px; grid-column: 1 / -1; font-weight: 400; }
-  .ia__preview { flex: 0 0 340px; display: flex; flex-direction: column; gap: 14px; padding: 20px; background: var(--b2s-color-surface-soft, #f5f7fa); border-left: 1px solid var(--b2s-color-border); }
+  .ia__preview { flex: 0 0 340px; display: flex; flex-direction: column; gap: 14px; padding: 20px; background: var(--b2s-color-surface-soft); border-left: 1px solid var(--b2s-color-border); }
   .ia__label { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; }
   .ia__card { display: flex; align-items: center; gap: 12px; padding: 14px; border: 1px solid var(--b2s-color-border); border-radius: 14px; background: var(--b2s-color-surface); }
-  .ia__big { flex-basis: 46px; height: 46px; font-size: 15px; background: linear-gradient(135deg, var(--b2s-color-info-soft), #c9d9fb); }
+  .ia__big { flex-basis: 46px; height: 46px; font-size: 15px; background: linear-gradient(135deg, var(--b2s-color-info-soft), var(--b2s-accent-border)); }
   .ia__roles { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; border: 0; }
   .ia__roles legend { margin-bottom: 8px; font-size: var(--b2s-fs-sm); font-weight: 600; }
   .ia__roles button { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 12px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface); color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .ia__roles button.is-on { border: 2px solid var(--b2s-color-text); padding: 11px; }
+  .ia__roles button.is-on { border: 2px solid var(--b2s-accent); padding: 11px; }
   .ia__roles small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .ia__can { display: flex; flex-direction: column; gap: 6px; font-size: var(--b2s-fs-sm); }
   .ia__can span { display: flex; gap: 8px; }
-  .ia__can i { color: var(--b2s-color-success-strong, #157a3c); }
-  .ia__warn { padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); }
+  .ia__can i { color: var(--b2s-color-success-strong); }
+  .ia__warn { padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .ia__cta { margin-top: auto; justify-content: center; }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
 </style>

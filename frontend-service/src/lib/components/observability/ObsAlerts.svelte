@@ -246,10 +246,10 @@
 
 <div class="obs-alerts">
   <section class="v2-stats" aria-label={t('Alerts summary')}>
-    <div class="v2-stat"><small>{t('Critical or high')}</small><b style={counts.critical ? 'color:#b42318' : ''}>{counts.critical}</b></div>
-    <div class="v2-stat"><small>{t('Warnings')}</small><b style={counts.warning ? 'color:#b45309' : ''}>{counts.warning}</b></div>
-    <div class="v2-stat"><small>{t('Acknowledged alerts')}</small><b>{counts.acknowledged}</b></div>
-    <div class="v2-stat"><small>{t('Resolved alerts')}</small><b>{counts.resolved}</b></div>
+    <div class="v2-stat"><i class="bi bi-exclamation-octagon is-bad" aria-hidden="true"></i><small>{t('Critical or high')}</small><b style={counts.critical ? 'color:var(--b2s-color-danger-strong)' : ''}>{counts.critical}</b></div>
+    <div class="v2-stat"><i class="bi bi-exclamation-triangle is-warn" aria-hidden="true"></i><small>{t('Warnings')}</small><b style={counts.warning ? 'color:var(--b2s-color-warning-strong)' : ''}>{counts.warning}</b></div>
+    <div class="v2-stat"><i class="bi bi-check2-square" aria-hidden="true"></i><small>{t('Acknowledged alerts')}</small><b>{counts.acknowledged}</b></div>
+    <div class="v2-stat"><i class="bi bi-check-circle" aria-hidden="true"></i><small>{t('Resolved alerts')}</small><b>{counts.resolved}</b></div>
   </section>
 
   <div class="b2s-toolbar">
@@ -489,7 +489,7 @@
   }
 
   .obs-switch:checked {
-    background: var(--b2s-topbar-bg, #0b1530);
+    background: var(--b2s-topbar-bg);
   }
 
   .obs-switch:checked::after {
@@ -499,7 +499,7 @@
   .guide h3 { margin: 10px 0 0; font-size: var(--b2s-fs-sm); font-weight: 600; }
   .guide p, .guide ol { margin: 0; }
   .guide ol { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
-  .guide__msg { padding: 8px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); color: var(--b2s-color-text-muted); }
+  .guide__msg { padding: 8px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft); color: var(--b2s-color-text-muted); }
   .guide__note { display: flex; gap: 8px; margin-top: 10px !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .obs-views { margin: -4px 0 12px; }
 </style>

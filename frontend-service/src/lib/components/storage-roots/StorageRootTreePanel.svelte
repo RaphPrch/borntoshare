@@ -480,7 +480,7 @@
 
 <style>
   .tree-extra { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-  .tree-bulk { display: grid; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 1px solid #c7d7fe; border-radius: var(--b2s-radius-md, 8px); background: #eef4ff; font-size: var(--b2s-fs-sm); }
+  .tree-bulk { display: grid; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--b2s-accent-border); border-radius: var(--b2s-radius-md, 8px); background: var(--b2s-accent-soft); font-size: var(--b2s-fs-sm); }
   .tree-bulk__head { display: flex; align-items: center; gap: 8px; }
   .tree-bulk__head b { font-weight: 600; }
   .tree-bulk__close { margin-left: auto; border: 0; background: none; padding: 2px; color: var(--b2s-color-text-muted); cursor: pointer; }

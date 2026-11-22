@@ -35,7 +35,7 @@
   ];
   const label = (key: Pillar) => PILLARS.find((p) => p.key === key)?.label() ?? key;
   const tone = (score: number | null | undefined) => (score == null ? 'none' : score >= 80 ? 'ok' : score >= 60 ? 'warn' : 'bad');
-  const COLOR = { ok: '#16a06a', warn: '#d97706', bad: '#dc3545', none: '#cdd2db' } as const;
+  const COLOR = { ok: '#138a5c', warn: '#c27a12', bad: '#d0435a', none: '#d5dee6' } as const;
   const verdict = (score: number | null | undefined) =>
     score == null ? t('Not enough data') : score >= 80 ? t('Well kept') : score >= 60 ? t('To improve') : t('To take in hand');
 
@@ -218,8 +218,8 @@
         <div class="fs__rings">
           <div class="fs__big">
             <svg viewBox="0 0 140 140" role="img" aria-label={t('5S score: {score} out of 100', { score: score ?? '—' })}>
-              <circle cx="70" cy="70" r="58" fill="none" stroke="#eef0f3" stroke-width="14" />
-              <circle cx="70" cy="70" r="58" fill="none" stroke="#0e1218" stroke-width="14" stroke-linecap="round" stroke-dasharray={ring(score, 58)} class="fs__arc" />
+              <circle cx="70" cy="70" r="58" fill="none" stroke="#eaeff3" stroke-width="14" />
+              <circle cx="70" cy="70" r="58" fill="none" stroke="currentColor" stroke-width="14" stroke-linecap="round" stroke-dasharray={ring(score, 58)} class="fs__arc" />
             </svg>
             <span><b><CountUp value={score ?? 0} /></b><small>/ 100</small></span>
           </div>
@@ -227,7 +227,7 @@
             <button type="button" class="fs__pillar" class:is-on={pillarSort === pillar.key} aria-pressed={pillarSort === pillar.key}
               onclick={() => (pillarSort = pillarSort === pillar.key ? 'score' : pillar.key)} title={`${pillar.hint()} — ${t('Sort the folders by this pillar')}`}>
               <span class="fs__small">
-                <svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="34" fill="none" stroke="#eef0f3" stroke-width="9" />
+                <svg viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="34" fill="none" stroke="#eaeff3" stroke-width="9" />
                   <circle cx="42" cy="42" r="34" fill="none" stroke={COLOR[tone(pillars[pillar.key])]} stroke-width="9" stroke-linecap="round" stroke-dasharray={ring(pillars[pillar.key], 34)} class="fs__arc" /></svg>
                 <span>{pillars[pillar.key] ?? '—'}</span>
               </span>
@@ -316,25 +316,25 @@
   .fs__big > span { position: absolute; inset: 0; display: flex; align-items: baseline; justify-content: center; gap: 3px; padding-top: 50px; }
   .fs__big b { font-size: 34px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .fs__big small { color: var(--b2s-color-text-muted); }
-  .fs__arc { transition: stroke-dasharray 0.8s var(--b2s-ease-out); }
+  .fs__arc { color: var(--b2s-accent-vivid); transition: stroke-dasharray 0.8s var(--b2s-ease-out); }
   .fs__pillar { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px; border: 0; border-radius: 14px; background: transparent; font: inherit; color: inherit; cursor: pointer; }
-  .fs__pillar:hover { background: #f6f7f9; }
+  .fs__pillar:hover { background: var(--b2s-color-surface-soft); }
   .fs__pillar.is-on { background: var(--b2s-accent-soft); }
   .fs__pillar b { font-size: 13px; }
   .fs__pillar small { color: var(--b2s-color-text-muted); font-size: 11px; font-style: italic; }
   .fs__small { position: relative; width: 84px; height: 84px; }
   .fs__small > span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; }
   .fs__g { grid-template-columns: minmax(200px, 1.5fr) 60px repeat(5, 86px) minmax(160px, 1.5fr); min-width: 960px; }
-  .fs__rowbtn { width: 100%; border: 0; border-bottom: 1px solid #f3f4f6; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+  .fs__rowbtn { width: 100%; border: 0; border-bottom: 1px solid var(--b2s-color-surface-muted); background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .fs__c { text-align: center; }
   .fs__dot { display: inline-grid; place-items: center; min-width: 34px; padding: 1px 6px; border-radius: 8px; background: color-mix(in srgb, var(--c) 14%, white); color: var(--c);
     font-size: var(--b2s-fs-xs); font-weight: 700; font-variant-numeric: tabular-nums; }
   .fs__next { overflow: hidden; font-size: var(--b2s-fs-sm); text-overflow: ellipsis; white-space: nowrap; }
   .fs__next small { color: var(--b2s-color-text-muted); }
-  .fs__rank { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: #f0f2f5; font-size: var(--b2s-fs-xs); font-weight: 700; }
+  .fs__rank { display: grid; place-items: center; width: 24px; height: 24px; flex: none; border-radius: 50%; background: var(--b2s-color-surface-muted); font-size: var(--b2s-fs-xs); font-weight: 700; }
   .fs__actions { padding: 0; }
   .fs__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .fs__ok { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-success-strong, #1a7f37); font-size: var(--b2s-fs-sm); }
+  .fs__ok { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-success-strong); font-size: var(--b2s-fs-sm); }
   .fs__more { align-self: center; }
   .fs__off { display: flex; gap: 16px; align-items: flex-start; padding: 24px; border: 1px dashed var(--b2s-color-border-strong); border-radius: var(--b2s-radius-lg); }
   .fs__off > i { font-size: 28px; color: var(--b2s-color-info-strong); }

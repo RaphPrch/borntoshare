@@ -76,7 +76,7 @@
   .gw { display: flex; flex-direction: column; gap: 16px; }
   .gw__seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
   .gw__seg button { padding: 8px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); font-weight: 600; cursor: pointer; }
-  .gw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
+  .gw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(18, 59, 73, 0.12); }
   .gw__note { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .gw__card { display: flex; flex-direction: column; gap: 4px; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .gw__card header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
@@ -84,6 +84,6 @@
   .gw__card small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .gw__row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; padding: 9px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
   .gw__row b { font-weight: 500; }
-  .is-warn { color: var(--b2s-color-warning-strong, #9a5b00); }
+  .is-warn { color: var(--b2s-color-warning-strong); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
 </style>

@@ -73,7 +73,7 @@
 <style>
   .sv { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .sv__chip { display: inline-flex; align-items: center; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface); overflow: hidden; }
-  .sv__chip.is-on { border-color: #111b3f; background: #111b3f; }
+  .sv__chip.is-on { border-color: var(--b2s-accent); background: var(--b2s-accent); }
   .sv__chip.is-on button { color: #fff; }
   .sv__chip button { display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 4px 4px 4px 10px; font: inherit; font-size: var(--b2s-fs-sm); color: var(--b2s-color-text); cursor: pointer; }
   .sv__chip .sv__x { padding: 4px 8px 4px 2px; color: var(--b2s-color-text-muted); }

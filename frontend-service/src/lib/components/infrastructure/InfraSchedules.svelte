@@ -254,7 +254,7 @@
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-primary-soft);
-    color: #1e3a8a;
+    color: var(--b2s-accent-strong);
     font-size: 1.15rem;
   }
 
@@ -353,8 +353,8 @@
   }
 
   .part.is-on {
-    border-color: #c7d2fe;
-    background: #f8faff;
+    border-color: var(--b2s-accent-border);
+    background: var(--b2s-color-surface-soft);
   }
 
   .part__icon {
@@ -365,7 +365,7 @@
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-info-soft);
-    color: #0b63f4;
+    color: var(--b2s-accent);
   }
 
   .part__copy strong,

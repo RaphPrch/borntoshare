@@ -69,7 +69,7 @@
     height: 34px;
     border: none;
     border-radius: var(--b2s-radius-pill);
-    background: #eef2f8;
+    background: var(--b2s-color-surface-muted);
     color: var(--b2s-color-text-muted);
     display: inline-flex;
     align-items: center;
@@ -78,7 +78,7 @@
   }
 
   .assigned-principal-card__remove:hover {
-    background: #e4e9f2;
-    color: #344054;
+    background: var(--b2s-color-border-soft);
+    color: var(--b2s-color-text-soft);
   }
 </style>

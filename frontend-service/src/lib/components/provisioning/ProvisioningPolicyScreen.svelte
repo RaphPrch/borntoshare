@@ -405,7 +405,7 @@
   }
 
   .pp__token:hover {
-    border-color: var(--b2s-color-text);
+    border-color: var(--b2s-accent-vivid);
   }
 
   .pp__kv {
@@ -465,7 +465,7 @@
     gap: 2px;
     padding: 3px;
     border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-surface-muted, #e9ebf0);
+    background: var(--b2s-color-surface-muted);
   }
 
   .pp__seg button {
@@ -556,8 +556,8 @@
   }
 
   .pp__pill--warn {
-    background: var(--b2s-color-warning-soft, #fdefd9);
-    color: var(--b2s-color-warning-strong, #a85a00);
+    background: var(--b2s-color-warning-soft);
+    color: var(--b2s-color-warning-strong);
   }
 
 
@@ -571,7 +571,7 @@
     margin-top: 16px;
     padding: 10px 14px;
     border-radius: var(--b2s-radius-md);
-    background: var(--b2s-topbar-bg, #0e1218);
+    background: var(--b2s-topbar-bg, var(--b2s-accent));
     color: #fff;
     font-size: var(--b2s-fs-sm);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);

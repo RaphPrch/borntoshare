@@ -41,18 +41,18 @@
   }
 
   .b2s-icon-tile.is-user {
-    color: #2f5ab8;
-    background: #ebf2ff;
+    color: var(--b2s-accent-strong);
+    background: var(--b2s-accent-soft);
   }
 
   .b2s-icon-tile.is-group {
-    color: #3f57c2;
-    background: #edf0ff;
+    color: var(--b2s-color-info-strong);
+    background: var(--b2s-color-info-soft);
   }
 
   .b2s-icon-tile.is-neutral {
-    color: #4d668d;
-    background: #edf2f8;
+    color: var(--b2s-color-text-muted);
+    background: var(--b2s-color-surface-muted);
   }
 </style>
 

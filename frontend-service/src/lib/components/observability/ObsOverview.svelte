@@ -263,8 +263,8 @@
   }
 
   .hero.is-degraded {
-    background: #fffbeb;
-    border-color: #fde68a;
+    background: var(--b2s-color-warning-soft);
+    border-color: var(--b2s-color-warning-border);
   }
 
   .hero.is-down {
@@ -335,7 +335,7 @@
 
   .kpi:hover {
     border-color: var(--b2s-color-text-faint);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 4px 14px rgba(18, 59, 73, 0.06);
     color: var(--b2s-color-heading);
   }
 
@@ -556,7 +556,7 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #22c55e;
+    background: var(--b2s-color-success);
   }
 
   .family.is-down {
@@ -564,7 +564,7 @@
   }
 
   .family.is-down .family__dot {
-    background: #ef4444;
+    background: var(--b2s-color-danger);
   }
 
   .family.is-degraded .family__dot {

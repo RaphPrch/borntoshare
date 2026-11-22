@@ -85,8 +85,8 @@
 </main>
 
 <style>
-  .pw { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--b2s-color-page, #f5f6f8); }
-  .pw__card { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 16px; padding: 32px; border-radius: 18px; background: var(--b2s-color-surface); box-shadow: 0 1px 2px rgba(14, 18, 24, .05), 0 12px 32px rgba(14, 18, 24, .08); }
+  .pw { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--b2s-color-page); }
+  .pw__card { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 16px; padding: 32px; border-radius: 18px; background: var(--b2s-color-surface); box-shadow: 0 1px 2px rgba(18, 59, 73, .05), 0 12px 32px rgba(18, 59, 73, .08); }
   .pw__brand { display: flex; align-items: center; gap: 10px; }
   .pw__brand b { width: 36px; height: 36px; border-radius: 10px; background: var(--b2s-accent); color: var(--b2s-on-accent); display: flex; align-items: center; justify-content: center; font-weight: 700; }
   h1 { margin: 8px 0 0; font-size: 22px; color: var(--b2s-color-heading); }
@@ -95,8 +95,8 @@
   .pw__f input { min-height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--b2s-color-border); background: var(--b2s-color-surface); font-size: 14px; }
   .pw__rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; color: var(--b2s-color-text-muted); }
   .pw__rules li { display: flex; gap: 8px; align-items: center; }
-  .pw__rules li.ok { color: var(--b2s-color-success, #1f7a43); }
-  .pw__error { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-danger-soft, #fdecec); color: var(--b2s-color-danger, #b42318); font-size: 13px; }
+  .pw__rules li.ok { color: var(--b2s-color-success); }
+  .pw__error { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger); font-size: 13px; }
   .pw__foot { display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
   .pw__foot a { color: var(--b2s-color-text-muted); font-size: 13px; }
 </style>

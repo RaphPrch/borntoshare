@@ -45,7 +45,7 @@
   }
 
   .avail__seg.is-healthy {
-    background: #22c55e;
+    background: var(--b2s-color-success);
   }
 
   .avail__seg.is-degraded {
@@ -53,7 +53,7 @@
   }
 
   .avail__seg.is-down {
-    background: #ef4444;
+    background: var(--b2s-color-danger);
   }
 
   .avail__seg.is-unknown {

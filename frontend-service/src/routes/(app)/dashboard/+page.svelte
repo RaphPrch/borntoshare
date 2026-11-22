@@ -6,6 +6,7 @@
     data: {
     mode: 'admin' | 'user';
     payload: any;
+    activities?: Record<string, any>[];
   };
   }
 
@@ -15,5 +16,5 @@
 {#if data.mode === 'admin'}
   <AdminDashboard data={data.payload} />
 {:else}
-  <UserDashboard data={data.payload} />
+  <UserDashboard data={data.payload} activities={data.activities ?? []} />
 {/if}

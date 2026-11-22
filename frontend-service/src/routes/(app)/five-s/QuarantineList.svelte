@@ -112,7 +112,7 @@
   .ql { grid-template-columns: 24px minmax(240px, 2fr) 110px 150px 170px 110px; align-items: start; }
   .ql.has-folder { grid-template-columns: 24px minmax(240px, 2fr) minmax(140px, 1fr) 110px 150px 170px 110px; }
   .ql code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ql__err { color: #b42318; font-size: var(--b2s-fs-xs); }
-  .ql__note { color: #8a4b00; font-size: var(--b2s-fs-xs); }
-  .ql__ok { display: inline-flex; gap: 4px; align-items: center; color: #1a7f37; font-size: var(--b2s-fs-xs); }
+  .ql__err { color: var(--b2s-color-danger-strong); font-size: var(--b2s-fs-xs); }
+  .ql__note { color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-xs); }
+  .ql__ok { display: inline-flex; gap: 4px; align-items: center; color: var(--b2s-color-success-strong); font-size: var(--b2s-fs-xs); }
 </style>

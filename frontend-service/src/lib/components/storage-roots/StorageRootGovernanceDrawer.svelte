@@ -199,7 +199,7 @@
     margin-top: 7px;
     font-size: var(--b2s-fs-lg);
     font-weight: 650;
-    color: #22324f;
+    color: var(--b2s-color-text-strong);
   }
 
   :global(.governance-drawer-shell .b2s-entity-drawer__body) {
@@ -222,7 +222,7 @@
     margin: 0;
     font-size: var(--b2s-fs-sm);
     line-height: 1.45;
-    color: #5f6f8b;
+    color: var(--b2s-color-text-muted);
   }
 
   .governance-drawer__section {

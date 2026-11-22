@@ -123,8 +123,8 @@
   .ehc__side { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
   .ehc__note { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ehc__chip.is-warning { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
-  .ehc__avatar { grid-area: icon; align-self: start; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--b2s-color-info-soft), #c9d9fb); color: var(--b2s-color-info-strong); font-size: 18px; font-weight: 700; }
+  .ehc__avatar { grid-area: icon; align-self: start; display: grid; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: linear-gradient(135deg, var(--b2s-color-info-soft), var(--b2s-accent-border)); color: var(--b2s-color-info-strong); font-size: 18px; font-weight: 700; }
   .ehc__avatar.is-off { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); }
   .ehc__avatar.is-ring { animation: ehc-ring 2.4s ease-in-out infinite; }
-  @keyframes ehc-ring { 0%, 100% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 5px #2f9e5b; } 50% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 8px rgba(47, 158, 91, 0.25); } }
+  @keyframes ehc-ring { 0%, 100% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 5px var(--b2s-color-success); } 50% { box-shadow: 0 0 0 3px var(--b2s-color-surface), 0 0 0 8px rgba(47, 158, 91, 0.25); } }
 </style>

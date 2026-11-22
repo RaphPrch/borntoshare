@@ -62,8 +62,8 @@
   .fm p { margin: 0; font-size: var(--b2s-fs-sm); }
   .fm__muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs) !important; }
   .fm__pill { padding: 1px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
-  .fm__pill.is-ok { background: var(--b2s-color-success-soft, #eaf7ee); color: var(--b2s-color-success-strong, #1a7f37); }
-  .fm__pill.is-warn { background: var(--b2s-color-warning-soft, #fff4e5); color: var(--b2s-color-warning-strong, #9a5b00); }
+  .fm__pill.is-ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
+  .fm__pill.is-warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .fm button { align-self: flex-start; }
   .fm__btns { grid-column: 1 / -1; display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
 </style>

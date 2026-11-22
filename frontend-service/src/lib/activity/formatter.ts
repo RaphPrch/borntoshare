@@ -1,5 +1,6 @@
 import { t } from '$lib/i18n';
 import { provisioningErrorMessage } from '$lib/utils/request-decision-errors';
+import { readableReason } from './reason';
 import { activityTemplates } from './templates';
 import { badgeFromEvent, resolveBadgeLabel } from './severity';
 
@@ -141,7 +142,7 @@ function varsFromEvent(ev: any) {
       actor,
     role: asStr((ctx as any)?.role),
     // Why a change was refused or failed, and what it was about
-    reason: asStr((ctx as any)?.reason) ?? asStr((ctx as any)?.message) ?? asStr((ctx as any)?.error_message) ?? '',
+    reason: readableReason(asStr((ctx as any)?.reason) ?? asStr((ctx as any)?.message) ?? asStr((ctx as any)?.error_message)),
     share: asStr((ctx as any)?.share) ?? '',
     // Quotas: the size asked or set, and the note of a refusal
     size: asStr((ctx as any)?.requested) ?? asStr((ctx as any)?.limit) ?? '',

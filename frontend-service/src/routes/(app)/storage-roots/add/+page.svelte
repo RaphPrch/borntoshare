@@ -738,7 +738,7 @@
   /* The tree: a namespace under its DFS server, a DFS server not declared as a heading */
   .server.child, .server.host { grid-template-columns: 14px minmax(0, 1fr) auto; }
   .server.child { position: relative; padding-left: 36px; }
-  .server.child::before { content: ''; position: absolute; left: 21px; top: 0; bottom: 50%; width: 9px; border-left: 1px solid var(--b2s-color-border-strong, #c9ced6); border-bottom: 1px solid var(--b2s-color-border-strong, #c9ced6); }
+  .server.child::before { content: ''; position: absolute; left: 21px; top: 0; bottom: 50%; width: 9px; border-left: 1px solid var(--b2s-color-border-strong); border-bottom: 1px solid var(--b2s-color-border-strong); }
   .server.child > i { font-size: 12px; color: var(--b2s-color-text-muted); }
   .server.host { cursor: default; font-weight: 600; color: var(--b2s-color-text); }
   .server.host > i { font-size: 13px; color: var(--b2s-color-text-muted); }

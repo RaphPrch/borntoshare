@@ -17,35 +17,8 @@ export const load: PageServerLoad = async ({ fetch, locals, url }) => {
   const ssoProviders = Array.isArray(sso?.providers)
     ? sso.providers.map((p: { id: number; label: string }) => ({ id: Number(p.id), label: String(p.label) }))
     : [];
-  const common = { ssoProviders, ssoError: url.searchParams.get('sso_error'), closedForInactivity: url.searchParams.get('reason') === 'idle', redirectTo: safeInternalPath(url.searchParams.get('redirect')) };
-
-  try {
-    const res = await fetch('/api/auth/providers', {
-      headers: { accept: 'application/json' },
-      credentials: 'include'
-    });
-
-    const data = await res.json().catch(() => ({}));
-
-    return {
-      ...common,
-      providers: {
-        default: data?.default ?? 'local',
-        enabled: Array.isArray(data?.enabled) ? data.enabled : [],
-        available: Array.isArray(data?.available) ? data.available : []
-      }
-    };
-  } catch (err) {
-    // Safe fallback (offline / degraded mode)
-    return {
-      ...common,
-      providers: {
-        default: 'local',
-        enabled: ['local'],
-        available: ['local']
-      }
-    };
-  }
+  // No account type to choose: auth-service finds it from the login (local account, directory, user@domain, DOMAIN\user)
+  return { ssoProviders, ssoError: url.searchParams.get('sso_error'), closedForInactivity: url.searchParams.get('reason') === 'idle', redirectTo: safeInternalPath(url.searchParams.get('redirect')) };
 };
 
 /* -----------------------------------------

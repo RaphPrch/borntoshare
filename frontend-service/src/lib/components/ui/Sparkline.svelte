@@ -32,8 +32,8 @@
 
 <style>
   .spark { flex: none; vertical-align: middle; }
-  .spark polyline { stroke: #64748b; }
-  .spark circle { fill: #64748b; }
-  .spark.is-up polyline { stroke: #b45309; }
-  .spark.is-up circle { fill: #b45309; }
+  .spark polyline { stroke: var(--b2s-accent-vivid); }
+  .spark circle { fill: var(--b2s-accent-vivid); }
+  .spark.is-up polyline { stroke: var(--b2s-color-warning-strong); }
+  .spark.is-up circle { fill: var(--b2s-color-warning-strong); }
 </style>
