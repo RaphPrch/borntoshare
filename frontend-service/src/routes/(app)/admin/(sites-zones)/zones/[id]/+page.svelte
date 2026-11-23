@@ -397,7 +397,7 @@
   ].filter(Boolean).join(" · "));
   let foldersHref = $derived(`/storage-roots?zone=${currentZoneId ?? ""}`);
 
-  // Folders whose test failed or whose ACL has a gap, on servers that answer: read again by the worker
+  // Folders whose test failed, on servers that answer: read again by the worker
   async function rereadFolders() {
     showRereadConfirm = false;
     const ids = summary.reread.map((root) => root.id);
@@ -411,6 +411,8 @@
       }
       toast.success(t('{count} folder(s) queued for a test and an ACL read.', { count: queued }));
       await invalidateAll();
+      // The worker reads them in the background: the to-do is read again once it had time to answer
+      for (const delay of [20000, 60000]) setTimeout(() => void invalidateAll(), delay);
     } catch (e: any) {
       toast.error(String(e?.message ?? t('The action failed.')));
     } finally {
@@ -883,6 +885,7 @@
           onOpenServer={(id) => goto(`/admin/storage-endpoints/${id}`)}
           onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
           onReread={() => (showRereadConfirm = true)}
+          onOpenAclGaps={() => goto(`/storage-roots?q=${encodeURIComponent(`zone:"${String(data.zone?.name ?? '')}" alerte:acl`)}`)}
           onOpenRequests={() => goto("/access-requests?status=pending")}
           onOpenProvisioning={() => setTab("provisioning")}
         />

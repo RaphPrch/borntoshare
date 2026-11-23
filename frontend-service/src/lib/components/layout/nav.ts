@@ -77,9 +77,11 @@ export function buildNav(ctx: NavContext): NavSection[] {
       label: 'Administration',
       items: ctx.admin
         ? [
-            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/zones'],
-              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' },
-              tabs: [{ href: '/admin/storage-endpoints', label: t('Servers'), menu: false }, { href: '/admin/zones', label: t('Zones') }] },
+            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack',
+              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' } },
+            // Zones: an entry of their own (no longer a tab of the servers)
+            { href: '/admin/zones', label: 'Zones', icon: 'bi-geo-alt',
+              action: { href: '/admin/zones/new', label: t('Add a zone'), icon: 'bi-plus-lg' } },
             { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'],
               tabs: [{ href: '/admin/identity', label: t('Identities'), menu: false }, { href: '/admin/identity/admins', label: t('Administrators') }, { href: '/admin/identity-sources', label: t('Directories') }] },
             { href: '/admin/advanced-settings', label: 'Settings', icon: 'bi-sliders', also: ['/admin/tags'],

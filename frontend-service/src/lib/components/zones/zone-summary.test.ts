@@ -27,7 +27,8 @@ assert(zone.reachable === 1 && zone.unreachable.map((s) => s.id).join() === '2',
 assert(zone.review.map((r) => r.id).join() === '10,11' || zone.review.map((r) => r.id).join() === '11,10', 'only open alerts count');
 assert(zone.review.every((r) => r.blocking), 'critical and high alerts block');
 assert(zone.noGuardian.map((r) => r.id).join() === '10', 'missing guardians');
-assert(zone.reread.map((r) => r.id).join() === '10', 'a folder of an unreachable server is not read again');
+assert(zone.reread.length === 0, 'a gap in the ACL is not settled by a new read');
+assert(zone.aclGap.map((r) => r.id).join() === '10', 'a folder of an unreachable server is not listed (its server first)');
 assert(zone.servers[0].roots === 2 && zone.servers[0].review === 1, 'counts per server');
 assert(summarizeZone(endpoints, roots, alerts, (id) => (id === 2 ? 'checking' : null)).unreachable.length === 0, 'a running test overrides');
 console.log('zone-summary OK');

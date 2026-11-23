@@ -32,6 +32,8 @@
     onOpenRequests?: () => void;
     onOpenShares?: () => void;
     onOpenProvisioning?: () => void;
+    /** The folders of this server with a gap in their ACL (the folders page, filtered) */
+    onOpenAclGaps?: () => void;
   }
 
   let {
@@ -53,7 +55,8 @@
     onReread = () => {},
     onOpenRequests = () => {},
     onOpenShares = () => {},
-    onOpenProvisioning = () => {}
+    onOpenProvisioning = () => {},
+    onOpenAclGaps = () => {}
   }: Props = $props();
 
   let steps: EntityTodoStep[] = $state([]);
@@ -98,7 +101,11 @@
         ? [{ key: 'guardians', tone: 'warn' as const, icon: 'bi-person-plus', title: t('{count} folder(s) without guardian', { count: summary.noGuardian.length }), detail: t('Only the administrators can approve their requests'), label: t('Add guardians'), run: onAddGuardians }]
         : []),
       ...(summary.reread.length
-        ? [{ key: 'reread', tone: 'warn' as const, icon: 'bi-arrow-clockwise', title: t('{count} folder(s) to read again', { count: summary.reread.length }), detail: t('Failed test or gap in the ACL'), label: rereadBusy ? t('Reading…') : t('Read the ACLs'), busy: rereadBusy, run: onReread }]
+        ? [{ key: 'reread', tone: 'warn' as const, icon: 'bi-arrow-clockwise', title: t('{count} folder(s) to read again', { count: summary.reread.length }), detail: t('Failed test: a new test and ACL read settles it'), label: rereadBusy ? t('Reading…') : t('Read the ACLs'), busy: rereadBusy, run: onReread }]
+        : []),
+      ...($governanceEnabled && summary.aclGap.length
+        ? [{ key: 'acl-gap', tone: 'warn' as const, icon: 'bi-shield-exclamation', title: t('{count} folder(s) with a gap in the ACL', { count: summary.aclGap.length }),
+            detail: t('Rights set outside BornToShare, or a group missing: a new read does not settle it'), label: t('See the folders'), run: onOpenAclGaps }]
         : []),
       ...($governanceEnabled && pendingRequests
         ? [{ key: 'requests', tone: 'info' as const, icon: 'bi-envelope', title: t('{count} pending request(s)', { count: pendingRequests }), detail: t('To decide by the guardians of the folders'), label: t('See the requests'), run: onOpenRequests }]
@@ -106,9 +113,6 @@
       ...(provisioningWarnings.length
         ? [{ key: 'provisioning', tone: 'warn' as const, icon: 'bi-shield-exclamation', title: t('Provisioning to complete'), detail: provisioningWarnings.join(' · '), label: t('See the provisioning'), run: onOpenProvisioning }]
         : []),
-      ...(sharesNotManaged
-        ? [{ key: 'shares', tone: 'info' as const, icon: 'bi-folder-plus', title: t('{count} share(s) not managed', { count: sharesNotManaged }), detail: t('Found on the server, not governed by BornToShare yet'), label: t('See the shares'), run: onOpenShares }]
-        : [])
     ];
   });
 </script>

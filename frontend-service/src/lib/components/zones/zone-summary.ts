@@ -29,6 +29,8 @@ export type ZoneRoot = {
   blocking: boolean;
   noGuardian: boolean;
   reread: boolean;
+  /** Rights outside BornToShare or a group missing from the ACL: a new read alone does not settle it */
+  aclGap: boolean;
   pending: boolean;
   review: boolean;
   label: string;
@@ -44,9 +46,13 @@ export type ZoneSummary = {
   review: ZoneRoot[];
   noGuardian: ZoneRoot[];
   reread: ZoneRoot[];
+  aclGap: ZoneRoot[];
 };
 
-const PROBE_OR_ACL = ['root_probe_failed', 'root_probe_unknown', 'acl_principal_not_governed', 'acl_inherited_not_governed', 'acl_profile_missing', 'ad_group_read_failed'];
+// A new test and read settles these…
+const TO_READ_AGAIN = ['root_probe_failed', 'root_probe_unknown', 'ad_group_read_failed'];
+// …not these: the ACL itself has to change (or the gap be accepted)
+const ACL_GAP = ['acl_principal_not_governed', 'acl_inherited_not_governed', 'acl_profile_missing'];
 
 const num = (value: unknown): number => {
   const n = Number(value ?? 0);
@@ -101,7 +107,8 @@ export function summarizeZone(
       blocking,
       noGuardian: types.includes('missing_guardian'),
       // Read again only where the server answers: an unreachable server is settled first
-      reread: !serverDown && types.some((type) => PROBE_OR_ACL.includes(type)),
+      reread: !serverDown && types.some((type) => TO_READ_AGAIN.includes(type)),
+      aclGap: !serverDown && types.some((type) => ACL_GAP.includes(type)),
       pending: types.includes('pending_access_validation'),
       review: list.length > 0,
       label: worst ? alertTitle(worst) : ''
@@ -127,6 +134,7 @@ export function summarizeZone(
     roots,
     review,
     noGuardian: roots.filter((root) => root.noGuardian),
-    reread: roots.filter((root) => root.reread)
+    reread: roots.filter((root) => root.reread),
+    aclGap: roots.filter((root) => root.aclGap)
   };
 }

@@ -5801,5 +5801,10 @@
   "Two guardians are better: one decides when the other is away.": "Deux gardiens, c'est mieux : l'un décide quand l'autre est absent.",
   "What it means": "Ce que ça veut dire",
   "What to do": "Que faire",
-  "Why": "Pourquoi"
+  "Why": "Pourquoi",
+  "{count} folder(s) with a gap in the ACL": "{count} dossier(s) avec un écart dans l'ACL",
+  "Rights set outside BornToShare, or a group missing: a new read does not settle it": "Droits posés hors BornToShare, ou groupe manquant : une nouvelle lecture ne le règle pas",
+  "Failed test: a new test and ACL read settles it": "Test en échec : un nouveau test et une relecture de l'ACL le règlent",
+  "Failed test, on a server that answers: a new test and ACL read settles it": "Test en échec, sur un serveur qui répond : un nouveau test et une relecture de l'ACL le règlent",
+  "{count} folder(s) out of {total}": "{count} dossier(s) sur {total}"
 }
