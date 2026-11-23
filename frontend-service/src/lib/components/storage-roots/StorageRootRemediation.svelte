@@ -123,8 +123,8 @@
 <style>
   .rm { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-info-soft); font-size: var(--b2s-fs-sm); }
   .rm > i { margin-top: 2px; color: var(--b2s-color-info-strong); }
-  .rm.is-late { background: var(--b2s-color-danger-soft, #fdecea); }
-  .rm.is-late > i, .rm.is-late b { color: var(--b2s-color-danger-strong, #b42318); }
+  .rm.is-late { background: var(--b2s-color-danger-soft); }
+  .rm.is-late > i, .rm.is-late b { color: var(--b2s-color-danger-strong); }
   .rm div { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
   .rm small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .rm__ask { align-self: flex-start; }
@@ -135,5 +135,5 @@
   .rm__form label.rm__wide { grid-column: 2 / -1; }
   .rm__hint { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .rm__btns { display: flex; justify-content: flex-end; gap: 8px; }
-  .rm__done { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-success-strong, #1a7f37); font-size: var(--b2s-fs-sm); }
+  .rm__done { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-success-strong); font-size: var(--b2s-fs-sm); }
 </style>

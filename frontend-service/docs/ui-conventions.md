@@ -14,6 +14,10 @@ One element, one shared component or class. Before styling something locally, us
 | Empty list | `EmptyStateInline` (one sentence) or `EmptyState` (title, text, action) |
 | Confirmation | `ConfirmActionModal` / `ConfirmDeleteDialog`; a final deletion asks to type the name (`confirmName`) |
 | Page head, figures, list of a v2 screen | classes of `styles/v2.css`: `v2-head`, `v2-stats`/`v2-stat`, `v2-list`/`v2-row`, `v2-pager`, `v2-bulk` |
+| Layout of a page | grey page, white cards: each `v2-sec` is a card (not inside a `v2-ws`, which is already one); `v2-stat` is a KPI card, optional icon first: `<i class="bi bi-… [is-warn\|is-bad\|is-info]">` |
+| Status pill | `StatusBadge`; `v2-tag` and `sg-tag` have the same size and colors (soft background, `-border`, `-strong` text) |
+| Motion | `MOTION` / `pop` / `dur` from `utils/motion.ts` for a panel that opens (`in:pop`, `out:fade`), `slide` for one that unfolds; hover and selection transitions, keyboard focus ring and `<details>` animation are global in `app.css` (« Micro-interactions »), all off under `prefers-reduced-motion` |
+| Filter or tab selected | teal: `v2-seg`, `sg-seg`, `SegmentedFilter` filled; `v2-tabs` underlined; a selected card or chip gets `--b2s-accent` border, never the text color |
 | Several pages under one menu entry | `tabs` of the item in `layout/nav.ts` (drawn by `SectionTabs`), not a tab bar in the page |
 | Right-click on a row (folder, job, tag, policy, identity…) | `ContextMenu` with the row's actions; the same actions stay reachable by a visible button (`⋯`) |
 | Loading | `LoadingState`: inline spinner in a line; in a panel, list or drawer a skeleton (`block`, `skeleton="rows"` or `"detail"`) |
@@ -30,3 +34,22 @@ Behaviour:
 - Every audited event has a wording in `activity/templates.ts` (a core test checks it).
 - Desktop only: no mobile layout.
 - Prefer the CSS tokens (`--b2s-color-*`, `--b2s-radius-*`, `--b2s-fs-*`, `--b2s-focus-ring`) to hard-coded colors.
+
+## Colors
+
+Theme « teal / petrol », defined once in `styles/tokens.css` (the installer `wizard-ui/backend/app/static/style.css` repeats the same values).
+Pick a color by its role, never by its look:
+
+| Role | Token |
+|---|---|
+| Primary action, selected item, active tab, link | `--b2s-accent` (white text on it), hover `--b2s-accent-strong` |
+| Selected row, soft highlight | `--b2s-accent-soft` (+ `--b2s-accent-border`) |
+| Icon, marker, progress, focus outline (never text) | `--b2s-accent-vivid`; focus halo `--b2s-focus-ring` |
+| Dark surface: top bar, bulk-action bar, tooltip, code | `--b2s-topbar-bg` (+ `-hover`, `-line`, `-muted` on it) |
+| Brand green: logo, login headline only, dark text on it | `--b2s-brand` |
+| Page / card / quiet background | `--b2s-bg` / `--b2s-color-surface` / `--b2s-color-surface-soft`, `-muted` |
+| Text | `--b2s-color-heading`, `-text`, `-text-soft`, `-text-muted`, `-text-faint` |
+| States | `--b2s-color-{success,warning,danger,info}` + `-strong` (text), `-soft` (background), `-border` |
+
+Data colors stay outside the theme: tag colors (`utils/tag-colors.ts`), group / SSO purple, zone and server icons.
+SVG presentation attributes (`stroke=`, `fill=`) do not read CSS variables: set the color in CSS (`currentColor`) or reuse the token value.

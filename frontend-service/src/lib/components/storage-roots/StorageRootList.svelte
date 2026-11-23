@@ -88,7 +88,7 @@
     if (Number(row.sensitive_files ?? 0) > 0) return { label: t('{count} flagged', { count: Number(row.sensitive_files) }), tone: 'warn' };
     return { label: t('Nothing found'), tone: 'ok' };
   }
-  const ringTone = (score: number | null) => (score == null ? '#cdd2db' : score >= 80 ? '#16a06a' : score >= 60 ? '#d97706' : '#dc3545');
+  const ringTone = (score: number | null) => (score == null ? '#d5dee6' : score >= 80 ? '#138a5c' : score >= 60 ? '#c27a12' : '#d0435a');
   const C13 = 2 * Math.PI * 13;
 
   // ---- filters, sort, pages ----
@@ -249,7 +249,7 @@
           </div>
         </div>
         <div class="srl__ring" role="img" aria-label={t('5S score {value}', { value: score ?? '—' })}>
-          <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="13" fill="none" stroke="#eef0f3" stroke-width="4"></circle>
+          <svg viewBox="0 0 34 34" aria-hidden="true"><circle cx="17" cy="17" r="13" fill="none" stroke="#eaeff3" stroke-width="4"></circle>
             <circle cx="17" cy="17" r="13" fill="none" stroke={ringTone(score)} stroke-width="4" stroke-linecap="round"
               stroke-dasharray={`${((C13 * (score ?? 0)) / 100).toFixed(1)} ${C13.toFixed(1)}`}></circle></svg>
           <span>{score ?? '—'}</span>
@@ -304,7 +304,7 @@
   .srl__ring svg { width: 34px; height: 34px; transform: rotate(-90deg); }
   .srl__ring span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 700; }
   .srl__tags { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
-  .srl__tg { padding: 2px 7px; border-radius: 6px; background: #f0f2f5; color: #3f4755; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .srl__tg { padding: 2px 7px; border-radius: 6px; background: var(--b2s-color-surface-muted); color: var(--b2s-color-text-soft); font-size: 11px; font-weight: 600; white-space: nowrap; }
   .srl__tg.is-auto { background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); }
   .v2-pager select { width: auto; height: 32px; }
 </style>

@@ -41,11 +41,16 @@ export const load: PageServerLoad = async (event) => {
    * ====================================================== */
   // USER MODE: aggregated overview
   if (mode === 'user') {
-    const payload = await getUserDashboardMe(fetch);
+    const [payload, activities] = await Promise.all([
+      getUserDashboardMe(fetch),
+      // Their thread of the day: their requests, their folders and tasks (the dashboard stays usable without it)
+      apiServerGetList<Record<string, unknown>>('/activity/mine?limit=150', event).catch(() => [])
+    ]);
 
     return {
       mode,
       payload,
+      activities,
       me
     };
   }
@@ -53,8 +58,9 @@ export const load: PageServerLoad = async (event) => {
   // ADMIN MODE: platform KPI (core-service is the source of truth)
   const [stats, activities] = await Promise.all([
     getDashboardPlatformOverviewServer(event),
-    // The card shows the last business actions; the dashboard stays usable if the activity log is down
-    apiServerGetList<Record<string, unknown>>('/activity/latest?limit=100&business_only=true', event).catch(() => [])
+    // The thread of the day keeps the problems of the platform among the last business actions (10 shown);
+    // the dashboard stays usable if the activity log is down
+    apiServerGetList<Record<string, unknown>>('/activity/latest?limit=300&business_only=true', event).catch(() => [])
   ]);
 
   return {

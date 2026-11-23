@@ -5,16 +5,27 @@
   import { formatDate } from '$lib/utils/format';
   import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
   import type { DashboardRequest, UserDashboardMePayload } from '$lib/api/dashboard';
+  import ThreadOfTheDay from './ThreadOfTheDay.svelte';
 
   interface Props {
     /** Dashboard of a user who is not an administrator; a guardian also sees the requests on their folders. */
     data: UserDashboardMePayload;
+    /** Their activity (requests, guarded folders, tasks), newest first */
+    activities?: Record<string, any>[];
   }
 
-  let { data }: Props = $props();
+  let { data, activities = [] }: Props = $props();
 
   let guardian = $derived(data.role === 'guardian' ? data.guardian : undefined);
   let mine = $derived(data.mine);
+
+  // Thread of the day. A guardian: the tasks and the folders they guard; a user: their access requests
+  // (sent, accepted, refused, applied, in error…)
+  const aboutRequest = (event: Record<string, any>) =>
+    String(event.target_type ?? '') === 'access_request' || /access_request|^request\./.test(String(event.action ?? ''));
+  const aboutFolderOrTask = (event: Record<string, any>) =>
+    Boolean(event.root_id) || String(event.target_type ?? '') === 'storage_root' || /^job\.|acl_|ad_group|ad_access/.test(String(event.action ?? ''));
+  let thread = $derived(activities.filter(guardian ? aboutFolderOrTask : aboutRequest));
 
   const todayText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const today = todayText.charAt(0).toUpperCase() + todayText.slice(1);
@@ -50,25 +61,25 @@
     {#if guardian}
       <div class="v2-sh"><h2>{t('Folders you guard')}</h2></div>
       <div class="v2-stats">
-        <a class="v2-stat" href="/access-requests?status=pending"><small>{t('Requests to decide')}</small><b class:ud__warn={guardian.to_decide > 0}>{guardian.to_decide}</b>
+        <a class="v2-stat" href="/access-requests?status=pending"><i class="bi bi-inbox is-warn" aria-hidden="true"></i><small>{t('Requests to decide')}</small><b class:ud__warn={guardian.to_decide > 0}>{guardian.to_decide}</b>
           <span>{guardian.overdue ? t('{count} waiting for more than 3 days', { count: guardian.overdue }) : t('none overdue')}</span></a>
-        <a class="v2-stat" href="/access-requests?status=all"><small>{t('In error')}</small><b class:ud__bad={guardian.failed > 0}>{guardian.failed}</b><span>{t('Requests the file server or the directory refused')}</span></a>
-        <a class="v2-stat" href="/storage-roots?filter=review"><small>{t('Folders to look at')}</small><b class:ud__warn={guardian.folders_with_alerts > 0}>{guardian.folders_with_alerts}</b>
+        <a class="v2-stat" href="/access-requests?status=all"><i class="bi bi-exclamation-octagon is-bad" aria-hidden="true"></i><small>{t('In error')}</small><b class:ud__bad={guardian.failed > 0}>{guardian.failed}</b><span>{t('Requests the file server or the directory refused')}</span></a>
+        <a class="v2-stat" href="/storage-roots?filter=review"><i class="bi bi-folder-check is-warn" aria-hidden="true"></i><small>{t('Folders to look at')}</small><b class:ud__warn={guardian.folders_with_alerts > 0}>{guardian.folders_with_alerts}</b>
           <span>{t('{count} folder(s) guarded', { count: guardian.folders })}</span></a>
-        <a class="v2-stat" href="/access-requests?status=applied"><small>{t('Accesses in force')}</small><b>{guardian.active}</b>
+        <a class="v2-stat" href="/access-requests?status=applied"><i class="bi bi-key" aria-hidden="true"></i><small>{t('Accesses in force')}</small><b>{guardian.active}</b>
           <span>{t('{count} ending within 30 days', { count: guardian.ending_30d })}</span></a>
-        <a class="v2-stat" href="/access-requests?status=closed"><small>{t('Last 30 days')}</small><b>{guardian.approved_30d ?? 0}</b>
+        <a class="v2-stat" href="/access-requests?status=closed"><i class="bi bi-calendar-check" aria-hidden="true"></i><small>{t('Last 30 days')}</small><b>{guardian.approved_30d ?? 0}</b>
           <span>{t('accepted · {refused} refused · {revoked} revoked', { refused: guardian.refused_30d ?? 0, revoked: guardian.revoked_30d ?? 0 })}</span></a>
       </div>
     {/if}
 
     <div class="v2-sh"><h2>{t('My requests')}</h2></div>
     <div class="v2-stats">
-      <a class="v2-stat" href="/access-requests?status=pending"><small>{t('Pending')}</small><b>{mine.pending}</b><span>{t('on their way')}</span></a>
-      <a class="v2-stat" href="/storage-roots"><small>{t('Accesses in force')}</small><b>{mine.active}</b>
+      <a class="v2-stat" href="/access-requests?status=pending"><i class="bi bi-hourglass-split is-warn" aria-hidden="true"></i><small>{t('Pending')}</small><b>{mine.pending}</b><span>{t('on their way')}</span></a>
+      <a class="v2-stat" href="/storage-roots"><i class="bi bi-key" aria-hidden="true"></i><small>{t('Accesses in force')}</small><b>{mine.active}</b>
         <span>{mine.ending_30d ? t('{count} ending within 30 days', { count: mine.ending_30d }) : t('none ends within 30 days')}</span></a>
-      <a class="v2-stat" href="/access-requests?status=all"><small>{t('In error')}</small><b class:ud__bad={mine.failed > 0}>{mine.failed}</b><span>{t('to look at')}</span></a>
-      <a class="v2-stat" href="/access-requests?status=closed"><small>{t('Refused (30 days)')}</small><b>{mine.refused_30d}</b><span>{t('last 30 days')}</span></a>
+      <a class="v2-stat" href="/access-requests?status=all"><i class="bi bi-exclamation-octagon is-bad" aria-hidden="true"></i><small>{t('In error')}</small><b class:ud__bad={mine.failed > 0}>{mine.failed}</b><span>{t('to look at')}</span></a>
+      <a class="v2-stat" href="/access-requests?status=closed"><i class="bi bi-x-circle" aria-hidden="true"></i><small>{t('Refused (30 days)')}</small><b>{mine.refused_30d}</b><span>{t('last 30 days')}</span></a>
     </div>
 
     <div class="v2-cols2">
@@ -116,6 +127,11 @@
         </ul>
       </div>
     </div>
+
+    <div class="v2-sec">
+      <ThreadOfTheDay events={thread} seeAll="/observability/mine"
+        empty={guardian ? t('Nothing lately on your folders.') : t('Nothing lately on your requests.')} />
+    </div>
   {/if}
 </section>
 
@@ -123,6 +139,6 @@
   .ud { display: grid; gap: 18px; padding: var(--b2s-page-padding); }
   .ud__kick { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); font-weight: 600; }
   .ud h2 { margin: 0; font-size: 17px; font-weight: 600; }
-  .ud__warn { color: #8a4b00; }
-  .ud__bad { color: #a32626; }
+  .ud__warn { color: var(--b2s-color-warning-strong); }
+  .ud__bad { color: var(--b2s-color-danger-strong); }
 </style>

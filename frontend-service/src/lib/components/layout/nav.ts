@@ -5,7 +5,8 @@
  */
 import { t } from '$lib/i18n';
 
-export type NavTab = { href: string; label: string; also?: string[] };
+/** `menu: false`: a tab of the context bar that the ☰ menu does not repeat (the entry itself already leads there) */
+export type NavTab = { href: string; label: string; also?: string[]; menu?: boolean };
 export type NavItem = {
   href: string;
   /** Pages gathered under this entry: underlined tabs under the top bar */
@@ -37,50 +38,54 @@ export function buildNav(ctx: NavContext): NavSection[] {
     { key: 'workspace', label: 'Workspace', items: [
       { href: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', also: ['/live'] },
       // Questions on the folders, answered as lists to export (administrators and guardians)
-      ...(ctx.staff ? [{ href: '/pilot', label: 'Pilot', icon: 'bi-chat-square-text' }] : [])
+      ...(ctx.staff ? [{ href: '/pilot', label: 'Raphaël', icon: 'bi-chat-square-text' }] : [])
     ] },
     {
       key: 'governance',
       label: 'Governance',
       items: [
-        { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open',
-          ...(ctx.admin ? { action: { href: '/storage-roots/add', label: t('Add folders'), icon: 'bi-plus-lg' } } : {}) },
+        // Adding folders: the « + » of the folder list (no button in the top bar)
+        { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
         ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure', '/access-reviews'], count: ctx.pending,
-            action: { href: '/access-requests/new', label: t('New request'), icon: 'bi-plus-lg' },
-            tabs: [{ href: '/access-requests', label: t('Requests') },
+            tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },
               ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }, { href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
-        ...(ctx.staff ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.admin ? ctx.critical : 0, danger: true }] : []),
+        // Administrators: the platform (health, alerts, jobs) and, as a tab, what a manager sees; managers: their own view
+        ...(ctx.admin
+          ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.critical, danger: true,
+              tabs: [{ href: '/observability', label: t('Administrator view') }, { href: '/observability/mine', label: t('Manager view') }] }]
+          : ctx.staff ? [{ href: '/observability/mine', label: 'Governance Jobs', icon: 'bi-list-task' }] : []),
         // Automations of the governance (tags, alerts, scans… on a rule): administrators
-        ...(ctx.admin ? [{ href: '/admin/policies', label: 'Policies', icon: 'bi-magic' }] : [])
+        ...(ctx.admin ? [{ href: '/policies', label: 'Policies', icon: 'bi-magic' }] : [])
       ]
     },
     {
       key: 'intelligence',
       label: 'Storage Intelligence',
-      items: [
-        ...(fives && ctx.staff
-          ? [
-              // Every page of one folder (content, 5S workshop, duplicates, rights to review, report) belongs to Explorer
-              { href: '/five-s/explore', label: 'Explorer', icon: 'bi-columns-gap', also: ['/five-s/duplicates', '/five-s/access', '/five-s/report'] },
-              { href: '/five-s/scanner', label: 'Inventory', icon: 'bi-list-ul' },
-              { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart' }
-            ]
-          : []),
-        ...(ctx.staff ? [{ href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb' }] : [])
-      ]
+      // The whole section comes with the 5S module (licensed and switched on)
+      items: fives && ctx.staff
+        ? [
+            // Every page of one folder (content, 5S workshop, duplicates, rights to review, report) belongs to Explorer
+            { href: '/five-s/explore', label: 'Explorer', icon: 'bi-columns-gap', also: ['/five-s/duplicates', '/five-s/access', '/five-s/report'] },
+            { href: '/five-s/scanner', label: 'Inventory', icon: 'bi-list-ul' },
+            { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart' },
+            { href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb' }
+          ]
+        : []
     },
     {
       key: 'administration',
       label: 'Administration',
       items: ctx.admin
         ? [
-            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/zones'],
-              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' },
-              tabs: [{ href: '/admin/storage-endpoints', label: t('Servers') }, { href: '/admin/zones', label: t('Zones') }] },
+            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack',
+              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' } },
+            // Zones: an entry of their own (no longer a tab of the servers)
+            { href: '/admin/zones', label: 'Zones', icon: 'bi-geo-alt',
+              action: { href: '/admin/zones/new', label: t('Add a zone'), icon: 'bi-plus-lg' } },
             { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'],
-              tabs: [{ href: '/admin/identity', label: t('Identities') }, { href: '/admin/identity/admins', label: t('Administrators') }, { href: '/admin/identity-sources', label: t('Directories') }] },
+              tabs: [{ href: '/admin/identity', label: t('Identities'), menu: false }, { href: '/admin/identity-sources', label: t('Directories') }] },
             { href: '/admin/advanced-settings', label: 'Settings', icon: 'bi-sliders', also: ['/admin/tags'],
-              tabs: [{ href: '/admin/advanced-settings', label: t('Settings') }, { href: '/admin/tags', label: t('Tags') }] }
+              tabs: [{ href: '/admin/advanced-settings', label: t('Settings'), menu: false }, { href: '/admin/tags', label: t('Tags') }] }
           ]
         : []
     }

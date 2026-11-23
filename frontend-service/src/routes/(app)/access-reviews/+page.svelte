@@ -149,10 +149,10 @@
     <LoadingState block skeleton="rows" rows={4} />
   {:else}
     <div class="v2-stats">
-      <div class="v2-stat"><span>{t('Reviews in progress')}</span><b>{opened.length}</b><small>{t('{count} access(es) concerned', { count: opened.reduce((sum, review) => sum + review.total, 0) })}</small></div>
-      <div class="v2-stat"><span>{t('Accesses still to review')}</span><b>{toReview}</b><small>{t('in the reviews in progress')}</small></div>
-      <div class="v2-stat"><span>{t('Nearest due date')}</span><b class:rl__warn={nearest && (daysLeft(nearest.due_at) ?? 99) <= 7}>{nearest ? dueLabel(nearest).label : '—'}</b><small>{nearest?.name ?? t('No review in progress')}</small></div>
-      <div class="v2-stat"><span>{t('Removals to apply')}</span><b class:rl__bad={toApply > 0}>{toApply}</b><small>{t('decided, not done yet')}</small></div>
+      <div class="v2-stat"><i class="bi bi-clipboard-check" aria-hidden="true"></i><small>{t('Reviews in progress')}</small><b>{opened.length}</b><span>{t('{count} access(es) concerned', { count: opened.reduce((sum, review) => sum + review.total, 0) })}</span></div>
+      <div class="v2-stat"><i class="bi bi-people" aria-hidden="true"></i><small>{t('Accesses still to review')}</small><b>{toReview}</b><span>{t('in the reviews in progress')}</span></div>
+      <div class="v2-stat"><i class="bi bi-calendar-event is-warn" aria-hidden="true"></i><small>{t('Nearest due date')}</small><b class:rl__warn={nearest && (daysLeft(nearest.due_at) ?? 99) <= 7}>{nearest ? dueLabel(nearest).label : '—'}</b><span>{nearest?.name ?? t('No review in progress')}</span></div>
+      <div class="v2-stat"><i class="bi bi-person-dash is-bad" aria-hidden="true"></i><small>{t('Removals to apply')}</small><b class:rl__bad={toApply > 0}>{toApply}</b><span>{t('decided, not done yet')}</span></div>
     </div>
 
     <div class="v2-seg rl__tabs" role="group" aria-label={t('Reviews')}>
@@ -262,8 +262,8 @@
 
 <style>
   .rl { display: grid; gap: 18px; }
-  .rl__warn { color: #8a4b00; }
-  .rl__bad { color: #a32626; }
+  .rl__warn { color: var(--b2s-color-warning-strong); }
+  .rl__bad { color: var(--b2s-color-danger-strong); }
   .rl__tabs { justify-self: start; }
   .rl__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .rl__card { display: grid; gap: 12px; padding: 18px; border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; background: #fff; }
@@ -274,17 +274,17 @@
   .rl__card h2 a:hover { text-decoration: underline; }
   .rl__card header p { margin: 4px 0 0; color: var(--b2s-color-text-muted); font-size: 13px; }
   .rl__due { flex: none; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; white-space: nowrap; }
-  .rl__due.is-ok { background: #eef0f4; color: #3f4755; }
-  .rl__due.is-warn { background: #fdefd9; color: #8a4b00; }
-  .rl__due.is-bad { background: #fce6e6; color: #a32626; }
-  .rl__due.is-mut { background: #f6f7f9; color: var(--b2s-color-text-muted); }
-  .rl__bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #eef0f4; }
+  .rl__due.is-ok { background: var(--b2s-color-surface-muted); color: var(--b2s-color-text-soft); }
+  .rl__due.is-warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .rl__due.is-bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+  .rl__due.is-mut { background: var(--b2s-color-surface-soft); color: var(--b2s-color-text-muted); }
+  .rl__bar { display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: var(--b2s-color-surface-muted); }
   .rl__bar i { display: block; height: 100%; }
-  .rl__bar .is-keep, .rl__dot.is-keep { background: #0e1218; }
-  .rl__bar .is-revoke, .rl__dot.is-revoke { background: #c23a3a; }
+  .rl__bar .is-keep, .rl__dot.is-keep { background: var(--b2s-accent); }
+  .rl__bar .is-revoke, .rl__dot.is-revoke { background: var(--b2s-color-danger-strong); }
   .rl__legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: -4px 0 0; color: var(--b2s-color-text-soft); font-size: 12.5px; }
   .rl__legend span { display: inline-flex; align-items: center; gap: 6px; }
-  .rl__dot { width: 9px; height: 9px; border-radius: 3px; background: #dde1e8; }
+  .rl__dot { width: 9px; height: 9px; border-radius: 3px; background: var(--b2s-color-neutral-soft); }
   .rl__card footer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .rl__note { flex: 1 1 200px; color: var(--b2s-color-text-muted); font-size: 12.5px; }
   .rl__form { display: grid; gap: 18px; }
@@ -292,21 +292,21 @@
   .rl__field legend { margin-bottom: 8px; padding: 0; font-weight: 500; }
   .rl__scopes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
   .rl__scopes button { display: grid; gap: 2px; padding: 10px 12px; border: 1px solid var(--b2s-color-border-soft); border-radius: 10px; background: #fff; font: inherit; text-align: left; cursor: pointer; }
-  .rl__scopes button.is-on { border-color: #0e1218; box-shadow: inset 0 0 0 1px #0e1218; }
+  .rl__scopes button.is-on { border-color: var(--b2s-accent); box-shadow: inset 0 0 0 1px var(--b2s-accent); }
   .rl__scopes b { font-size: 13px; font-weight: 600; }
   .rl__scopes small, .rl__check small, .rl__muted { color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 400; }
   .rl__found { display: grid; gap: 2px; max-height: 240px; overflow: auto; padding: 6px; border: 1px solid var(--b2s-color-border-soft); border-radius: 10px; }
   .rl__found .b2s-link-btn { justify-self: start; margin: 2px 4px 6px; font-size: 12.5px; }
   .rl__check { display: flex; gap: 8px; align-items: center; padding: 4px; border-radius: 6px; font-weight: 400; cursor: pointer; }
-  .rl__check:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .rl__check:hover { background: var(--b2s-color-surface-soft); }
   .rl__check span { display: grid; }
   .rl__chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .rl__chip { display: inline-flex; gap: 4px; align-items: center; padding: 3px 6px 3px 10px; border: 0; border-radius: 999px; background: #eef0f4; font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
+  .rl__chip { display: inline-flex; gap: 4px; align-items: center; padding: 3px 6px 3px 10px; border: 0; border-radius: 999px; background: var(--b2s-color-surface-muted); font: inherit; font-size: 12px; font-weight: 500; cursor: pointer; }
   .rl__more { color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 400; }
   .rl__dues { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .rl__dues button { height: 32px; padding: 0 12px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: #fff; font: inherit; font-size: 13px; font-weight: 400; cursor: pointer; }
-  .rl__dues button.is-on { border-color: #0e1218; background: #0e1218; color: #fff; }
+  .rl__dues button.is-on { border-color: var(--b2s-accent); background: var(--b2s-accent); color: #fff; }
   .rl__dues input { width: 160px; height: 32px; }
-  .rl__preview { display: grid; gap: 6px; padding: 14px; border-radius: 12px; background: #f6f7f9; font-size: 13px; }
+  .rl__preview { display: grid; gap: 6px; padding: 14px; border-radius: 12px; background: var(--b2s-color-surface-soft); font-size: 13px; }
   .rl__preview b { font-weight: 600; }
 </style>

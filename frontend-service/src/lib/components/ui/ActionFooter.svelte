@@ -49,7 +49,7 @@
     display: inline-flex;
     align-items: center;
     gap: 8px;
-    color: #9a6a05;
+    color: var(--b2s-color-warning-strong);
     font-size: var(--b2s-fs-sm);
     font-weight: 600;
   }
@@ -58,7 +58,7 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: #d8a439;
+    background: var(--b2s-color-warning);
   }
 
   .b2s-action-footer__actions {

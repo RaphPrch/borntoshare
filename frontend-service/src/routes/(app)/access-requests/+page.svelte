@@ -699,6 +699,8 @@
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search access requests')} placeholder={t('Search requester, resource, path…')} bind:value={searchText} />
     </label>
+    <!-- The new request starts from the list of the requests only (not from Exposure or Reviews) -->
+    <a class="b2s-btn b2s-btn-primary ar-new" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New request')}</a>
   </header>
 
   <QuotaRequestsStrip isAdmin={me?.is_admin === true} />
@@ -1169,15 +1171,15 @@
     border-radius: 18px;
     background: var(--b2s-color-text);
     color: #fff;
-    box-shadow: 0 16px 36px rgba(14, 18, 24, 0.28);
+    box-shadow: 0 16px 36px rgba(18, 59, 73, 0.28);
     animation: ar-rise 180ms ease-out;
   }
   @keyframes ar-rise { from { opacity: 0; transform: translate(-50%, 12px); } }
-  .ar-table tr.is-quick td { background: #F7FCEC; }
-  .ar-quick { display: inline-grid; gap: 4px; font-size: var(--b2s-fs-xs); font-weight: 600; color: #3F6212; }
-  .ar-quick__bar { display: block; height: 3px; border-radius: 999px; background: #B5F23B; animation: ar-count 5s linear forwards; transform-origin: left; }
+  .ar-table tr.is-quick td { background: var(--b2s-accent-soft); }
+  .ar-quick { display: inline-grid; gap: 4px; font-size: var(--b2s-fs-xs); font-weight: 600; color: var(--b2s-accent-strong); }
+  .ar-quick__bar { display: block; height: 3px; border-radius: 999px; background: var(--b2s-accent-vivid); animation: ar-count 5s linear forwards; transform-origin: left; }
   @keyframes ar-count { to { transform: scaleX(0); } }
-  .ar-done { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: #B5F23B; color: #0E1218; font-size: var(--b2s-fs-xs); font-weight: 700; animation: ar-pulse 1.4s ease-out 2; }
+  .ar-done { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--b2s-brand); color: var(--b2s-topbar-bg); font-size: var(--b2s-fs-xs); font-weight: 700; animation: ar-pulse 1.4s ease-out 2; }
   @keyframes ar-pulse { 0% { box-shadow: 0 0 0 0 rgba(181, 242, 59, 0.75); } 70% { box-shadow: 0 0 0 10px rgba(181, 242, 59, 0); } 100% { box-shadow: 0 0 0 0 rgba(181, 242, 59, 0); } }
 
   .ar-bulk strong {
@@ -1539,16 +1541,16 @@
     font-size: var(--b2s-fs-sm);
     resize: vertical;
   }
-  .ar-reason { display: flex; flex-direction: column; gap: 2px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--b2s-color-danger-border, #f0c4c4); border-radius: var(--b2s-radius-md); background: var(--b2s-color-danger-soft); font-size: var(--b2s-fs-sm); }
+  .ar-reason { display: flex; flex-direction: column; gap: 2px; margin: 0 0 10px; padding: 10px 12px; border: 1px solid var(--b2s-color-danger-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-danger-soft); font-size: var(--b2s-fs-sm); }
   .ar-reason strong { color: var(--b2s-color-danger-strong); }
   .ar-counters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; }
   .ar-counters button { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); text-align: left; cursor: pointer; }
-  .ar-counters button.on { border-color: var(--b2s-color-text); box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
+  .ar-counters button.on { border-color: var(--b2s-accent); box-shadow: inset 0 0 0 1px var(--b2s-accent); }
   .ar-counters span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ar-counters b { font-size: 22px; font-weight: 600; line-height: 1.2; }
   .ar-counters b.warn { color: var(--b2s-color-warning-strong); }
   .ar-end { min-width: 90px; }
-  .ar-bar { display: block; height: 4px; margin-top: 4px; overflow: hidden; border-radius: 99px; background: var(--b2s-color-border-soft, #e9ebf0); }
+  .ar-bar { display: block; height: 4px; margin-top: 4px; overflow: hidden; border-radius: 99px; background: var(--b2s-color-border-soft); }
   .ar-bar span { display: block; height: 4px; background: var(--b2s-color-info); }
   .ar-bar span.soon { background: var(--b2s-color-warning); }
   .ar-dim { color: var(--b2s-color-text-muted); }
@@ -1556,4 +1558,5 @@
   .ar-foot span { margin-right: auto; }
   .ar-person small { white-space: nowrap; }
   .ar-filters__end { margin-left: auto; }
+  .ar-new { min-height: 44px; }
 </style>

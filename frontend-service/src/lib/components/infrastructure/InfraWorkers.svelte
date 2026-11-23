@@ -529,8 +529,8 @@
   }
 
   .queue.is-busy {
-    background: #e0e7ff;
-    color: #3730a3;
+    background: var(--b2s-accent-soft);
+    color: var(--b2s-accent-strong);
   }
 
   .chip {
@@ -539,8 +539,8 @@
     gap: 5px;
     padding: 3px 8px;
     border-radius: var(--b2s-radius-pill);
-    border: 1px solid #fde68a;
-    background: #fffbeb;
+    border: 1px solid var(--b2s-color-warning-border);
+    background: var(--b2s-color-warning-soft);
     font-size: var(--b2s-fs-xs);
     color: var(--b2s-color-warning-strong);
   }
@@ -632,8 +632,8 @@
 
   .f input:focus {
     outline: 0;
-    border-color: #8db5ff;
-    box-shadow: 0 0 0 3px rgba(11, 99, 244, 0.12);
+    border-color: var(--b2s-accent-vivid);
+    box-shadow: 0 0 0 3px rgba(7, 156, 156, 0.12);
   }
 
   .toggles {
@@ -689,13 +689,13 @@
   .result.is-healthy {
     background: var(--b2s-color-success-soft);
     border-color: var(--b2s-color-success-border);
-    color: #14532d;
+    color: var(--b2s-color-success-strong);
   }
 
   .result.is-degraded {
-    background: #fffbeb;
-    border-color: #fde68a;
-    color: #78350f;
+    background: var(--b2s-color-warning-soft);
+    border-color: var(--b2s-color-warning-border);
+    color: var(--b2s-color-warning-strong);
   }
 
   .result.is-down,

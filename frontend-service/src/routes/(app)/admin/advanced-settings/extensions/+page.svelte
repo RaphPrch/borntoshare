@@ -463,7 +463,7 @@
   .ext__routing table, .ext__log { width: 100%; border-collapse: collapse; }
   .ext__routing th, .ext__routing td, .ext__log th, .ext__log td { padding: 10px 12px; border-bottom: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); text-align: left; }
   .ext__routing td:not(:first-child), .ext__routing th:not(:first-child) { text-align: center; }
-  .ext__routing th, .ext__log th { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .ext__routing th, .ext__log th { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; background: var(--b2s-color-surface-soft); }
   .ext__routing tr.ext__sub td:first-child { padding-left: 28px; }
   .ext__routing tr.ext__sub td { padding-top: 6px; padding-bottom: 6px; }
   .ext__routing td small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
@@ -478,7 +478,7 @@
   .ext__grid label, .ext__field { display: flex; flex-direction: column; gap: 5px; font-size: var(--b2s-fs-sm); font-weight: 600; }
   .ext__grid small { color: var(--b2s-color-text-muted); font-weight: 400; font-size: var(--b2s-fs-xs); }
   .ext__field > span { font-weight: 600; }
-  .ext__preview { display: block; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); font-weight: 400; white-space: pre-wrap; word-break: break-all; color: var(--b2s-color-text-muted); }
+  .ext__preview { display: block; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft); font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); font-weight: 400; white-space: pre-wrap; word-break: break-all; color: var(--b2s-color-text-muted); }
   .ext__preview.is-token { color: var(--b2s-color-text); font-size: var(--b2s-fs-sm); user-select: all; }
   .ext__result { margin: 0; padding: 10px 12px; border-radius: var(--b2s-radius-md); font-size: var(--b2s-fs-sm); }
   .ext__result.is-ok { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }

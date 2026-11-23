@@ -24,22 +24,55 @@ def fives_url() -> str:
 _installed: dict[str, Any] = {"at": 0.0, "value": False}
 
 
+def _fives_health() -> bool:
+    url = fives_url()
+    if not url:
+        return False
+    try:
+        response = httpx.get(f"{url}/health", timeout=2)
+        return response.status_code == 200 and response.json().get("schema") is True
+    except (httpx.HTTPError, ValueError):
+        return False
+
+
+def _refresh_fives_installed() -> None:
+    import time
+
+    value = False
+    try:
+        value = _fives_health()
+    finally:
+        _installed.update(at=time.monotonic(), value=value, probing=False)
+
+
+def warm_fives_installed() -> None:
+    """At startup: ask in a thread whether the module runs, so that the first request does not wait for the answer."""
+    import threading
+
+    if _installed["at"] or _installed.get("probing"):
+        return
+    _installed["probing"] = True
+    threading.Thread(target=_refresh_fives_installed, name="fives-health", daemon=True).start()
+
+
 def fives_installed() -> bool:
+    """Answered from the cache: a module that is gone can take seconds to fail (name resolution of a missing
+    container is not bounded by the HTTP timeout), and the routes calling this run on the event loop.
+    Only the very first question waits for the answer; later ones get the last answer while a thread refreshes it."""
+    import threading
     import time
 
     now = time.monotonic()
-    if now - _installed["at"] < (30 if _installed["value"] else 10):
-        return bool(_installed["value"])
-    url = fives_url()
-    value = False
-    if url:
-        try:
-            response = httpx.get(f"{url}/health", timeout=2)
-            value = response.status_code == 200 and response.json().get("schema") is True
-        except (httpx.HTTPError, ValueError):
-            value = False
-    _installed.update(at=now, value=value)
-    return value
+    if not _installed["at"]:
+        if _installed.get("probing"):
+            return False  # the question asked at startup is on its way: no request waits for it
+        value = _fives_health()
+        _installed.update(at=now, value=value)
+        return value
+    if now - _installed["at"] >= (30 if _installed["value"] else 10) and not _installed.get("probing"):
+        _installed["probing"] = True
+        threading.Thread(target=_refresh_fives_installed, name="fives-health", daemon=True).start()
+    return bool(_installed["value"])
 
 
 def push_measure(db: Session, storage_root_id: int, *, measured_at: datetime, bytes_: int, stats: dict[str, Any],
@@ -61,9 +94,9 @@ def push_measure(db: Session, storage_root_id: int, *, measured_at: datetime, by
 
 
 def list_runs(limit: int = 200) -> list[dict]:
-    """The scans of the 5S module (empty when it does not answer)."""
+    """The scans of the 5S module (empty when it does not answer, without asking it when it is known to be gone)."""
     url = fives_url()
-    if not url:
+    if not url or not fives_installed():
         return []
     try:
         response = httpx.get(f"{url}/internal/scans/runs", params={"limit": limit},

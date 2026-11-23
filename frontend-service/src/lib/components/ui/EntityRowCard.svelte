@@ -54,7 +54,7 @@
     justify-content: space-between;
     gap: 16px;
     padding: 18px 20px;
-    border: 1px solid #e3e8f3;
+    border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-lg);
     background: var(--b2s-color-surface-soft);
   }
@@ -82,7 +82,7 @@
   .b2s-entity-row-card__title-row strong {
     font-size: var(--b2s-fs-lg);
     font-weight: 700;
-    color: #101828;
+    color: var(--b2s-color-heading);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -96,9 +96,9 @@
     height: 22px;
     padding: 0 10px;
     border-radius: var(--b2s-radius-pill);
-    border: 1px solid #d8e0ef;
-    background: #f4f7fc;
-    color: #475467;
+    border: 1px solid var(--b2s-color-border-soft);
+    background: var(--b2s-color-surface-soft);
+    color: var(--b2s-color-text-soft);
     font-size: var(--b2s-fs-xs);
     font-weight: 700;
     display: inline-flex;
@@ -122,7 +122,7 @@
   }
 
   .b2s-entity-row-card__submeta {
-    color: #5d6f8f;
+    color: var(--b2s-color-text-muted);
   }
 
   .b2s-entity-row-card__actions {

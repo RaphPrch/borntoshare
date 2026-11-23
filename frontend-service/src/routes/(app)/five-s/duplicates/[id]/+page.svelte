@@ -146,10 +146,10 @@
       {#if folderPath}<p class="dd__scope"><i class="bi bi-funnel" aria-hidden="true"></i>{t('Duplicates of « {path} »', { path: folderPath })} · <a href={`/five-s/duplicates/${rootId}`}>{t('see all')}</a></p>{/if}
     </header>
     <section class="v2-stats">
-      <div class="v2-stat"><small>{t('Groups')}</small><b>{groups.length.toLocaleString('fr-FR')}</b></div>
-      <div class="v2-stat"><small>{t('Space lost')}</small><b>{formatBytes(total)}</b></div>
-      <div class="v2-stat"><small>{t('Decided')}</small><b>{decided.length.toLocaleString('fr-FR')} / {groups.length.toLocaleString('fr-FR')}</b></div>
-      <div class="v2-stat"><small>{t('To free once applied')}</small><b class="dd__ok-figure">{formatBytes(freed)}</b></div>
+      <div class="v2-stat"><i class="bi bi-collection" aria-hidden="true"></i><small>{t('Groups')}</small><b>{groups.length.toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><i class="bi bi-copy is-warn" aria-hidden="true"></i><small>{t('Space lost')}</small><b>{formatBytes(total)}</b></div>
+      <div class="v2-stat"><i class="bi bi-check2-square" aria-hidden="true"></i><small>{t('Decided')}</small><b>{decided.length.toLocaleString('fr-FR')} / {groups.length.toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><i class="bi bi-recycle" aria-hidden="true"></i><small>{t('To free once applied')}</small><b class="dd__ok-figure">{formatBytes(freed)}</b></div>
     </section>
     <div class="dd__tools">
       <div class="dd__seg" role="radiogroup" aria-label={t('Show')}>
@@ -233,34 +233,34 @@
   .dd__tools .b2s-input { width: 280px; }
   .dd__seg { display: inline-flex; padding: 2px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); }
   .dd__seg button { padding: 4px 12px; border: 0; border-radius: 999px; background: none; cursor: pointer; font-size: var(--b2s-fs-sm); }
-  .dd__seg button.is-on { background: var(--b2s-topbar-bg, #0e1218); color: #fff; }
+  .dd__seg button.is-on { background: var(--b2s-topbar-bg, var(--b2s-accent)); color: #fff; }
   .dd__group { border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); overflow: hidden; }
-  .dd__group.is-done { border-color: #a6d8b4; }
-  .dd__group > header { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 14px; background: var(--b2s-color-surface-muted, #f6f7f9); }
+  .dd__group.is-done { border-color: var(--b2s-color-success-border); }
+  .dd__group > header { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 14px; background: var(--b2s-color-surface-muted); }
   .dd__group > header b { display: block; font-size: 15px; }
   .dd__group > header small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .dd__fp { font-size: var(--b2s-fs-xs); color: var(--b2s-color-text-muted); white-space: nowrap; }
   .dd__group ul { margin: 0; padding: 0; list-style: none; }
-  .dd__group li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--b2s-color-border-soft, #eef1f5); }
-  .dd__group li.is-kept { background: #effaf2; }
-  .dd__group li.is-kept i { color: #1a7f37; }
+  .dd__group li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto auto; gap: 12px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--b2s-color-border-soft); }
+  .dd__group li.is-kept { background: var(--b2s-color-success-soft); }
+  .dd__group li.is-kept i { color: var(--b2s-color-success-strong); }
   .dd__group li.is-drop { opacity: 0.65; }
-  .dd__group li.is-drop i { color: #b42318; }
+  .dd__group li.is-drop i { color: var(--b2s-color-danger-strong); }
   .dd__copy { display: grid; min-width: 0; }
   .dd__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
   .dd__copy code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); color: var(--b2s-color-text-muted); }
   .dd__date { white-space: nowrap; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .dd__badge { padding: 2px 10px; border-radius: 999px; font-size: var(--b2s-fs-xs); font-weight: 600; }
-  .dd__badge.is-keep { background: #d1f0da; color: #1a7f37; }
-  .dd__badge.is-drop { background: #fde2e1; color: #b42318; }
-  .dd__group footer { padding: 8px 14px; border-top: 1px solid var(--b2s-color-border-soft, #eef1f5); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
+  .dd__badge.is-keep { background: var(--b2s-color-success-border); color: var(--b2s-color-success-strong); }
+  .dd__badge.is-drop { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+  .dd__group footer { padding: 8px 14px; border-top: 1px solid var(--b2s-color-border-soft); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .dd__empty { padding: 24px; color: var(--b2s-color-text-muted); text-align: center; }
   .dd__apply { margin-left: auto; }
-  .dd__safe { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px !important; padding: 8px 12px; border-radius: 10px; background: #effaf2; color: #14532d !important; }
-  .dd__scope { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px !important; padding: 4px 12px; border-radius: 999px; background: #EEF2FF; color: #3730A3 !important; font-size: var(--b2s-fs-sm); }
+  .dd__safe { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px !important; padding: 8px 12px; border-radius: 10px; background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong) !important; }
+  .dd__scope { display: inline-flex; gap: 6px; align-items: center; margin-top: 6px !important; padding: 4px 12px; border-radius: 999px; background: var(--b2s-accent-soft); color: var(--b2s-accent-strong) !important; font-size: var(--b2s-fs-sm); }
   .dd__more { display: block !important; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .dd__large { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-weight: 600; color: #9A3412; }
+  .dd__large { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-weight: 600; color: var(--b2s-color-warning-strong); }
   .dd__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .dd__ok-figure { color: var(--b2s-color-success-strong, #1a7f37); }
+  .dd__ok-figure { color: var(--b2s-color-success-strong); }
   .dd__qlink { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
 </style>

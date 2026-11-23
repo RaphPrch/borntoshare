@@ -192,13 +192,13 @@
     {/if}
 
     <section class="v2-stats">
-      <div class="v2-stat"><small>{t('Volume')}</small><b>{formatBytes(stats.bytes)}</b></div>
-      <div class="v2-stat"><small>{t('Files')}</small><b>{Number(stats.files ?? 0).toLocaleString('fr-FR')}</b></div>
-      <div class="v2-stat"><small>{t('Sub-folders')}</small><b>{Number(stats.folders ?? 0).toLocaleString('fr-FR')}</b></div>
-      <div class="v2-stat"><small>{t('Lost to duplicates')}</small><b class:rp__warn={(duplicates?.wasted_bytes ?? 0) > 0}>{formatBytes(duplicates?.wasted_bytes ?? 0)}</b>
+      <div class="v2-stat"><i class="bi bi-database" aria-hidden="true"></i><small>{t('Volume')}</small><b>{formatBytes(stats.bytes)}</b></div>
+      <div class="v2-stat"><i class="bi bi-files" aria-hidden="true"></i><small>{t('Files')}</small><b>{Number(stats.files ?? 0).toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><i class="bi bi-folder" aria-hidden="true"></i><small>{t('Sub-folders')}</small><b>{Number(stats.folders ?? 0).toLocaleString('fr-FR')}</b></div>
+      <div class="v2-stat"><i class="bi bi-copy is-warn" aria-hidden="true"></i><small>{t('Lost to duplicates')}</small><b class:rp__warn={(duplicates?.wasted_bytes ?? 0) > 0}>{formatBytes(duplicates?.wasted_bytes ?? 0)}</b>
         <span>{t('{groups} group(s), {files} file(s)', { groups: (duplicates?.groups ?? 0).toLocaleString('fr-FR'), files: (duplicates?.files ?? 0).toLocaleString('fr-FR') })}</span></div>
-      <div class="v2-stat"><small>{t('Not modified for 1 year')}</small><b>{formatBytes(stats.cold?.['1y']?.bytes ?? 0)}</b><span>{share(stats.cold?.['1y']?.bytes ?? 0, total)} %</span></div>
-      <div class="v2-stat"><small>{t('Clutter')}</small><b>{formatBytes(stats.junk?.bytes ?? 0)}</b><span>{t('{count} file(s)', { count: stats.junk?.files ?? 0 })}</span></div>
+      <div class="v2-stat"><i class="bi bi-clock-history" aria-hidden="true"></i><small>{t('Not modified for 1 year')}</small><b>{formatBytes(stats.cold?.['1y']?.bytes ?? 0)}</b><span>{share(stats.cold?.['1y']?.bytes ?? 0, total)} %</span></div>
+      <div class="v2-stat"><i class="bi bi-trash3 is-warn" aria-hidden="true"></i><small>{t('Clutter')}</small><b>{formatBytes(stats.junk?.bytes ?? 0)}</b><span>{t('{count} file(s)', { count: stats.junk?.files ?? 0 })}</span></div>
     </section>
 
     {#if changes}
@@ -344,7 +344,7 @@
   .rp__hint { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .rp__num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .rp__num small { color: var(--b2s-color-text-muted); }
-  .rp__bar { display: block; height: 3px; width: var(--w); max-width: 100%; margin-bottom: 4px; border-radius: 2px; background: var(--b2s-color-info-strong, #2563eb); }
+  .rp__bar { display: block; height: 3px; width: var(--w); max-width: 100%; margin-bottom: 4px; border-radius: 2px; background: var(--b2s-color-info-strong); }
   .rp__paths { display: grid; gap: 2px; max-width: 640px; }
   .rp__paths code, .rp__list code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); }
   .rp__tools { display: flex; gap: 6px; align-items: center; }
@@ -354,19 +354,19 @@
   .rp__path code { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--b2s-fs-xs); }
   .rp__measures header { display: grid; gap: 2px; margin-bottom: 8px; }
   .rp__measures header small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .rp__measures tr.is-current td { background: #F5FBE6; }
+  .rp__measures tr.is-current td { background: var(--b2s-accent-soft); }
   .rp__big { margin: 0; font-size: 22px; font-weight: 600; }
   .rp__big small { display: block; font-size: var(--b2s-fs-xs); font-weight: 400; color: var(--b2s-color-text-muted); }
   .rp__list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
   .rp__list li { display: flex; justify-content: space-between; gap: 12px; min-width: 0; font-size: var(--b2s-fs-sm); }
   .rp__list span { white-space: nowrap; color: var(--b2s-color-text-muted); }
-  .rp__warn { color: var(--b2s-color-warning-strong, #b54708); }
+  .rp__warn { color: var(--b2s-color-warning-strong); }
   .rp__changes { display: grid; gap: 10px; }
   .rp__changes h2 { margin: 0; font-size: 17px; }
   .rp__chg { grid-template-columns: minmax(240px, 2fr) 120px minmax(140px, 1fr); }
   .rp__chg code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .rp__rights { grid-template-columns: minmax(240px, 1fr) minmax(240px, 2fr); }
   .rp__acl { display: flex; flex-wrap: wrap; gap: 6px; font-size: var(--b2s-fs-xs); }
-  .rp__up, .rp__plus { color: #9a3412; font-weight: 600; }
-  .rp__down, .rp__minus { color: #1d4ed8; font-weight: 600; }
+  .rp__up, .rp__plus { color: var(--b2s-color-warning-strong); font-weight: 600; }
+  .rp__down, .rp__minus { color: var(--b2s-accent); font-weight: 600; }
 </style>

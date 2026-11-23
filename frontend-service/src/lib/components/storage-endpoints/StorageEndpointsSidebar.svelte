@@ -146,7 +146,8 @@
     return {
       key: `ep:${id}`,
       label: endpointName(ep),
-      icon: String(ep?.type ?? ep?.storage_endpoint_type ?? '').toLowerCase() === 'dfs' ? 'bi-diagram-3' : 'bi-hdd-network',
+      // A DFS server and a file server look the same: only the way they are reached differs
+      icon: 'bi-hdd-network',
       iconTone: 'server',
       selectId: id,
       // Only what needs a look: a healthy server stays quiet
@@ -181,17 +182,18 @@
           ...endpoints.filter((ep) => !isDfs(ep)).map((ep) => {
             const node = endpointNode(ep);
             const hosted = endpoints.filter((other) => isDfs(other) && serverOf(other) === serverOf(ep)).length;
-            return hosted ? { ...node, subtitle: t('{count} DFS namespace(s)', { count: hosted }), selectId: `${DFS_PREFIX}${serverOf(ep)}` } : node;
+            return hosted ? { ...node, selectId: `${DFS_PREFIX}${serverOf(ep)}` } : node;
           }).sort(byLabel),
           ...[...new Set(endpoints.filter(isDfs).map(serverOf))].filter((server) => !endpoints.some((ep) => !isDfs(ep) && serverOf(ep) === server)).sort().map((server): EntityTreeNode => {
             const namespaces = endpoints.filter((ep) => isDfs(ep) && serverOf(ep) === server);
             const review = namespaces.filter((ep) => endpointTone(ep) !== 'healthy').length;
-            // The server only: its namespaces are listed on its page, and their folders on the folders page
+            const folders = namespaces.reduce((sum, ep) => sum + (rootsByEndpoint.get(endpointId(ep)) ?? []).length, 0);
+            // The server only, like a file server: its namespaces are listed on its page, their folders on the folders page
             return {
               key: `dfs:${zone.zone_id}:${server}`,
               label: server,
-              subtitle: t('{count} DFS namespace(s)', { count: namespaces.length }),
-              icon: 'bi-diagram-3',
+              hint: folders ? t('{count} folder(s)', { count: folders }) : null,
+              icon: 'bi-hdd-network',
               iconTone: 'server',
               selectId: `${DFS_PREFIX}${server}`,
               dot: namespaces.some((ep) => endpointTone(ep) === 'error') ? 'error' : null,
@@ -233,8 +235,12 @@
   {onQueryChange}
   onSelect={select}
   onContextMenu={onEndpointMenu ? (node, event) => {
-    if (String(node.selectId).startsWith(ROOT_PREFIX) || String(node.selectId).startsWith(DFS_PREFIX)) return;
-    const ep = allEndpoints.find((row) => endpointId(row) === Number(node.selectId));
-    if (ep && !isDfs(ep)) onEndpointMenu?.(ep, event);
+    const value = String(node.selectId);
+    if (value.startsWith(ROOT_PREFIX)) return;
+    // A DFS server: the menu acts on its namespace (the first one when it publishes several)
+    const ep = value.startsWith(DFS_PREFIX)
+      ? allEndpoints.filter((row) => isDfs(row) && serverOf(row) === value.slice(DFS_PREFIX.length)).sort((a, b) => endpointId(a) - endpointId(b))[0]
+      : allEndpoints.find((row) => endpointId(row) === Number(node.selectId));
+    if (ep) onEndpointMenu?.(ep, event);
   } : null}
 />

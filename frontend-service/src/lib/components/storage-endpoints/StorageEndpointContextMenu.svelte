@@ -72,12 +72,14 @@
     if (endpoint && menuEl && !menuEl.contains(event.target as Node)) onClose();
   }
   let inactive = $derived(endpoint ? endpoint.is_active === false || endpoint.is_active === 0 || String(endpoint.status ?? '').toLowerCase() === 'disabled' : false);
+  let dfs = $derived(String(endpoint?.type ?? endpoint?.storage_endpoint_type ?? endpoint?.endpoint_type ?? '').toLowerCase() === 'dfs');
   let items = $derived(endpoint
     ? [
         { key: 'test' as const, label: testing ? t('Testing…') : t('Test the connection'), icon: 'bi-activity', disabled: testing, hint: '' },
         { key: 'edit' as const, label: t('Edit'), icon: 'bi-pencil', disabled: false, hint: '' },
         { key: 'add-folders' as const, label: t('Add folders'), icon: 'bi-plus-lg', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' },
-        { key: 'share' as const, label: t('Create a share'), icon: 'bi-folder-plus', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' },
+        // A DFS namespace has no share of its own
+        ...(dfs ? [] : [{ key: 'share' as const, label: t('Create a share'), icon: 'bi-folder-plus', disabled: inactive, hint: inactive ? t('This file server is disabled') : '' }]),
         {
           key: 'delete' as const,
           label: t('Delete storage endpoint'),
@@ -125,7 +127,7 @@
     border: 1px solid var(--b2s-color-border-soft);
     border-radius: 12px;
     background: var(--b2s-color-surface);
-    box-shadow: 0 18px 44px rgba(15, 26, 58, 0.22);
+    box-shadow: 0 18px 44px rgba(18, 59, 73, 0.22);
     transform-origin: top left;
   }
 

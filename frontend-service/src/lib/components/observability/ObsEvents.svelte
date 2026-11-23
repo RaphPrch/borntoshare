@@ -291,7 +291,7 @@
   .obs-detail { display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px; margin: 0 0 12px; font-size: var(--b2s-fs-sm); }
   .obs-detail dt { color: var(--b2s-color-text-muted); }
   .obs-detail dd { margin: 0; overflow-wrap: anywhere; }
-  .obs-json { max-height: 360px; overflow: auto; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-surface-muted, #f6f7f9); font-size: 12px; white-space: pre-wrap; }
+  .obs-json { max-height: 360px; overflow: auto; margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--b2s-color-surface-muted); font-size: 12px; white-space: pre-wrap; }
   .obs-events {
     display: grid;
     gap: 16px;

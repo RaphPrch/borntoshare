@@ -40,7 +40,7 @@
 
 <style>
   .cb { position: sticky; top: 52px; z-index: 40; display: flex; flex-wrap: wrap; align-items: flex-end; gap: 4px 24px; min-height: 44px; padding: 0 24px;
-    border-bottom: 1px solid var(--b2s-color-border-soft); background: #fff; }
+    border-bottom: 1px solid var(--b2s-color-border-soft); background: var(--b2s-color-surface); }
   .cb__crumb { display: flex; align-items: center; gap: 6px; min-width: 0; height: 44px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .cb__crumb i { font-size: 10px; }
   .cb__crumb b { color: var(--b2s-color-text); font-weight: 600; white-space: nowrap; }

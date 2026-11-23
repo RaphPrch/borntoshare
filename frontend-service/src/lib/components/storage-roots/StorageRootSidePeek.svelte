@@ -32,7 +32,7 @@
   let guardians = $derived((Array.isArray(r.guardian_names) ? r.guardian_names : []) as string[]);
   let secrets = $derived(num(r.password_files) + num(r.key_files));
   const C = 2 * Math.PI * 42;
-  const ringTone = (value: number | null) => (value == null ? '#cdd2db' : value >= 80 ? '#16a06a' : value >= 60 ? '#d97706' : '#dc3545');
+  const ringTone = (value: number | null) => (value == null ? '#d5dee6' : value >= 80 ? '#138a5c' : value >= 60 ? '#c27a12' : '#d0435a');
   let sensitivity = $derived(r.sensitive_files == null && !r.sensitivity_status ? t('Not scanned')
     : secrets ? t('{count} password or key file(s)', { count: secrets })
     : num(r.personal_files) ? t('{count} personal data', { count: num(r.personal_files) })
@@ -48,7 +48,7 @@
 
       <div class="pk__top">
         <div class="pk__ring" role="img" aria-label={t('5S score {value}', { value: score ?? '—' })}>
-          <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42" fill="none" stroke="#eef0f3" stroke-width="11" />
+          <svg viewBox="0 0 100 100" aria-hidden="true"><circle cx="50" cy="50" r="42" fill="none" stroke="#eaeff3" stroke-width="11" />
             <circle cx="50" cy="50" r="42" fill="none" stroke={ringTone(score)} stroke-width="11" stroke-linecap="round" stroke-dasharray={`${((C * (score ?? 0)) / 100).toFixed(1)} ${C.toFixed(1)}`} /></svg>
           <span>{score ?? '—'}</span>
         </div>
@@ -110,13 +110,13 @@
 
 <style>
   .pk { display: flex; flex-direction: column; gap: 20px; }
-  .pk__path { padding: 6px 10px; border-radius: 8px; background: #f6f7f9; color: #3f4755; font-family: var(--b2s-font-mono); font-size: 12px; overflow-wrap: anywhere; }
+  .pk__path { padding: 6px 10px; border-radius: 8px; background: var(--b2s-color-surface-soft); color: var(--b2s-color-text-soft); font-family: var(--b2s-font-mono); font-size: 12px; overflow-wrap: anywhere; }
   .pk__top { display: flex; align-items: center; gap: 20px; }
   .pk__ring { position: relative; width: 100px; height: 100px; flex: none; }
   .pk__ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
   .pk__ring span { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 700; }
   .pk__dl { flex: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 18px; margin: 0; }
-  .pk__dl div { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid #f0f2f5; }
+  .pk__dl div { display: flex; flex-direction: column; gap: 2px; padding-bottom: 8px; border-bottom: 1px solid var(--b2s-color-surface-muted); }
   .pk__dl dt { color: var(--b2s-color-text-muted); font-size: 12px; }
   .pk__dl dd { margin: 0; font-weight: 500; }
   .pk__sec { display: flex; flex-direction: column; gap: 8px; }
@@ -125,6 +125,6 @@
   .pk__open { margin-left: auto; }
   .pk__p { margin: 0; }
   .pk__tags { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-  .pk__tg { padding: 2px 8px; border-radius: 6px; background: #f0f2f5; color: #3f4755; font-size: 12px; font-weight: 600; }
+  .pk__tg { padding: 2px 8px; border-radius: 6px; background: var(--b2s-color-surface-muted); color: var(--b2s-color-text-soft); font-size: 12px; font-weight: 600; }
   .pk__tg.is-auto { background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); }
 </style>

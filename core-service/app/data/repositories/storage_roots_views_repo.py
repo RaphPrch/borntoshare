@@ -332,29 +332,35 @@ class StorageRootsViewsRepo(SQLViewRepo):
         )
         return {int(row.get("root_id") or 0): int(row.get("guardians_count") or 0) for row in rows}
 
-    def _load_guardian_names(self, storage_root_ids: list[int]) -> dict[int, list[str]]:
-        """Names of the guardians of each storage root (express search « guardian: »)."""
+    def _load_guardian_names(self, storage_root_ids: list[int]) -> tuple[dict[int, list[str]], dict[int, list[dict[str, Any]]]]:
+        """Guardians of each storage root: their names and logins mixed (express search « guardian: »), and one entry
+        per guardian (identity_id, login, name: the lists of Raphaël)."""
         normalized_ids = sorted({int(v) for v in (storage_root_ids or []) if int(v) > 0})
         if not normalized_ids:
-            return {}
+            return {}, {}
         bind_keys = [f"root_id_{idx}" for idx, _ in enumerate(normalized_ids)]
         params = {key: value for key, value in zip(bind_keys, normalized_ids)}
         in_clause = ", ".join(f":{key}" for key in bind_keys)
         rows = self._all(
             f"""
-            SELECT r.root_id, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.username
+            SELECT r.root_id, i.id AS identity_id, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.username
             FROM storage_root_roles r JOIN identities i ON i.id = r.identity_id
             WHERE LOWER(r.role) = 'guardian' AND r.root_id IN ({in_clause})
             """,
             params,
         )
         names: dict[int, list[str]] = {}
+        guardians: dict[int, list[dict[str, Any]]] = {}
         for row in rows:
-            entry = names.setdefault(int(row.get("root_id") or 0), [])
+            root_id = int(row.get("root_id") or 0)
+            entry = names.setdefault(root_id, [])
             for value in (row.get("name"), row.get("username")):
                 if value and str(value) not in entry:
                     entry.append(str(value))
-        return names
+            guardians.setdefault(root_id, []).append(
+                {"identity_id": int(row.get("identity_id") or 0), "login": row.get("username"), "name": row.get("name")}
+            )
+        return names, guardians
 
     @staticmethod
     def _read_backend_pending_validation_count(row: dict[str, Any] | None) -> int | None:
@@ -545,7 +551,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
         tags_by_root_id = self._load_tags_map(storage_root_ids)
         pending_counts_by_root_id = self._load_pending_validation_counts(storage_root_ids)
         guardian_counts_by_root_id = self._load_guardian_counts(storage_root_ids)
-        guardian_names_by_root_id = self._load_guardian_names(storage_root_ids)
+        guardian_names_by_root_id, guardians_by_root_id = self._load_guardian_names(storage_root_ids)
         from app.services.sensitivity import flagged_by_root
 
         sensitive_by_root_id = flagged_by_root(self.db, storage_root_ids)
@@ -598,6 +604,7 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload.update(revalidation_by_root_id.get(storage_root_id, {}))
             payload["guardians_count"] = int(guardian_counts_by_root_id.get(storage_root_id, 0))
             payload["guardian_names"] = guardian_names_by_root_id.get(storage_root_id, [])
+            payload["guardians"] = guardians_by_root_id.get(storage_root_id, [])
             # Files flagged by the last sensitivity scan; None when the folder was never scanned
             payload["sensitive_files"] = sensitive_by_root_id.get(storage_root_id)
             # Files per group (passwords, keys, personal data, bank data, risky files); None when never scanned

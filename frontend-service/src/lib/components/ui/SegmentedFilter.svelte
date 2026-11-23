@@ -36,6 +36,6 @@
   .seg { display: flex; flex: none; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
   .seg button { display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border: 0; border-radius: var(--b2s-radius-sm); background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-font-micro); white-space: nowrap; cursor: pointer; }
   .seg button:hover { color: var(--b2s-color-text); }
-  .seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
+  .seg button.on { background: var(--b2s-accent); color: var(--b2s-on-accent); font-weight: 600; box-shadow: var(--b2s-shadow-sm); }
   .seg span { opacity: 0.7; font-weight: 500; }
 </style>

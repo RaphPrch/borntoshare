@@ -114,6 +114,76 @@ def test_fives_installed_reads_its_health_and_caches_it(monkeypatch) -> None:
     assert modules.fives_installed() is False
 
 
+def test_fives_installed_never_waits_for_a_stale_answer(monkeypatch) -> None:
+    # A module that is gone can take seconds to fail: once asked, the answer comes from the cache and a thread refreshes it
+    import threading
+
+    import httpx
+
+    from app.services import modules
+
+    release = threading.Event()
+
+    class _Answer:
+        status_code = 200
+
+        def json(self):
+            return {"status": "ok", "schema": True}
+
+    def slow_health(url, timeout):
+        release.wait(5)
+        return _Answer()
+
+    monkeypatch.setenv("B2S_FIVES_URL", "http://fives-service:8000")
+    monkeypatch.setattr(modules, "_installed", {"at": 1.0, "value": False})  # asked long ago: stale
+    monkeypatch.setattr(httpx, "get", slow_health)
+    assert modules.fives_installed() is False  # the last answer, at once
+    assert modules._installed["probing"] is True
+    release.set()
+    for thread in threading.enumerate():
+        if thread.name == "fives-health":
+            thread.join(5)
+    assert modules._installed["value"] is True and modules._installed["probing"] is False
+
+
+def test_the_question_asked_at_startup_makes_no_request_wait(monkeypatch) -> None:
+    import threading
+
+    import httpx
+
+    from app.services import modules
+
+    release = threading.Event()
+
+    class _Answer:
+        status_code = 200
+
+        def json(self):
+            return {"status": "ok", "schema": True}
+
+    monkeypatch.setenv("B2S_FIVES_URL", "http://fives-service:8000")
+    monkeypatch.setattr(modules, "_installed", {"at": 0.0, "value": False})  # never asked: the service starts
+    monkeypatch.setattr(httpx, "get", lambda url, timeout: release.wait(5) and _Answer())
+    modules.warm_fives_installed()
+    assert modules.fives_installed() is False  # the answer is on its way: not waited for
+    release.set()
+    for thread in threading.enumerate():
+        if thread.name == "fives-health":
+            thread.join(5)
+    assert modules.fives_installed() is True
+
+
+def test_the_runs_of_a_module_known_gone_are_not_asked(monkeypatch) -> None:
+    import httpx
+
+    from app.services import modules
+
+    monkeypatch.setenv("B2S_FIVES_URL", "http://fives-service:8000")
+    monkeypatch.setattr(modules, "fives_installed", lambda: False)
+    monkeypatch.setattr(httpx, "get", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("asked")))
+    assert modules.list_runs(15) == []
+
+
 def _governance(monkeypatch, flags: dict) -> dict:
     monkeypatch.setattr(features, "_licenses", lambda db: [])
     monkeypatch.setattr(features, "_flags", lambda db: flags)

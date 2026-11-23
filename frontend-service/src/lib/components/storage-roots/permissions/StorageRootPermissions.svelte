@@ -14,16 +14,14 @@
   import { repairStorageRootAcl } from '$lib/api/storage-root-permissions';
   import {
     acceptAclGap,
-    explainStorageRootAccess,
     extendAccess,
-    notFound,
     reopenAclGap,
-    type AccessExplanation,
     type AclEntry,
     type PermissionPerson,
     type StorageRootPermissionsData
   } from '$lib/api/storage-root-permissions';
   import AccessExplainDrawer from './AccessExplainDrawer.svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import { expiryProgress, levelLabel, viaLabel } from './permissions-format';
 
   
@@ -68,6 +66,8 @@
     onToggleInheritance?: () => void;
     /** Login to explain at once (⌘K palette, link from another page) */
     explainLogin?: string | null;
+    /** « acl »: only the state of the ACL (overview of the folder); « full »: the people, paths, groups (tab) */
+    mode?: 'full' | 'acl';
   }
 
   let {
@@ -80,7 +80,8 @@
     isAdmin = false,
     onChanged = () => {},
     onToggleInheritance = () => {},
-    explainLogin = null
+    explainLogin = null,
+    mode = 'full'
   }: Props = $props();
 
   const STATE: Record<StorageRootPermissionsData['status'], { tone: string; word: () => string }> = {
@@ -91,37 +92,6 @@
     never_scanned: { tone: 'idle', word: () => t('Not read yet.') }
   };
 
-  // ---------------------------------------------------------------- checker
-  let query = $state('');
-  let checking = $state(false);
-  let checked: AccessExplanation | null = $state(null);
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  let checkSeq = 0;
-
-  function scheduleCheck(value: string) {
-    if (timer) clearTimeout(timer);
-    const login = value.trim();
-    if (!login || !rootId) {
-      checked = null;
-      return;
-    }
-    timer = setTimeout(async () => {
-      const seq = ++checkSeq;
-      checking = true;
-      try {
-        const result = await explainStorageRootAccess(fetch, rootId as number, login);
-        if (seq === checkSeq) checked = result;
-      } catch {
-        if (seq === checkSeq) checked = null;
-      } finally {
-        if (seq === checkSeq) checking = false;
-      }
-    }, 400);
-  }
-  onDestroy(() => {
-    if (timer) clearTimeout(timer);
-  });
-
   // ---------------------------------------------------------------- flow bands
   type Band = { key: string; group: string; level: 'read' | 'write' | null; managed: boolean; state: string; rights: string | null; members: PermissionPerson[] };
   const groupOfVia = (p: PermissionPerson) =>
@@ -131,6 +101,13 @@
   let filter: 'all' | 'read' | 'write' | 'ending' = $state('all');
   let groupFilter: string | null = $state(null);
   let search = $state('');
+  // A page at a time: a folder can be reached by hundreds of people
+  let page = $state(1);
+  let pageSize = $state(15);
+  $effect.pre(() => {
+    void [filter, groupFilter, search];
+    untrack(() => (page = 1));
+  });
 
   const toggleGroup = (name: string) => (groupFilter = groupFilter === name ? null : name);
   const mainRequest = (p: PermissionPerson) =>
@@ -228,11 +205,6 @@
   let acceptedGaps = $derived(data?.gaps.filter((g) => g.accepted) ?? []);
   let outsidePeople = $derived(data?.people.filter((p) => p.via.every((v) => v.kind === 'outside')) ?? []);
   let governedPeople = $derived(data?.people.filter((p) => !p.via.every((v) => v.kind === 'outside')) ?? []);
-  let checkedMissing = $derived(notFound(checked));
-  $effect.pre(() => {
-    const q = query; // only « query » starts it again (as the former « $: »)
-    untrack(() => scheduleCheck(q));
-  });
   let bands = $derived([
     ...(data?.groups ?? []).map(
       (g): Band => ({ key: `g:${g.name}`, group: g.name, level: g.level, managed: true, state: g.ace, rights: g.rights_label,
@@ -251,6 +223,7 @@
     const q = search.trim().toLowerCase();
     return !q || `${p.name} ${p.username ?? ''}`.toLowerCase().includes(q);
   }));
+  let pagedPeople = $derived(people.slice((page - 1) * pageSize, page * pageSize));
   $effect.pre(() => {
     if (explainLogin && explainLogin !== explainedFrom) {
       explainedFrom = explainLogin;
@@ -265,105 +238,62 @@
   let ringShare = $derived(data && data.summary.groups ? Math.round((data.summary.groups_ok / data.summary.groups) * 100) : 0);
 </script>
 
-{#if loading && !data}
-  <LoadingState block>{t('Reading the permissions…')}</LoadingState>
-{:else if error && !data}
-  <InlineAlert tone="error">{error}</InlineAlert>
-{:else if data && aclView}
-  <div class="pm">
-    <div class="pm-col">
-      <!-- state of the ACL -->
-      <section class="pm-card" aria-label={t('State of the ACL')}>
+{#snippet aclCard(d: StorageRootPermissionsData, view: { tone: string; word: () => string })}
+      <section class="pm-card pm-acl" aria-label={t('Permissions of the folder')}>
         <header>
-          <h2>{t('State of the ACL')}</h2>
-          {#if (canManage || isAdmin) && data.summary.groups > 0}
+          {#if (canManage || isAdmin) && d.summary.groups > 0}
             <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={repairing} onclick={() => (repairAsked = true)}>{repairing ? t('Repairing…') : t('Repair the ACL')}</button>
           {/if}
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!data.people.length} onclick={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export')}</button>
+          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!d.people.length} onclick={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export')}</button>
         </header>
         <div class="pm-state">
-          <span class={`pm-ring is-${aclView.tone}`} style={`--share:${ringShare}%`} aria-hidden="true"><b>{data.summary.groups_ok}/{data.summary.groups}</b></span>
+          <span class={`pm-ring is-${view.tone}`} style={`--share:${ringShare}%`} aria-hidden="true"><b>{d.summary.groups_ok}/{d.summary.groups}</b></span>
           <div class="pm-state__text">
-            <strong class={`is-${aclView.tone}`}>{aclView.word().replace(/\.$/, '')}</strong>
+            <strong class={`is-${view.tone}`}>{view.word().replace(/\.$/, '')}</strong>
             <p>
-              {#if !data.acl_scanned_at}
+              {#if !d.acl_scanned_at}
                 {t('Read the ACL to see who reaches this folder.')}
               {:else}
-                {t('{count} person(s) reach this folder', { count: data.summary.people })}{#if data.summary.people},
-                  <span class="is-read">{t('{count} read', { count: data.summary.read })}</span> {t('and')}
-                  <span class="is-write">{t('{count} modify', { count: data.summary.write })}</span>{/if},
-                {t('through {count} AD group(s)', { count: data.summary.groups })}.
-                {#if data.summary.groups_ok < data.summary.groups}
-                  <span class="is-bad">{t('{count} group(s) without their ACE.', { count: data.summary.groups - data.summary.groups_ok })}</span>
+                {t('{count} person(s) reach this folder', { count: d.summary.people })}{#if d.summary.people},
+                  <span class="is-read">{t('{count} read', { count: d.summary.read })}</span> {t('and')}
+                  <span class="is-write">{t('{count} modify', { count: d.summary.write })}</span>{/if},
+                {t('through {count} AD group(s)', { count: d.summary.groups })}.
+                {#if d.summary.groups_ok < d.summary.groups}
+                  <span class="is-bad">{t('{count} group(s) without their ACE.', { count: d.summary.groups - d.summary.groups_ok })}</span>
                 {/if}
               {/if}
             </p>
             <div class="pm-facts">
-              {#if data.acl_scanned_at}<span>{t('ACL read {ago}', { ago: timeAgo(data.acl_scanned_at) })}</span><span>{t('{count} entries', { count: data.acl_entries })}</span>{/if}
-              {#if data.snapshot_at}<span>{t('directory synchronised {ago}', { ago: timeAgo(data.snapshot_at) })}</span>{/if}
-              {#if data.inheritance?.known}
-                <span class:is-warn={data.inheritance.broken}>
-                  <i class={`bi ${data.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
-                  {data.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
-                  {#if isAdmin}· <button type="button" class="b2s-link-btn" onclick={onToggleInheritance}>{data.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
+              {#if d.acl_scanned_at}<span>{t('ACL read {ago}', { ago: timeAgo(d.acl_scanned_at) })}</span><span>{t('{count} entries', { count: d.acl_entries })}</span>{/if}
+              {#if d.snapshot_at}<span>{t('directory synchronised {ago}', { ago: timeAgo(d.snapshot_at) })}</span>{/if}
+              {#if d.inheritance?.known}
+                <span class:is-warn={d.inheritance.broken}>
+                  <i class={`bi ${d.inheritance.broken ? 'bi-scissors' : 'bi-diagram-3'}`} aria-hidden="true"></i>
+                  {d.inheritance.broken ? t('inheritance broken') : t('inherits from the parent folder')}
+                  {#if isAdmin}· <button type="button" class="b2s-link-btn" onclick={onToggleInheritance}>{d.inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
                 </span>
               {/if}
             </div>
           </div>
         </div>
-        {#if data.propagation?.state === 'running'}
+        {#if d.propagation?.state === 'running'}
           <p class="pm-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('The rights are being applied to the content of the folder. On a big folder it can take a while.')}</p>
-        {:else if data.propagation?.state === 'failed'}
+        {:else if d.propagation?.state === 'failed'}
           <p class="pm-note is-bad"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {t('The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».')}</p>
         {/if}
       </section>
+{/snippet}
 
-      <!-- who reaches it? -->
-      <section class="pm-card" aria-label={t('Check the access of a person')}>
-        <header><h2>{t('Who reaches it?')}</h2></header>
-        <label class="pm-ask">
-          <i class="bi bi-search" aria-hidden="true"></i>
-          <input type="search" bind:value={query} placeholder={t('Type a login, e.g. paul.martin')} autocomplete="off" aria-label={t('Username')} />
-        </label>
-        <div aria-live="polite">
-          {#if checking}
-            <p class="pm-muted">{t('Checking…')}</p>
-          {:else if checked?.found}
-            <div class="pm-answer">
-              <p><strong>{checked.person.name}</strong> {checked.person.level === 'write' ? t('modifies this folder') : t('reads this folder')}
-                {#if checked.person.expires_at}<span class="is-write">· {t('ends {date}', { date: formatDate(checked.person.expires_at) })}</span>{/if}
-                <button type="button" class="b2s-link-btn" onclick={() => checked?.found && (explainFor = checked.person.username ?? checked.person.name)}>{t('Details')} ›</button>
-              </p>
-              <div class="pm-chain">
-                <span class="pm-step is-ok"><b>{checked.person.name}</b><small>{checked.person.username ?? ''}</small></span>
-                {#each checked.steps as step}
-                  <span class="pm-arrow" aria-hidden="true">→</span>
-                  {#if step.kind === 'request'}
-                    <span class="pm-step is-ok"><b>{t('{code} validated', { code: step.code })}</b><small>{step.approver ?? ''}</small></span>
-                  {:else if step.kind === 'membership'}
-                    <span class="pm-step is-ok"><b class="mono">{step.group}</b><small>{step.managed ? t('managed') : t('outside BornToShare')}</small></span>
-                  {:else}
-                    <span class={`pm-step ${step.state === 'ok' ? 'is-ok' : 'is-bad'}`}><b>{rootName}</b><small>{step.rights_label ? t(step.rights_label) : t('No ACE')}</small></span>
-                  {/if}
-                {/each}
-              </div>
-            </div>
-          {:else if checkedMissing}
-            <div class="pm-answer is-none">
-              <p>
-                {checkedMissing.known_in_directory
-                  ? t('{name} has no access to this folder', { name: checkedMissing.display_name || checkedMissing.username })
-                  : t('No directory account named {name}', { name: checkedMissing.username })}
-              </p>
-              {#if checkedMissing.known_in_directory && rootId}
-                <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={() => goto(`/access-requests/new?root=${rootId}`)}>{t('Request an access')}</button>
-              {/if}
-            </div>
-          {:else}
-            <p class="pm-muted">{t('The answer shows here, with the path request → AD group → folder.')}</p>
-          {/if}
-        </div>
-      </section>
+{#if loading && !data}
+  <LoadingState block>{t('Reading the permissions…')}</LoadingState>
+{:else if error && !data}
+  <InlineAlert tone="error">{error}</InlineAlert>
+{:else if data && aclView && mode === 'acl'}
+  {@render aclCard(data, aclView)}
+{:else if data && aclView}
+  <div class="pm">
+    <div class="pm-col">
+
 
       <!-- path of the accesses -->
       {#if bands.length}
@@ -399,7 +329,7 @@
         </div>
         {#if people.length}
           <ul class="pm-rows">
-            {#each people as person (person.key)}
+            {#each pagedPeople as person (person.key)}
               {@const request = mainRequest(person)}
               {@const progress = person.expires_at ? expiryProgress(request?.decided_at ?? null, person.expires_at) : null}
               <li>
@@ -433,6 +363,7 @@
               </li>
             {/each}
           </ul>
+          {#if people.length > 15}<Pagination total={people.length} bind:page bind:pageSize pageSizes={[15, 30, 50]} />{/if}
         {:else}
           <p class="pm-empty">{governedPeople.length ? t('Nobody matches this filter.') : t('Nobody reaches this folder through BornToShare yet.')}</p>
         {/if}
@@ -550,6 +481,8 @@
   .pm-col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
   .pm-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .pm-card header { display: flex; align-items: center; gap: 8px; }
+  /* The overview shows the state without a title: its two actions on the right */
+  .pm-acl > header { justify-content: flex-end; }
   .pm-card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
   .pm-muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
@@ -562,7 +495,7 @@
   .pm-ring { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: conic-gradient(var(--ring) var(--share), var(--b2s-color-neutral-soft) 0); --ring: var(--b2s-color-success); }
   .pm-ring.is-warn { --ring: var(--b2s-color-warning); }
   .pm-ring.is-bad { --ring: var(--b2s-color-danger); }
-  .pm-ring.is-idle { --ring: var(--b2s-color-border-mid, #cdd2db); }
+  .pm-ring.is-idle { --ring: var(--b2s-color-border-mid); }
   .pm-ring::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--b2s-color-surface); }
   .pm-ring b { position: relative; z-index: 1; font-size: 13px; }
   .pm-state__text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -574,27 +507,14 @@
   .pm-facts .b2s-link-btn { font-size: var(--b2s-fs-xs); }
   .pm-note { margin: 0; font-size: var(--b2s-fs-sm); color: var(--b2s-color-text-muted); }
   .pm-note.is-bad { color: var(--b2s-color-danger); }
-  /* who reaches it */
-  .pm-ask { display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border: 1px solid var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); }
-  .pm-ask input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; }
-  .pm-answer { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); }
-  .pm-answer p { margin: 0; font-size: var(--b2s-fs-sm); }
-  .pm-answer .b2s-link-btn { margin-left: 6px; }
-  .pm-answer.is-none { flex-direction: row; align-items: center; justify-content: space-between; }
-  .pm-chain { display: flex; flex-wrap: wrap; align-items: stretch; gap: 6px; }
-  .pm-step { display: flex; flex-direction: column; justify-content: center; min-width: 0; padding: 8px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); }
-  .pm-step b { font-size: var(--b2s-fs-sm); font-weight: 600; overflow-wrap: anywhere; }
-  .pm-step small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .pm-step.is-ok { border-color: var(--b2s-color-success-border, #bfe6d1); background: var(--b2s-color-success-soft); }
-  .pm-step.is-bad { border-color: var(--b2s-color-danger-border, #f0c4c4); background: var(--b2s-color-danger-soft); }
-  .pm-arrow { align-self: center; color: var(--b2s-color-border-mid, #cdd2db); }
+  .pm-arrow { align-self: center; color: var(--b2s-color-border-mid); }
   /* path of the accesses */
   .pm-path { display: grid; grid-template-columns: minmax(150px, 0.8fr) 18px minmax(0, 1.4fr) 18px auto; gap: 8px; align-items: center; width: 100%; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-left-width: 3px; border-radius: var(--b2s-radius-md); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .pm-path.is-read { border-left-color: var(--b2s-color-info); }
   .pm-path.is-write { border-left-color: var(--b2s-color-warning); }
   .pm-path.is-outside { border-left-color: var(--b2s-color-danger); }
-  .pm-path:hover, .pm-path.is-active { background: var(--b2s-color-surface-soft, #f6f7f9); }
-  .pm-path.is-active { box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
+  .pm-path:hover, .pm-path.is-active { background: var(--b2s-color-surface-soft); }
+  .pm-path.is-active { box-shadow: inset 0 0 0 1px var(--b2s-accent); }
   .pm-path__who { display: flex; align-items: center; gap: 8px; min-width: 0; }
   .pm-path__who b, .pm-path__group b { display: block; font-size: var(--b2s-fs-sm); }
   .pm-path__who small, .pm-path__group small { display: block; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
@@ -630,7 +550,7 @@
   .pm-via > * { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pm-via .mono { color: var(--b2s-color-text-muted); }
   .pm-until { display: flex; flex-direction: column; gap: 4px; }
-  .pm-time { display: block; height: 4px; overflow: hidden; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-border-soft, #e9ebf0); }
+  .pm-time { display: block; height: 4px; overflow: hidden; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-border-soft); }
   .pm-time span { display: block; height: 4px; background: var(--b2s-color-info); }
   .pm-time.is-soon span { background: var(--b2s-color-warning); }
   .pm-actions { display: flex; justify-content: flex-end; gap: 6px; }
@@ -642,7 +562,7 @@
   .pm-system__list code { color: var(--b2s-color-text-muted); }
   /* side */
   .pm-count { padding: 0 8px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-warning-soft); font-size: var(--b2s-fs-xs); font-weight: 600; }
-  .pm-gap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--b2s-color-warning-border, #f3d9ad); border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft); }
+  .pm-gap { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--b2s-color-warning-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-warning-soft); }
   .pm-gap b { display: block; font-size: var(--b2s-fs-sm); overflow-wrap: anywhere; }
   .pm-gap small { display: block; color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-xs); }
   .pm-gap__people { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }

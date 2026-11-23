@@ -882,6 +882,8 @@
       }
       toast.success(t('{count} folder(s) queued for a test and an ACL read.', { count: queued }));
       await invalidateAll();
+      // The worker reads them in the background: the to-do is read again once it had time to answer
+      for (const delay of [20000, 60000]) setTimeout(() => void invalidateAll(), delay);
     } catch (e: any) {
       toast.error(String(e?.message ?? t('The action failed.')));
     } finally {
@@ -1375,8 +1377,6 @@
   {#snippet list()}
       
       <StorageEndpointsSidebar
-        onAdd={() => goto(`/admin/storage-endpoints/new${selected?.zone_id ? `?zone=${selected.zone_id}` : ''}`)}
-        addLabel={t('New endpoint')}
         query={search}
         groups={sidebarGroups}
         selectedEndpointId={sidebarSelected}
@@ -1462,6 +1462,7 @@
                   onTest={() => runEndpointProbe(selected)}
                   onAddGuardians={() => goto(`${foldersHref}&filter=no-guardian&bulk=guardians`)}
                   onReread={() => (showRereadConfirm = true)}
+                  onOpenAclGaps={() => goto(`/storage-roots?q=${encodeURIComponent(`serveur:"${String(selected?.name ?? '')}" alerte:acl`)}`)}
                   onOpenRequests={() => goto('/access-requests?status=pending')}
                   onOpenShares={() => (activeEndpointTab = 'shares')}
                   onOpenProvisioning={() => (activeEndpointTab = 'provisioning')}

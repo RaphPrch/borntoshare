@@ -154,13 +154,13 @@
   .tools .b2s-input { flex: 1; min-width: 0; }
   .groups { display: flex; flex-direction: column; gap: 8px; }
   .share { border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); overflow: hidden; }
-  .share__head { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 8px 12px; border: 0; background: var(--b2s-color-surface-soft, #f6f7f9); text-align: left; cursor: pointer; }
+  .share__head { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 8px 12px; border: 0; background: var(--b2s-color-surface-soft); text-align: left; cursor: pointer; }
   .share__head code { min-width: 0; color: var(--b2s-color-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
   .share__sum { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; }
   .share__sum small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .car { width: 12px; flex: none; color: var(--b2s-color-text-muted); font-size: 10px; }
   .row { display: grid; grid-template-columns: minmax(0, 1fr) 80px 120px 130px; gap: 12px; align-items: center; padding: 7px 12px; border-top: 1px solid var(--b2s-color-border); color: inherit; text-decoration: none; font-size: var(--b2s-fs-sm); }
-  a.row:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  a.row:hover { background: var(--b2s-color-surface-soft); }
   .row--head { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
   .name { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
   .name strong { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

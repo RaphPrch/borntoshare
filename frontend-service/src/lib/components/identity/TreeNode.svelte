@@ -73,7 +73,7 @@
     width: 100%;
     border: 0;
     background: transparent;
-    color: var(--idb-text, #30435f);
+    color: var(--idb-text, var(--b2s-color-text-strong));
     display: flex;
     align-items: center;
     gap: 10px;
@@ -83,18 +83,18 @@
   }
 
   .idb-tree-node:hover {
-    background: var(--idb-hover-bg, #f3f7fc);
+    background: var(--idb-hover-bg, var(--b2s-color-surface-muted));
   }
 
   .idb-tree-node.is-active {
-    background: #e8efff;
+    background: var(--b2s-accent-soft);
     box-shadow: inset 3px 0 0 var(--b2s-topbar-bg);
     font-weight: 600;
   }
 
   .idb-tree-node :global(.bi-folder2),
   .idb-tree-node :global(.bi-folder2-open) {
-    color: #d4a017;
+    color: var(--b2s-color-warning);
   }
 
   .idb-tree-toggle {
@@ -113,7 +113,7 @@
 
   .idb-tree-leaf-dot {
     width: 20px;
-    color: var(--idb-text-muted, #6b7f98);
+    color: var(--idb-text-muted, var(--b2s-color-text-muted));
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -142,7 +142,7 @@
 
   .idb-tree-select:focus-visible {
     outline: none;
-    box-shadow: var(--b2s-focus-ring, 0 0 0 4px rgba(37, 99, 235, 0.18));
+    box-shadow: var(--b2s-focus-ring);
     border-radius: var(--b2s-radius-sm);
   }
 </style>

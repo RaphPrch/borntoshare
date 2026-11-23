@@ -47,7 +47,7 @@
 
 <style>
   .idb-selected-row__remove {
-    border: 1px solid var(--idb-border-strong, #d6deeb);
+    border: 1px solid var(--idb-border-strong, var(--b2s-color-border));
     border-radius: var(--b2s-radius-pill);
     width: 24px;
     height: 24px;
@@ -55,12 +55,12 @@
     align-items: center;
     justify-content: center;
     background: var(--idb-panel-bg, #ffffff);
-    color: var(--idb-text-muted, #6b7f98);
+    color: var(--idb-text-muted, var(--b2s-color-text-muted));
     flex: 0 0 24px;
   }
 
   .idb-selected-row__remove:hover {
-    background: var(--idb-hover-bg, #f3f7fc);
-    color: var(--idb-heading, #20324d);
+    background: var(--idb-hover-bg, var(--b2s-color-surface-muted));
+    color: var(--idb-heading, var(--b2s-color-text-strong));
   }
 </style>

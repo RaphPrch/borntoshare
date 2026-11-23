@@ -50,7 +50,7 @@
   ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
   li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 10px; align-items: start; }
   p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .rac__dot { width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: var(--b2s-color-border-mid, #cdd2db); }
+  .rac__dot { width: 9px; height: 9px; margin-top: 6px; border-radius: 50%; background: var(--b2s-color-border-mid); }
   .rac__dot.is-ok { background: var(--b2s-color-success); }
   .rac__dot.is-warn { background: var(--b2s-color-warning); }
   .rac__text { display: flex; flex-direction: column; min-width: 0; }

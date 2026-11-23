@@ -681,7 +681,7 @@
     padding: 3px 9px;
     border-radius: var(--b2s-radius-pill);
     background: var(--b2s-color-primary-soft);
-    color: #3730a3;
+    color: var(--b2s-accent-strong);
     font-size: var(--b2s-fs-xs);
   }
 
@@ -767,8 +767,8 @@
   .f input:focus,
   .mapping__row input:focus {
     outline: 0;
-    border-color: #8db5ff;
-    box-shadow: 0 0 0 3px rgba(11, 99, 244, 0.12);
+    border-color: var(--b2s-accent-vivid);
+    box-shadow: 0 0 0 3px rgba(7, 156, 156, 0.12);
   }
 
   .toggles {
@@ -853,7 +853,7 @@
   .result.is-ok {
     background: var(--b2s-color-success-soft);
     border: 1px solid var(--b2s-color-success-border);
-    color: #14532d;
+    color: var(--b2s-color-success-strong);
   }
 
   .result.is-err {

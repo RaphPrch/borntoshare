@@ -1,6 +1,5 @@
 <script lang="ts">
   
-  import QuickAccessRequestDrawer from '$lib/components/access-requests/QuickAccessRequestDrawer.svelte';
   import { reportUiError } from '$lib/errors/report';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
@@ -17,15 +16,11 @@
   import { createActivityEvent, listActivityByTarget } from '$lib/api/activity';
   import { listStorageRootGovernanceAlerts, type GovernanceAlert } from '$lib/api/governance-alerts';
   import {
-    createStorageRoot,
     deleteStorageRoot,
     getStorageRootOwners,
     recordStorageRootProbeResult,
-    updateStorageRoot,
     updateStorageRootOwners,
-    type StorageRootOwner,
-    type StorageRootCreatePayload,
-    type StorageRootUpdatePayload
+    type StorageRootOwner
   } from '$lib/api/storage-roots';
   import {
     buildGovernanceDraftFromOwners,
@@ -91,7 +86,6 @@
     validateStorageEndpointProbeConfig
   } from '$lib/jobs/storage-endpoint-probe';
   import { runProbeWithUi } from '$lib/jobs/probe-ui';
-  import StorageRootFormModal from '$lib/components/storage-roots/StorageRootFormModal.svelte';
   import StorageRootDrawerShell from '$lib/components/storage-roots/StorageRootDrawerShell.svelte';
   import StorageRootTagsDrawer from '$lib/components/storage-roots/StorageRootTagsDrawer.svelte';
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
@@ -329,6 +323,8 @@
         if (exists && $page.url.searchParams.get('tab') === 'permissions') storageRootsUiStore.setDetailTab('effective-access');
         else if (exists && ['activity', 'storage', 'sensitivity', 'quota'].includes(String($page.url.searchParams.get('tab'))))
           storageRootsUiStore.setDetailTab($page.url.searchParams.get('tab') as StorageRootsDetailTab);
+        // Another folder chosen (tree, list, link): it opens on its overview, not on the tab of the previous one
+        else if (exists) storageRootsUiStore.setDetailTab('overview');
         lastAppliedSelectedParam = selectedParam;
       }
     }
@@ -560,6 +556,10 @@
     title: string;
     subtitle?: string | null;
     tone?: 'warning' | 'error';
+    /** The full message of the alert, the AD group and the people it names (the « Details » of the to-do) */
+    message?: string | null;
+    group?: string | null;
+    people?: string[];
   };
 
   function storageRootAlertsForRootId(rootIdRaw: number | string | null | undefined): GovernanceAlert[] {
@@ -587,7 +587,10 @@
     type: String(alert?.alert_type ?? ''),
     title: alertTitle(alert),
     subtitle: humanizeFileServerMessage(storageRootAlertSummarySubtitle(alert)),
-    tone: storageRootAlertTone(alert)
+    tone: storageRootAlertTone(alert),
+    message: String(alert?.message ?? '').trim() || null,
+    group: typeof alert?.metadata_json?.group_name === 'string' ? alert.metadata_json.group_name : null,
+    people: Array.isArray(alert?.metadata_json?.usernames) ? (alert.metadata_json.usernames as unknown[]).map(String) : []
   });
 
   // The open alerts grouped by folder once: each line of the tree and the list reads its own (with thousands of
@@ -637,23 +640,11 @@
   /* CRUD root                                                                   */
   /* -------------------------------------------------------------------------- */
 
-  let rootModalOpen = $state(false);
-  let rootModalMode = $state<'create' | 'edit' | 'delete'>('create');
   let editingRoot = $state<any | null>(null);
   let deleteRootModalOpen = $state(false);
 
   const canDeleteStorageRoot = () =>
     canDeleteManagedObject(data?.user?.roles);
-
-  function openEditRoot() {
-    if (!selectedRow) {
-      toast.warning(t('Select a storage root first'));
-      return;
-    }
-    editingRoot = selectedRow;
-    rootModalMode = 'edit';
-    rootModalOpen = true;
-  }
 
   function openDeleteRoot(root: any) {
     if (!canDeleteStorageRoot()) {
@@ -662,29 +653,6 @@
     }
     editingRoot = root;
     deleteRootModalOpen = true;
-  }
-
-  async function submitRoot(payload: StorageRootCreatePayload | StorageRootUpdatePayload) {
-    try {
-      if (rootModalMode === 'edit' && editingRoot?.storage_root_id) {
-        await updateStorageRoot(fetch, Number(editingRoot.storage_root_id), payload as StorageRootUpdatePayload);
-        toast.success(t('Storage root updated'));
-        await goto(`/storage-roots?selected=${Number(editingRoot.storage_root_id)}`, { replaceState: true });
-      } else {
-        const created = await createStorageRoot(fetch, payload as StorageRootCreatePayload);
-        toast.success(t('Storage root created'));
-        await goto(`/storage-roots?selected=${created.id}`, { replaceState: true });
-      }
-
-      detailsCache.clear();
-      rootModalOpen = false;
-      await refreshStorageRootsLoad();
-      if (selectedStorageRootId) {
-        await invalidateAndReloadDetailsForRoot(selectedStorageRootId);
-      }
-    } catch {
-      toast.error(t('Storage root operation failed'));
-    }
   }
 
   // Operations on the folder on the file server (header menu or right click in the explorer)
@@ -788,7 +756,6 @@
         (alert: any) => Number(storageRootAlertRootId(alert) ?? 0) !== deletedRootId
       )
     };
-    rootModalOpen = false;
     deleteRootModalOpen = false;
     editingRoot = null;
     detailsCache.clear();
@@ -814,7 +781,6 @@
       toast.success(t('Storage root deleted'));
     } catch (e) {
       if (isDependencyDeleteError(e)) {
-        rootModalOpen = false;
         deleteRootModalOpen = false;
         editingRoot = null;
         toast.error(dependencyDeleteMessage('storage root', 'dependent records'));
@@ -1295,14 +1261,13 @@
     }
   };
 
-  // « Request access » on a folder: a quick panel (level, duration, reason); the full form stays one link away
-  let quickRequest = $state(false);
+  // « Request access » on a folder: the request page, the folder already chosen
   const openAccessRequestModal = () => {
     if (!selectedStorageRootId) {
       toast.warning(t('Select a storage root first'));
       return;
     }
-    quickRequest = true;
+    void goto(`/access-requests/new?root=${Number(selectedStorageRootId)}`);
   };
 
   let showAlertsDrawer = $state(false);
@@ -1904,7 +1869,6 @@
       {tagColor}
       {ownerDisplayName}
       onSelectTab={selectDetailTab}
-      onEditRoot={openEditRoot}
       onDeleteRoot={() => selectedRow && openDeleteRoot(selectedRow)}
       onRunRootProbe={runSelectedRootProbe}
       onReloadDetails={() => { if (selectedStorageRootId) loadDetails(selectedStorageRootId); }}
@@ -1922,15 +1886,6 @@
   </EntityWorkspace>
 {/if}
 
-<QuickAccessRequestDrawer
-  open={quickRequest}
-  rootId={selectedStorageRootId ? Number(selectedStorageRootId) : null}
-  rootName={String(selectedRow?.storage_root_name ?? '')}
-  rootPath={String((selectedRow as any)?.dfs_path ?? selectedRow?.root_path ?? '')}
-  guardians={guardians.map((owner) => String(owner?.display_name ?? owner?.username ?? '')).filter(Boolean)}
-  onClose={() => (quickRequest = false)}
-/>
-
 {#if shareEndpointId}
   <ShareCreateModal open endpointId={shareEndpointId} onClose={() => (shareEndpointId = null)} onCreated={() => (shareEndpointId = null)} />
 {/if}
@@ -1944,16 +1899,6 @@
   onSubfolderCreated={(rootId) => void onSubfolderCreated(rootId)}
 />
 
-
-<StorageRootFormModal
-  open={rootModalOpen}
-  mode={rootModalMode}
-  root={editingRoot}
-  endpoints={data.endpoints ?? []}
-  onClose={() => (rootModalOpen = false)}
-  onSubmit={submitRoot}
-  onDelete={confirmDeleteRoot}
-/>
 
 <ConfirmDeleteDialog
   open={deleteRootModalOpen}

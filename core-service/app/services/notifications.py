@@ -1,7 +1,7 @@
 """E-mails of BornToShare (Advanced Settings › Notifications), sent in the background through the SMTP server set there.
 
 - a new access request: its guardians
-- a decision: the requester
+- a decision: the requester, and the person the access is for when someone else asked for it
 - an access that ends in N days: the person who has it (once, during the access expiry run)
 
 Each message has a key written to notification_log: the same notice is never sent twice.
@@ -127,7 +127,13 @@ def _request(db: Session, request_id: int) -> dict[str, Any] | None:
             SELECT ar.id, ar.code, ar.status, ar.justification, ar.decision_comment, ar.requester_identity_id,
                    req.email AS requester_email, COALESCE(req.display_name, req.username) AS requester,
                    ar.created_at, ar.decided_at, ari.permission, ari.expires_at, sr.id AS root_id, sr.name AS root_name,
-                   sr.root_path
+                   sr.root_path,
+                   -- The person the access is for (a request may be made for someone else): their e-mail, if known
+                   (SELECT i.email FROM identities i
+                     WHERE i.email IS NOT NULL AND i.email <> ''
+                       AND (i.id = JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.identity_id'))
+                            OR LOWER(i.username) = LOWER(JSON_UNQUOTE(JSON_EXTRACT(ar.requested_principal_json, '$.username'))))
+                     ORDER BY i.id LIMIT 1) AS beneficiary_email
             FROM access_requests ar
             LEFT JOIN identities req ON req.id = ar.requester_identity_id
             LEFT JOIN access_request_items ari ON ari.access_request_id = ar.id
@@ -267,12 +273,12 @@ def request_decided(db: Session, request_id: int, decision: str) -> None:
                    else "Le gardien du dossier n'a pas accepté cette demande. Vous pouvez en faire une nouvelle, avec plus de précisions."),
             blocks=blocks,
             buttons=[mt.button("Voir mes demandes", url)] if url else [],
-            footer="Vous recevez ce mail parce que vous avez demandé cet accès.",
+            footer="Vous recevez ce mail parce que vous avez demandé cet accès, ou parce qu'il a été demandé pour vous.",
             badge=row.get("code") or f"REQ-{row['id']}",
         )
         queue(
             f"request:{row['id']}:{decision}",
-            [row["requester_email"]],
+            decision_recipients(row),
             f"[BornToShare] Votre demande d'accès à {row['root_name']} est {'acceptée' if accepted else 'refusée'}",
             ("Votre accès est en cours de mise en place : il est effectif en quelques minutes." if accepted else "Votre demande a été refusée.")
             + comment
@@ -281,6 +287,16 @@ def request_decided(db: Session, request_id: int, decision: str) -> None:
         )
     except Exception:
         logger.warning("NOTIFICATION_DECISION_FAILED", exc_info=True)
+
+
+def decision_recipients(row: dict[str, Any]) -> list[str]:
+    """Who hears of a decision: the requester and the person the access is for, each once."""
+    out: list[str] = []
+    for email in (row.get("requester_email"), row.get("beneficiary_email")):
+        value = str(email or "").strip()
+        if value and value.lower() not in {known.lower() for known in out}:
+            out.append(value)
+    return out
 
 
 def _admin_emails(db: Session) -> list[str]:

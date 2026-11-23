@@ -83,7 +83,7 @@
   .xq__chip.is-neg { border-color: var(--b2s-color-border); background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); text-decoration: line-through; }
   .xq__list { margin: 0; padding: 4px; list-style: none; max-height: 300px; overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface); box-shadow: var(--b2s-shadow-sm, 0 4px 14px rgba(0, 0, 0, 0.08)); }
   .xq__list button { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 8px; align-items: center; width: 100%; padding: 5px 8px; border: 0; border-radius: var(--b2s-radius-sm, 6px); background: none; color: inherit; text-align: left; font-size: var(--b2s-fs-sm); cursor: pointer; }
-  .xq__list button:hover, .xq__list button:focus-visible { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .xq__list button:hover, .xq__list button:focus-visible { background: var(--b2s-color-surface-soft); }
   .xq__list span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .xq__list code { color: var(--b2s-color-text-muted); font-family: var(--b2s-font-mono); font-size: var(--b2s-font-micro); }
   .xq__list i { color: var(--b2s-color-text-muted); }

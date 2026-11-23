@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
   import StorageRootHeader from '$lib/components/storage-roots/StorageRootHeader.svelte';
@@ -59,7 +59,6 @@
     tagColor?: (tag: StorageRootTag) => string | null;
     ownerDisplayName?: (owner: Record<string, unknown>) => string;
     onSelectTab?: (tab: StorageRootTabKey) => void;
-    onEditRoot?: () => void;
     onDeleteRoot?: () => void;
     onRunRootProbe?: () => void;
     /** A measure landed: the overview is read again */
@@ -106,7 +105,6 @@
     tagColor = () => null,
     ownerDisplayName = () => t('Unknown'),
     onSelectTab = () => {},
-    onEditRoot = () => {},
     onDeleteRoot = () => {},
     onRunRootProbe = () => {},
     onReloadDetails = () => {},
@@ -166,7 +164,6 @@
     onSelectTab('effective-access');
   }
 
-  const TAB_KEYS: StorageRootTabKey[] = ['overview', 'effective-access', 'storage', 'sensitivity', 'quota', 'activity'];
   let showBlockingLoading = $derived(detailsLoading && selectedRootCodeOrName === '—');
   let endpointDisplay = $derived(endpointAddress && endpointAddress !== '—' ? endpointAddress : endpointLabel);
   let aclScannedAt = $derived(String(aclFreshness?.scanned_at ?? aclFreshness?.discovered_at ?? '').trim());
@@ -190,12 +187,12 @@
     { key: 'overview', label: t('Overview') },
     // Who reaches the folder: the exposure, part of the governance
     ...($governanceEnabled ? [{ key: 'effective-access', label: t('Permissions'), count: permissions?.summary.people }] : []),
-    { key: 'storage', label: t('Storage · 5S') },
-    { key: 'sensitivity', label: t('Sensitivity'), count: flagged || undefined },
+    // The detail of the content and its sensitivity come with the 5S module (size and files stay in the figures)
+    ...($fivesEnabled ? [{ key: 'storage', label: t('Storage · 5S') }, { key: 'sensitivity', label: t('Sensitivity'), count: flagged || undefined }] : []),
     { key: 'quota', label: t('Quota'), count: quotaWaiting || undefined },
     { key: 'activity', label: t('Activity') }
   ] as Array<{ key: StorageRootTabKey; label: string; count?: number }>);
-  let current = $derived(TAB_KEYS.includes(activeTab) && (activeTab !== 'effective-access' || $governanceEnabled) ? activeTab : 'overview');
+  let current = $derived(tabs.some((tab) => tab.key === activeTab) ? activeTab : 'overview');
   let guardianNames = $derived(guardians.map((owner) => ownerDisplayName(owner)).filter(Boolean));
   $effect.pre(() => {
     if (selectedStorageRootId) explainTyped = null;
@@ -231,7 +228,6 @@
       {inheritanceBroken}
       {onRunRootProbe}
       {onNewAccessRequest}
-      {onEditRoot}
       {onDeleteRoot}
       {onMeasure}
       {onScanSensitivity}
@@ -243,7 +239,7 @@
     <StorageRootTiles
       {permissions}
       row={selectedRow}
-      onOpenContent={() => onSelectTab('storage')}
+      onOpenContent={() => onSelectTab($fivesEnabled ? 'storage' : 'overview')}
       onOpenPermissions={() => onSelectTab('effective-access')}
     />
   </div>
@@ -256,7 +252,7 @@
     onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
     onOpenPermissions={() => onSelectTab('effective-access')}
     {onViewAllAlerts}
-    onDecided={loadPermissions}
+    rootName={selectedRootCodeOrName}
   />
 
   <div class="v2-tabs" role="tablist" aria-label={t('Storage root sections')} tabindex="-1" onkeydown={onTabKey}>
@@ -271,6 +267,21 @@
   {#if current === 'overview' || current === 'storage' || current === 'sensitivity' || current === 'quota'}
     <!-- One instance per folder: its scans, measures and quota never show on another folder (nor its late answers) -->
     {#key `${selectedStorageRootId}:${current}`}
+    {#if current === 'overview' && $governanceEnabled}
+      <!-- The state of the folder's ACL first: who reaches it, through which groups, repair and export -->
+      <StorageRootPermissions
+        mode="acl"
+        data={permissions}
+        loading={permissionsLoading}
+        error={permissionsError}
+        rootId={selectedStorageRootId}
+        rootName={selectedRootCodeOrName}
+        canManage={true}
+        {isAdmin}
+        onChanged={loadPermissions}
+        onToggleInheritance={() => onFolderAction('inheritance', inheritanceBroken)}
+      />
+    {/if}
     <StorageRootOverview
       section={current}
       {permissions}

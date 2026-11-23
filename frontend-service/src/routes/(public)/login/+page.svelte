@@ -11,7 +11,6 @@
 
   interface Props {
     data: {
-    providers?: unknown;
     form?: Record<string, unknown>;
     ssoProviders?: { id: number; label: string }[];
     ssoError?: string | null;
@@ -22,9 +21,6 @@
 
   let { data }: Props = $props();
 
-  let enabledProviders = $derived(Array.isArray((data?.providers as { enabled?: unknown } | undefined)?.enabled)
-    ? ((data.providers as { enabled: string[] }).enabled)
-    : []);
 
   // Error normalisée pour affichage inline
   let pageError = $state<AppError | null>(null);
@@ -67,7 +63,6 @@
   form={data.form ?? {}}
   ssoProviders={data.ssoProviders ?? []}
   redirectTo={data.redirectTo ?? null}
-  providers={enabledProviders}
 >
   {#if data.closedForInactivity && !data.form}
     <p class="closed-notice" role="status">

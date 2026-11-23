@@ -2,19 +2,16 @@
   import { formatBytes, initials, timeAgo } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import { page } from '$app/stores';
-  import { goto } from '$app/navigation';
-  import { formatActivityItem } from '$lib/activity/format';
-  import RequestsActivityChart from './RequestsActivityChart.svelte';
+  import ThreadOfTheDay from './ThreadOfTheDay.svelte';
   import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
-  import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
 
   /**
-   * Administrator dashboard (v2): a greeting with the day in one line, the figures in one bar, the health of the
-   * file servers (one tile per server, by zone), what is left to handle, the requests and the latest actions.
+   * Administrator dashboard (v2): a greeting with the day in one line, the figures, what is left to handle and the
+   * thread of the day (the problems of the platform).
    */
   interface Props {
     // data.stats: { storage_roots, storage_endpoints, admins, pending_requests, … }; data.activities: […]
@@ -25,10 +22,16 @@
 
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
   const stats = data?.stats ?? data?.summary ?? {};
-  // Sign-ins are frequent and say little about platform changes: kept out
+  // Thread of the day of the platform: what went wrong (health checks, DFS reads, syncs, jobs, provisioning steps),
+  // not the sign-ins and sign-outs nor the decisions of the guardians (a refusal is not a problem of the platform)
+  const isIssue = (a: any) => {
+    const action = String(a?.action ?? '');
+    const outcome = String(a?.outcome ?? '').toLowerCase();
+    const severity = String(a?.severity ?? '').toLowerCase();
+    return !action.startsWith('auth.') && (['failure', 'error'].includes(outcome) || ['warning', 'error', 'critical'].includes(severity));
+  };
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
-  const activities = (Array.isArray(data?.activities) ? data.activities : []).filter((a: any) => String(a?.action ?? '') !== 'auth.login');
-  const requestsSeries = Array.isArray(stats?.requests_last_30_days) ? stats.requests_last_30_days : [];
+  const activities = (Array.isArray(data?.activities) ? data.activities : []).filter(isIssue);
   const num = (v: unknown) => (Number.isFinite(Number(v)) ? Number(v) : 0);
 
   // ---- what the dashboard reads after the page: folders, servers, 5S, secrets, late tasks ----
@@ -75,11 +78,6 @@
   // ---- Journal: the day told in one headline and one paragraph, from the figures below ----
   const todayText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
   const today = todayText.charAt(0).toUpperCase() + todayText.slice(1);
-  const clock = (value: unknown) => {
-    const date = new Date(String(value ?? ''));
-    if (Number.isNaN(date.getTime())) return '—';
-    return date.toDateString() === new Date().toDateString() ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : timeAgo(value as string);
-  };
   let lede = $derived([
     t('{count} folder(s) on {servers} server(s)', { count: num(stats.storage_roots) || roots.length, servers: num(stats.storage_endpoints) || endpoints.length }),
     ...(totalBytes ? [t('{size} measured', { size: formatBytes(totalBytes) })] : []),
@@ -87,18 +85,10 @@
     ...(secretFiles ? [t('{count} file(s) with passwords or keys', { count: secretFiles })] : []),
     ...(failedRoots.length ? [t('{count} measure(s) failed', { count: failedRoots.length })] : [])
   ].join(' · ') + '.');
-  let question = $state('');
   let openStory = $state(0);
-  // The folders behind a story, and the Pilot question that lists them all
+  // The folders behind a story
   const storyFolders = (key: string): Root[] =>
     (key === 'failed' ? failedRoots : key === 'secrets-files' ? secretRoots : key === 'quota' ? quotaRoots : key === 'guardian' ? noGuardian : key === 'never' ? neverRoots : []).slice(0, 4);
-  const PILOT_FOR: Record<string, string> = {
-    'secrets-files': 'Quels dossiers contiennent des mots de passe ?',
-    quota: 'Quotas au-delà de 85 %',
-    guardian: 'Dossiers sans gardien',
-    never: 'Dossiers jamais mesurés'
-  };
-
   // ---- measure the folders never measured ----
   let measuring = $state(false);
   async function measureNever() {
@@ -112,61 +102,6 @@
       reportUiError(error, t('Unable to start the measure.'), 'dashboard.measure');
     } finally {
       measuring = false;
-    }
-  }
-
-  // ---- health of the servers: one tile per server, by zone ----
-  type Tile = { endpoint: Endpoint; tone: 'ok' | 'warn' | 'bad' | 'noacc' | 'dfs'; label: string };
-  function tileOf(endpoint: Endpoint): Tile {
-    const own = roots.filter((row) => Number(row.storage_endpoint_id) === endpoint.storage_endpoint_id);
-    const state = String(endpoint.operational_state ?? '');
-    const kind = String(endpoint.storage_endpoint_type ?? '').toLowerCase();
-    let tone: Tile['tone'] = 'ok';
-    if (kind === 'dfs') tone = 'dfs';
-    else if (state === 'unreachable' || own.some((row) => String(row.measure_status ?? '') === 'failed')) tone = 'bad';
-    else if (!endpoint.auth_username) tone = 'noacc';
-    else if (own.some((row) => num(row.open_alerts_count) > 0)) tone = 'warn';
-    const stateLabel = { ok: t('Healthy'), warn: t('Folders to review'), bad: t('Unreachable or failed'), noacc: t('No account'), dfs: t('DFS server') }[tone];
-    return { endpoint, tone, label: `${endpoint.storage_endpoint_name} · ${stateLabel}${kind === 'dfs' ? '' : ` · ${t('{count} folder(s)', { count: own.length })}`}` };
-  }
-  let heat = $derived.by(() => {
-    const zones = new Map<string, Tile[]>();
-    for (const endpoint of endpoints) {
-      const zone = String(endpoint.zone_name ?? '—');
-      if (!zones.has(zone)) zones.set(zone, []);
-      zones.get(zone)!.push(tileOf(endpoint));
-    }
-    return [...zones.entries()].sort((a, b) => a[0].localeCompare(b[0], 'fr'))
-      .map(([zone, tiles]) => ({ zone, tiles: tiles.sort((a, b) => a.endpoint.storage_endpoint_name.localeCompare(b.endpoint.storage_endpoint_name)) }));
-  });
-  const openTile = (tile: Tile) =>
-    tile.tone === 'dfs'
-      ? goto(`/admin/storage-endpoints/${tile.endpoint.storage_endpoint_id}`)
-      : goto(`/storage-roots?q=${encodeURIComponent(`serveur:${tile.endpoint.storage_endpoint_name}`)}`);
-
-  // Right click on a tile: its actions
-  let menu = $state<{ tile: Tile; at: { x: number; y: number } } | null>(null);
-  let menuItems = $derived<ContextMenuItem[]>(menu?.tile.tone === 'dfs'
-    ? [{ key: 'open', label: t('Open the server'), icon: 'bi-hdd-stack' }]
-    : [
-        { key: 'roots', label: t('See its folders'), icon: 'bi-folder2-open' },
-        { key: 'measure', label: t('Measure its folders'), icon: 'bi-rulers' },
-        { key: 'open', label: t('Open the server'), icon: 'bi-hdd-stack', separated: true }
-      ]);
-  async function onPick(key: string) {
-    const tile = menu?.tile;
-    if (!tile) return;
-    if (key === 'open') void goto(`/admin/storage-endpoints/${tile.endpoint.storage_endpoint_id}`);
-    if (key === 'roots') void openTile(tile);
-    if (key === 'measure') {
-      const ids = roots.filter((row) => Number(row.storage_endpoint_id) === tile.endpoint.storage_endpoint_id).map((row) => Number(row.storage_root_id));
-      if (!ids.length) return;
-      try {
-        await apiPostData(fetch, '/storage-roots/measure', { root_ids: ids });
-        toast.success(t('Measure started on {count} folder(s).', { count: ids.length }));
-      } catch (error) {
-        reportUiError(error, t('Unable to start the measure.'), 'dashboard.measure');
-      }
     }
   }
 
@@ -224,7 +159,6 @@
       <h1>{headline}</h1>
       <p>{lede}</p>
       <div class="jr-acts">
-        <a class="b2s-btn b2s-btn-secondary" href="/storage-roots">Storage Roots</a>
         {#if neverRoots.length}
           <button type="button" class="b2s-btn b2s-btn-primary" disabled={measuring} onclick={measureNever}>
             <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure the {count} folder(s) never measured', { count: neverRoots.length })}
@@ -232,28 +166,17 @@
         {/if}
       </div>
     </div>
-    {#if $fivesEnabled}
-      <a class="jr-score" href="/five-s"><span>{t('5S score of the file shares')}</span><b>{fivesScore ?? '—'}<i aria-hidden="true"></i></b><span>{t('on the measured folders')}</span></a>
-    {:else}
-      <a class="jr-score" href="/storage-roots"><span>Storage Roots</span><b>{num(stats.storage_roots) || roots.length}<i aria-hidden="true"></i></b><span>{t('on {count} server(s)', { count: num(stats.storage_endpoints) || endpoints.length })}</span></a>
-    {/if}
   </div>
 
-  <form class="jr-pilot" onsubmit={(event) => { event.preventDefault(); if (question.trim()) void goto(`/pilot?q=${encodeURIComponent(question.trim())}`); }}>
-    <span class="jr-pilot__tag">Pilot</span>
-    <input type="text" bind:value={question} placeholder={t('A question? « Export all the users of the folder Finance »')} aria-label={t('Ask Pilot')} />
-    <button type="submit" class="b2s-btn b2s-btn-primary" disabled={!question.trim()}>{t('Ask')}</button>
-  </form>
-
   <div class="v2-stats">
-    <a class="v2-stat" href="/storage-roots"><small>Storage Roots</small><b>{num(stats.storage_roots) || roots.length}</b><span>{t('on {count} server(s)', { count: num(stats.storage_endpoints) || endpoints.length })}</span></a>
-    <a class="v2-stat" href="/storage-roots"><small>{t('Measured volume')}</small><b>{loaded ? formatBytes(totalBytes) : '…'}</b><span>{t('{count} folder(s) measured', { count: roots.length - neverRoots.length - failedRoots.length })}</span></a>
-    <a class="v2-stat" href={$fivesEnabled ? '/five-s/explore' : '/storage-roots'}><small>{t('Files inventoried')}</small><b>{loaded ? totalFiles.toLocaleString('fr-FR') : '…'}</b><span>{t('last measures')}</span></a>
+    <a class="v2-stat" href="/storage-roots"><i class="bi bi-hdd-network" aria-hidden="true"></i><small>Storage Roots</small><b>{num(stats.storage_roots) || roots.length}</b><span>{t('on {count} server(s)', { count: num(stats.storage_endpoints) || endpoints.length })}</span></a>
+    <a class="v2-stat" href="/storage-roots"><i class="bi bi-database" aria-hidden="true"></i><small>{t('Measured volume')}</small><b>{loaded ? formatBytes(totalBytes) : '…'}</b><span>{t('{count} folder(s) measured', { count: roots.length - neverRoots.length - failedRoots.length })}</span></a>
+    <a class="v2-stat" href={$fivesEnabled ? '/five-s/explore' : '/storage-roots'}><i class="bi bi-files" aria-hidden="true"></i><small>{t('Files inventoried')}</small><b>{loaded ? totalFiles.toLocaleString('fr-FR') : '…'}</b><span>{t('last measures')}</span></a>
     {#if $fivesEnabled}
-      <a class="v2-stat" href="/five-s"><small>{t('Average 5S score')}</small><b>{fivesScore ?? '—'}</b><span>{t('on the measured folders')}</span></a>
+      <a class="v2-stat" href="/five-s"><i class="bi bi-stars" aria-hidden="true"></i><small>{t('Average 5S score')}</small><b>{fivesScore ?? '—'}</b><span>{t('on the measured folders')}</span></a>
     {/if}
     {#if $governanceEnabled}
-      <a class="v2-stat" href="/access-requests"><small>{t('Requests to decide')}</small><b>{num(stats.pending_requests)}</b><span>{t('at the guardians')}</span></a>
+      <a class="v2-stat" href="/access-requests"><i class="bi bi-inbox is-warn" aria-hidden="true"></i><small>{t('Requests to decide')}</small><b>{num(stats.pending_requests)}</b><span>{t('at the guardians')}</span></a>
     {/if}
   </div>
 
@@ -276,7 +199,6 @@
               <div class="jr-acts">
                 {#if item.href}<a class="b2s-btn b2s-btn-primary b2s-btn-sm" href={item.href}>{item.action}</a>
                 {:else}<button type="button" class="b2s-btn b2s-btn-primary b2s-btn-sm" disabled={measuring} onclick={item.run}>{item.action}</button>{/if}
-                {#if PILOT_FOR[item.key]}<a class="b2s-btn b2s-btn-secondary b2s-btn-sm" href={`/pilot?q=${encodeURIComponent(PILOT_FOR[item.key])}`}><i class="bi bi-chat-square-text" aria-hidden="true"></i>{t('List and export with Pilot')}</a>{/if}
               </div>
             </div>
           {/if}
@@ -286,109 +208,40 @@
       {/each}
     </div>
     <aside>
-      <h2 class="jr-h2">{t('Thread of the day')} <a class="b2s-link-btn" href="/observability?tab=audit">{t('See all')}</a></h2>
-      <ol class="jr-time">
-        {#each activities.slice(0, 7) as a, index (index)}
-          {@const rendered = formatActivityItem(a)}
-          {@const who = String(a.actor_display_name ?? a.actor_display ?? (a.actor_type === 'system' ? t('System') : a.actor_id ?? '—'))}
-          <li class="jr-ev" class:hot={/refus|fail|échec|alert|denied/i.test(String(a.action ?? '') + String(rendered.title ?? ''))}>
-            <small>{clock(a.created_at)}</small>
-            <span><b>{rendered.title ?? t('Event')}</b> · {who}{rendered.subtitle1 ? ` · ${rendered.subtitle1}` : ''}</span>
-          </li>
-        {:else}
-          <li class="jr-ev"><span>{t('No recent activity.')}</span></li>
-        {/each}
-      </ol>
+      <ThreadOfTheDay events={activities} seeAll="/observability?tab=audit" empty={t('No problem lately on the platform.')} />
     </aside>
   </div>
 
-  <div class="v2-cols">
-    <div class="v2-sec">
-      <div class="v2-sh"><h2>{t('Health of the file servers')}</h2><div class="v2-sh__r"><span class="v2-hint">{t('One tile per server · click: its folders · right click: actions')}</span></div></div>
-      {#if heat.length}
-        <div class="heat">
-          {#each heat as row (row.zone)}
-            <div class="heat__r">
-              <span class="heat__z">{row.zone}</span>
-              <div class="heat__tiles">
-                {#each row.tiles as tile (tile.endpoint.storage_endpoint_id)}
-                  <button type="button" class={`heat__t is-${tile.tone}`} title={tile.label} aria-label={tile.label} onclick={() => openTile(tile)}
-                    oncontextmenu={(event) => { event.preventDefault(); menu = { tile, at: menuPositionFor(event) }; }}></button>
-                {/each}
-              </div>
-            </div>
-          {/each}
-        </div>
-        <div class="heat__legend">
-          <span><i class="is-ok"></i>{t('Healthy')}</span><span><i class="is-warn"></i>{t('Folders to review')}</span><span><i class="is-bad"></i>{t('Unreachable or failed')}</span>
-          <span><i class="is-noacc"></i>{t('No account')}</span><span><i class="is-dfs"></i>{t('DFS server')}</span>
-        </div>
-      {:else if loaded}
-        <p class="v2-empty">{t('No file server yet.')} <a href="/admin/storage-endpoints/new">{t('Add a server')}</a></p>
-      {/if}
-    </div>
-
-    {#if $governanceEnabled}<div class="v2-sec"><RequestsActivityChart series={requestsSeries} /></div>{/if}
-  </div>
 </section>
 
-<ContextMenu open={menu != null} title={menu?.tile.endpoint.storage_endpoint_name ?? ''} subtitle={menu?.tile.endpoint.zone_name ?? ''} items={menuItems} at={menu?.at}
-  onClose={() => (menu = null)} {onPick} />
-
 <style>
-  .jr-hero { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 44px; align-items: end; }
-  @media (max-width: 1000px) { .jr-hero { grid-template-columns: minmax(0, 1fr); } }
-  .jr-kick { color: #596273; font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
-  .jr-hero h1 { margin: 12px 0 0; font-size: 58px; font-weight: 700; letter-spacing: -0.045em; line-height: 1; }
-  .jr-hero p { margin: 16px 0 0; max-width: 680px; color: #3f4755; font-size: 17px; line-height: 1.55; }
+  .jr-hero { display: block; }
+  .jr-kick { color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+  .jr-hero h1 { margin: 10px 0 0; color: var(--b2s-color-heading); font-size: 30px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }
+  .jr-hero p { margin: 8px 0 0; max-width: 680px; color: var(--b2s-color-text-muted); font-size: 15px; line-height: 1.5; }
   .jr-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
   .jr-body .jr-acts { margin-top: 0; }
-  .jr-score { display: flex; flex-direction: column; gap: 8px; padding-left: 26px; border-left: 1px solid var(--b2s-color-border-soft); color: inherit; text-decoration: none; }
-  .jr-score span { color: var(--b2s-color-text-muted); }
-  .jr-score b { font-size: 108px; font-weight: 700; letter-spacing: -0.06em; line-height: 0.85; }
-  .jr-score b i { display: inline-block; width: 18px; height: 18px; margin-left: 8px; border-radius: 50%; background: #0e1218; vertical-align: top; }
-  .jr-score:hover b { color: #3f4755; }
-  .jr-pilot { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 6px 6px 6px 8px; border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; background: var(--b2s-color-surface-soft); }
-  .jr-pilot:focus-within { background: #fff; border-color: #0e1218; box-shadow: 0 0 0 3px rgba(14, 18, 24, 0.1); }
-  .jr-pilot__tag { padding: 6px 12px; border-radius: 10px; background: #0e1218; color: #fff; font-weight: 700; font-size: 13px; }
-  .jr-pilot input { flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; }
-  .jr-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 44px; }
+  .jr-cols { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .jr-cols > :is(div, aside) { min-width: 0; padding: 18px 22px; border: 1px solid var(--b2s-color-border-soft); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); box-shadow: var(--b2s-shadow-sm); }
   @media (max-width: 1000px) { .jr-cols { grid-template-columns: minmax(0, 1fr); } }
-  .jr-h2 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 6px; font-size: 26px; font-weight: 700; letter-spacing: -0.025em; }
+  .jr-h2 { display: flex; align-items: baseline; gap: 12px; margin: 0 0 10px; color: var(--b2s-color-heading); font-size: 18px; font-weight: 700; letter-spacing: -0.025em; }
   .jr-h2 :global(.b2s-link-btn) { margin-left: auto; font-size: 13px; letter-spacing: 0; }
   .jr-story { border-top: 1px solid var(--b2s-color-border-soft); }
   .jr-sh { width: 100%; display: grid; grid-template-columns: 56px minmax(0, 1fr) 28px; gap: 16px; align-items: start; padding: 20px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .jr-sh:focus-visible { outline: 2px solid #0e1218; outline-offset: 2px; }
-  .jr-idx { color: #cdd2db; font-size: 28px; font-weight: 800; line-height: 1; }
+  .jr-sh:focus-visible { outline: 2px solid var(--b2s-accent-vivid); outline-offset: 2px; }
+  .jr-idx { color: var(--b2s-color-border); font-size: 28px; font-weight: 800; line-height: 1; }
   .jr-sh h3 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.015em; }
-  .jr-sh p { margin: 6px 0 10px; color: #4a5262; line-height: 1.5; }
+  .jr-sh p { margin: 6px 0 10px; color: var(--b2s-color-text-soft); line-height: 1.5; }
   .jr-plus { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--b2s-color-border); border-radius: 50%; transition: transform var(--b2s-motion-base) var(--b2s-ease-out); }
-  .jr-plus.open { transform: rotate(45deg); border-color: #0e1218; background: #0e1218; color: #fff; }
+  .jr-plus.open { transform: rotate(45deg); border-color: var(--b2s-accent); background: var(--b2s-accent); color: #fff; }
   .jr-body { display: flex; flex-direction: column; gap: 12px; padding: 0 0 22px 72px; }
   .jr-list { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; }
   .jr-list li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px dashed var(--b2s-color-border-soft); }
   .jr-list a { color: inherit; font-weight: 600; text-decoration: none; }
-  .jr-list a:hover { color: #3f4755; text-decoration: underline; }
+  .jr-list a:hover { color: var(--b2s-color-text-soft); text-decoration: underline; }
   .jr-list span { color: var(--b2s-color-text-muted); font-family: var(--b2s-font-mono); font-size: 12px; }
   .jr-calm { color: var(--b2s-color-text-muted); }
-  .jr-time { position: relative; display: flex; flex-direction: column; margin: 8px 0 0; padding: 0 0 0 22px; list-style: none; }
-  .jr-time::before { content: ''; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--b2s-color-border-soft); }
-  .jr-ev { position: relative; padding: 0 0 16px; line-height: 1.45; }
-  .jr-ev::before { content: ''; position: absolute; left: -21px; top: 6px; width: 9px; height: 9px; border: 2px solid #0e1218; border-radius: 50%; background: #fff; }
-  .jr-ev.hot::before { border-color: #0e1218; background: #0e1218; }
-  .jr-ev small { display: block; color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 700; }
-  .jr-ev b { font-weight: 600; }
   .v2-cols.is-single { grid-template-columns: minmax(0, 1fr); }
-  .heat { display: flex; flex-direction: column; gap: 7px; }
-  .heat__r { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; align-items: center; }
-  .heat__z { overflow: hidden; color: #3f4755; font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
-  .heat__tiles { display: flex; flex-wrap: wrap; gap: 5px; }
-  .heat__t { width: 34px; height: 28px; padding: 0; border: 0; border-radius: 7px; cursor: pointer; transition: transform var(--b2s-motion-fast) var(--b2s-ease-out), box-shadow var(--b2s-motion-fast); }
-  .heat__t:hover { transform: translateY(-2px); box-shadow: 0 6px 12px -6px rgba(14, 18, 24, 0.5); }
-  .heat__t:focus-visible { outline: 3px solid #0e1218; outline-offset: 2px; }
-  .is-ok { background: #0b7a4b; } .is-warn { background: #b86200; } .is-bad { background: #c23a3a; } .is-noacc { background: #fdefd9; box-shadow: inset 0 0 0 1px #e8c28f; } .is-dfs { background: #3f4755; }
-  .heat__legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--b2s-color-text-muted); font-size: 12px; }
-  .heat__legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 3px; vertical-align: -1px; }
-  .dash__av { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: #eef0f4;
-    color: #0e1218; font-size: 11px; font-weight: 700; }
+  .dash__av { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--b2s-color-surface-muted);
+    color: var(--b2s-color-heading); font-size: 11px; font-weight: 700; }
 </style>

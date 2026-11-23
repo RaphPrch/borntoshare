@@ -100,7 +100,7 @@
     border: 1px solid var(--b2s-color-border-soft);
     border-radius: 14px;
     background: var(--b2s-color-surface);
-    box-shadow: 0 20px 50px rgba(15, 26, 58, 0.22);
+    box-shadow: 0 20px 50px rgba(18, 59, 73, 0.22);
     pointer-events: none;
   }
 

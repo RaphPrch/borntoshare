@@ -143,24 +143,24 @@
   .ad__who a { color: inherit; text-decoration: none; }
   .ad__who b { font-weight: 600; }
   .ad__who small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); }
-  .ad__line { flex: 1; min-width: 24px; border-top: 2px solid #8a93a3; }
-  .ad__arrow { width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid #8a93a3; }
+  .ad__line { flex: 1; min-width: 24px; border-top: 2px solid var(--b2s-color-text-faint); }
+  .ad__arrow { width: 0; height: 0; border-top: 6px solid transparent; border-bottom: 6px solid transparent; border-left: 8px solid var(--b2s-color-text-faint); }
   .ad__path { padding: 3px 10px; border-radius: var(--b2s-radius-pill); font-size: var(--b2s-fs-xs); font-weight: 500; white-space: nowrap; }
   .ad__path.is-local { background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text); }
-  .ad__path.is-direct { background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); }
-  .ad__path.is-group { background: #e6f4f1; color: #0f766e; }
-  .ad__role { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 20px; border-radius: 16px; background: linear-gradient(160deg, #0e1218, #1f2a3a); color: #ffffff; }
-  .ad__role span { color: #b9bfca; font-size: var(--b2s-fs-xs); letter-spacing: 0.05em; text-transform: uppercase; }
+  .ad__path.is-direct { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .ad__path.is-group { background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); }
+  .ad__role { display: flex; flex-direction: column; justify-content: center; gap: 8px; padding: 20px; border-radius: 16px; background: linear-gradient(160deg, var(--b2s-topbar-bg), var(--b2s-topbar-bg-hover)); color: #ffffff; }
+  .ad__role span { color: var(--b2s-color-border-strong); font-size: var(--b2s-fs-xs); letter-spacing: 0.05em; text-transform: uppercase; }
   .ad__role b { font-size: 20px; line-height: 1.2; }
   .ad__role strong { font-size: 34px; }
-  .ad__role small { color: #c7cfdb; font-size: var(--b2s-fs-sm); }
+  .ad__role small { color: var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
   .ad__fixes { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px; }
-  .ad__fix { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 1px solid var(--b2s-color-warning-border, #f3d9a8); border-radius: var(--b2s-radius-lg); background: #fff8ea; }
+  .ad__fix { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 16px; border: 1px solid var(--b2s-color-warning-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-warning-soft); }
   .ad__fix p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .ad__tag { padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-warning-soft, #fdefd9); color: var(--b2s-color-warning-strong, #9a5b00); font-size: var(--b2s-fs-xs); }
+  .ad__tag { padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-xs); }
   .ad__btns { display: flex; flex-wrap: wrap; gap: 8px; }
   .ad__me { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 10px; background: var(--b2s-color-neutral-soft); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .ad__ok { display: flex; gap: 8px; margin: 0; padding: 12px 16px; border-radius: var(--b2s-radius-lg); background: var(--b2s-color-success-soft, #ddf5e9); color: var(--b2s-color-success-strong, #157a3c); }
+  .ad__ok { display: flex; gap: 8px; margin: 0; padding: 12px 16px; border-radius: var(--b2s-radius-lg); background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
   .ad__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
 </style>

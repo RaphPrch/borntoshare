@@ -239,10 +239,10 @@
         <small>{t('Schedule')}</small><b>{scheduleText(data.settings)}</b><span>{nextText(data)}</span>
       </div>
       <div class="v2-stats sc5__stats">
-        <div class="v2-stat"><small>{t('Walking')}</small><b>{data.counts.running ?? 0}</b><span>{t('at most {count} per server', { count: data.settings.per_server })}</span></div>
-        <div class="v2-stat"><small>{t('Waiting')}</small><b>{data.counts.queued ?? 0}</b><span>{t('scans in the queue')}</span></div>
-        <div class="v2-stat"><small>{t('Scanners')}</small><b>{data.scanners.length}</b><span>{data.scanners.length ? data.scanners.map((scanner) => scanner.id).join(', ') : t('none seen in the last 24 h')}</span></div>
-        <div class="v2-stat"><small>{t('Never measured')}</small><b>{neverIds.length}</b><span>{t('{count} folder(s) in all', { count: roots.length })}</span></div>
+        <div class="v2-stat"><i class="bi bi-activity" aria-hidden="true"></i><small>{t('Walking')}</small><b>{data.counts.running ?? 0}</b><span>{t('at most {count} per server', { count: data.settings.per_server })}</span></div>
+        <div class="v2-stat"><i class="bi bi-hourglass-split" aria-hidden="true"></i><small>{t('Waiting')}</small><b>{data.counts.queued ?? 0}</b><span>{t('scans in the queue')}</span></div>
+        <div class="v2-stat"><i class="bi bi-cpu" aria-hidden="true"></i><small>{t('Scanners')}</small><b>{data.scanners.length}</b><span>{data.scanners.length ? data.scanners.map((scanner) => scanner.id).join(', ') : t('none seen in the last 24 h')}</span></div>
+        <div class="v2-stat"><i class="bi bi-question-circle is-warn" aria-hidden="true"></i><small>{t('Never measured')}</small><b>{neverIds.length}</b><span>{t('{count} folder(s) in all', { count: roots.length })}</span></div>
       </div>
     </div>
 
@@ -403,12 +403,11 @@
   .sc5__sched span { color: var(--b2s-color-text-muted); font-size: 13px; }
   .sc5__sched.is-on b::before { content: ''; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: var(--b2s-accent); vertical-align: 2px; }
   .sc5__stats { flex: 1 1 440px; margin-left: auto; border: 0; }
-  .sc5__stats .v2-stat { padding: 4px 18px 4px 0; }
   .sc5__stats .v2-stat b { font-size: 24px; }
   .sc5__run { grid-template-columns: 120px minmax(0, 1fr) auto; align-items: start; }
   .sc5__run .v2-nm { gap: 4px; }
   .sc5__bar { max-width: 420px; height: 5px; }
-  .sc5__err { color: var(--b2s-color-danger-strong, #b42318); }
+  .sc5__err { color: var(--b2s-color-danger-strong); }
   .sc5__end { display: flex; align-items: center; gap: 8px; }
   .sc5__g { grid-template-columns: minmax(220px, 2fr) minmax(130px, 1fr) 100px 110px 130px 140px 36px; min-width: 900px; }
   .sc5__more { align-self: center; }
@@ -424,5 +423,5 @@
   .sc5__purge legend { padding: 0 6px; font-size: var(--b2s-fs-sm); font-weight: 600; }
   .sc5__purge .sc5__check { font-weight: 400; }
   .sc5__days { width: 90px; height: 32px; }
-  .sc5__warn { margin: 0; color: #8a4b00; font-size: var(--b2s-fs-xs); }
+  .sc5__warn { margin: 0; color: var(--b2s-color-warning-strong); font-size: var(--b2s-fs-xs); }
 </style>

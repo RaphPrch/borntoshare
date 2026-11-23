@@ -60,9 +60,12 @@ async def lifespan(_app: FastAPI):
     _check_schema_contract()
     _apply_log_level()
     tasks = [task for task in (start_jobs_watchdog(), start_infra_scheduler()) if task is not None]
+    from app.services.modules import warm_fives_installed
     from app.services.otel_export import start_if_enabled
 
     start_if_enabled()
+    # Is the 5S module there? Asked now in a thread: a missing one takes seconds to fail, no request waits for it
+    warm_fives_installed()
     try:
         yield
     finally:

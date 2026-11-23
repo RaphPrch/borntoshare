@@ -97,8 +97,8 @@
 }
 
 .b2s-btn-ghost:hover:not(:disabled) {
-  background: #edf4ff;
-  border-color: #d2e0f3;
+  background: var(--b2s-accent-soft);
+  border-color: var(--b2s-accent-border);
 }
 
 .b2s-btn-danger {

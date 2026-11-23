@@ -3,7 +3,10 @@
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetList } from '$lib/api/client';
-  import { getIdentityOverview, type IdentityOverview } from '$lib/api/identity';
+  import { adminChangePassword, getIdentityOverview, type IdentityOverview } from '$lib/api/identity';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import { reportUiError } from '$lib/errors';
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
   import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import EntityHeroCard from '$lib/components/entity/EntityHeroCard.svelte';
@@ -21,7 +24,7 @@
   
   interface Props {
     /**
-   * One person, as a page: identity card with the role as a switch (undo for a few seconds), « to do », figures,
+   * One person, as a page: identity card (the role is shown, not switched here), « to do », figures,
    * then what they guard (map by share, sole guardian folders, co-guardians), their requests and the activity.
    */
     item: Record<string, any>;
@@ -29,9 +32,7 @@
     /** The signed-in person: no demotion, disabling or deletion of one's own account */
     isSelf?: boolean;
     busy?: boolean;
-    onSetRole?: (role: 'user' | 'platform_admin') => Promise<boolean>;
     onToggleActive?: () => void;
-    onEdit?: () => void;
     onDelete?: () => void;
     /** Everyone, to pick a backup guardian */
     people?: Array<Record<string, any>>;
@@ -42,9 +43,7 @@
     canDelete = true,
     isSelf = false,
     busy = false,
-    onSetRole = async () => false,
     onToggleActive = () => {},
-    onEdit = () => {},
     onDelete = () => {},
     people = []
   }: Props = $props();
@@ -75,21 +74,12 @@
   }
   export const reload = () => id && load(id);
 
-  async function setRole(role: 'user' | 'platform_admin') {
-    if (busy || adminByGroupOnly || (role === 'platform_admin') === isAdmin) return;
-    const previous: 'user' | 'platform_admin' = isAdmin ? 'platform_admin' : 'user';
-    if (!(await onSetRole(role))) return;
-    await load(id);
-    toast.success(role === 'platform_admin' ? t('{name} is now an administrator.', { name: displayName }) : t('{name} is a user again.', { name: displayName }), {
-      action: { label: t('Undo'), run: async () => { if (await onSetRole(previous)) await load(id); } }
-    });
-  }
 
 
 
 
 
-  const REQUEST_TONES: Record<string, string> = { approved: '#2f9e5b', applied: '#2f9e5b', active: '#2f9e5b', pending: '#3b6fd8', revoked: '#8a93a3', rejected: '#c0392b', cancelled: '#cdd2db', expired: '#b9c0cc' };
+  const REQUEST_TONES: Record<string, string> = { approved: '#138a5c', applied: '#138a5c', active: '#138a5c', pending: '#2b77b3', revoked: '#8a98a8', rejected: '#b3364b', cancelled: '#d5dee6', expired: '#bcc8d3' };
   const REQUEST_LABEL = (): Record<string, string> => ({ approved: t('approved'), applied: t('applied'), active: t('active'), pending: t('pending'), revoked: t('revoked'), rejected: t('rejected'), cancelled: t('cancelled'), expired: t('expired') });
 
   let id = $derived(Number(item?.id ?? 0));
@@ -111,15 +101,49 @@
   let sole = $derived(guarded.filter((folder) => folder.sole));
   let requestsTotal = $derived(Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0));
   let actions = $derived([
-    { key: 'edit', label: t('Edit'), icon: 'bi-pencil', variant: 'secondary', onClick: onEdit },
     ...(isSelf ? [] : [
-      { key: 'toggle', label: active ? t('Disable') : t('Enable'), icon: active ? 'bi-pause-circle' : 'bi-play-circle', overflow: true, onClick: onToggleActive },
+      // A local account: the administrator sets a temporary password, changed by the person at the next sign-in
+      ...(local ? [{ key: 'password', label: t('Reset the password'), icon: 'bi-key', overflow: true, onClick: openReset }] : []),
+      // A guardian is not disabled: their folders go to someone else first (the server refuses it too)
+      { key: 'toggle', label: active ? t('Disable') : t('Enable'), icon: active ? 'bi-pause-circle' : 'bi-play-circle', overflow: true,
+        disabled: active && guarded.length > 0,
+        title: active && guarded.length ? t('Guardian of {count} folder(s): hand them over to someone else before disabling the account.', { count: guarded.length }) : undefined,
+        onClick: onToggleActive },
       { key: 'delete', label: t('Delete'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled: !canDelete, onClick: onDelete }
     ])
   ] as EntityActionItem[]);
+  // ---- reset the password of a local account ----
+  let resetOpen = $state(false);
+  let newPassword = $state('');
+  let confirmPassword = $state('');
+  let resetBusy = $state(false);
+  let resetTried = $state(false);
+  function openReset() {
+    newPassword = '';
+    confirmPassword = '';
+    resetTried = false;
+    resetOpen = true;
+  }
+  let resetError = $derived(!resetTried ? null : !newPassword.trim() ? t('New password is required.') : newPassword !== confirmPassword ? t('Password confirmation must match.') : null);
+  async function resetPassword() {
+    resetTried = true;
+    if (resetError || resetBusy) return;
+    resetBusy = true;
+    try {
+      await adminChangePassword(fetch, { username: String(data?.username ?? item?.username ?? '').trim(), new_password: newPassword });
+      toast.success(t('Temporary password set: {name} chooses a new one at the next sign-in.', { name: displayName }));
+      resetOpen = false;
+    } catch (error: unknown) {
+      reportUiError(error, t('Unable to reset the password.'), 'identity.password_reset');
+    } finally {
+      resetBusy = false;
+      newPassword = '';
+      confirmPassword = '';
+    }
+  }
   let steps = $derived([
     ...(!active && guarded.length ? [{ key: 'off', tone: 'bad' as const, icon: 'bi-pause-circle', title: t('Disabled, but guardian of {count} folder(s)', { count: guarded.length }), detail: t('Its requests wait for the other guardians or an administrator.'), label: t('Enable'), run: onToggleActive }] : []),
-    ...(active && guarded.length && !hasMail ? [{ key: 'mail', tone: 'warn' as const, icon: 'bi-envelope-slash', title: t('{count} folder(s) wait for their validations, but there is no e-mail', { count: guarded.length }), detail: local ? t('Neither requests nor reminders reach them. Add an e-mail address.') : t('Neither requests nor reminders reach them. Fill the mail attribute in the directory: it is read again at the next synchronization.'), label: local ? t('Edit') : t('See the folders'), run: local ? onEdit : () => (tab = 'guarded') }] : []),
+    ...(active && guarded.length && !hasMail ? [{ key: 'mail', tone: 'warn' as const, icon: 'bi-envelope-slash', title: t('{count} folder(s) wait for their validations, but there is no e-mail', { count: guarded.length }), detail: local ? t('Neither requests nor reminders reach them. Add an e-mail address.') : t('Neither requests nor reminders reach them. Fill the mail attribute in the directory: it is read again at the next synchronization.'), label: t('See the folders'), run: () => (tab = 'guarded') }] : []),
     ...(sole.length ? [{ key: 'sole', tone: 'info' as const, icon: 'bi-person-exclamation', title: t('Only guardian of {count} folder(s)', { count: sole.length }), detail: t('Without them, only an administrator validates the requests of these folders.'), label: t('See them'), run: () => { tab = 'guarded'; shareFilter = 'sole'; } }] : [])
   ] as EntityTodoStep[]);
   // Map of what they guard: one tile per share, one cell per folder (red: only guardian)
@@ -162,10 +186,6 @@
       {/snippet}
     {#snippet side()}
       
-        <div class="iw__seg" role="radiogroup" aria-label={t('Role in BornToShare')}>
-          <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy || adminByGroupOnly || !data || (isSelf && isAdmin)} title={isSelf && isAdmin ? t('You cannot demote your own account.') : undefined} onclick={() => setRole('user')}>{t('User')}</button>
-          <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy || adminByGroupOnly || !data} onclick={() => setRole('platform_admin')}>{t('Administrator')}</button>
-        </div>
         {#if guarded.length}<small class="iw__plus">{t('+ guardian of {count} folder(s)', { count: guarded.length })}</small>{/if}
       
       {/snippet}
@@ -231,10 +251,10 @@
             <header><h2>{t('Their requests')}</h2><small>{data.active_accesses ? t('{count} access(es) in progress', { count: data.active_accesses }) : t('no access in progress')}</small></header>
             {#if requestsTotal}
               <div class="iw__bar" role="img" aria-label={requestParts.map(([status, count]) => `${count} ${REQUEST_LABEL()[status] ?? status}`).join(', ')}>
-                {#each requestParts as [status, count] (status)}<span style={`flex:${count};background:${REQUEST_TONES[status] ?? '#8a93a3'}`}></span>{/each}
+                {#each requestParts as [status, count] (status)}<span style={`flex:${count};background:${REQUEST_TONES[status] ?? '#8a98a8'}`}></span>{/each}
               </div>
               <div class="iw__legend">
-                {#each requestParts as [status, count] (status)}<span><span class="iw__key" style={`background:${REQUEST_TONES[status] ?? '#8a93a3'}`} aria-hidden="true"></span>{count} {REQUEST_LABEL()[status] ?? status}</span>{/each}
+                {#each requestParts as [status, count] (status)}<span><span class="iw__key" style={`background:${REQUEST_TONES[status] ?? '#8a98a8'}`} aria-hidden="true"></span>{count} {REQUEST_LABEL()[status] ?? status}</span>{/each}
               </div>
             {:else}
               <EmptyStateInline message={t('No request yet.')} />
@@ -268,13 +288,22 @@
 
 </div>
 
+<AppModal open={resetOpen} onClose={() => (resetOpen = false)} size="md" title={t('Reset the password')} subtitle={displayName} iconClass="bi bi-key">
+  <form class="iw__reset" onsubmit={(event) => { event.preventDefault(); void resetPassword(); }}>
+    <p>{t('A temporary password: the person chooses their own at the next sign-in. Give it to them by a separate channel.')}</p>
+    <label>{t('New password')}<input class="b2s-input" type="password" autocomplete="new-password" bind:value={newPassword} /></label>
+    <label>{t('Confirm the password')}<input class="b2s-input" type="password" autocomplete="new-password" bind:value={confirmPassword} /></label>
+    {#if resetError}<FieldError>{resetError}</FieldError>{/if}
+  </form>
+  {#snippet footer()}
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => (resetOpen = false)}>{t('Cancel')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary" disabled={resetBusy} onclick={() => void resetPassword()}><i class="bi bi-check2" aria-hidden="true"></i>{resetBusy ? t('Saving…') : t('Reset the password')}</button>
+  {/snippet}
+</AppModal>
+
 <style>
   .iw { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .iw__plus { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .iw__seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
-  .iw__seg button { padding: 8px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); font-weight: 600; cursor: pointer; }
-  .iw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
-  .iw__seg button:disabled { cursor: default; }
   .iw__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .iw__tiles .b2s-stat-tile { text-align: left; border: 1px solid var(--b2s-color-border); font: inherit; color: inherit; }
   .iw__tiles button.b2s-stat-tile { cursor: pointer; }
@@ -289,17 +318,17 @@
   .iw__muted { margin: 0; }
   .iw__map { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
   .iw__site { display: flex; flex-direction: column; align-items: stretch; gap: 6px; padding: 10px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface); font: inherit; text-align: left; cursor: pointer; }
-  .iw__site:hover { border-color: var(--b2s-color-border-strong); background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .iw__site:hover { border-color: var(--b2s-color-border-strong); background: var(--b2s-color-surface-soft); }
   .iw__site-head { display: flex; justify-content: space-between; gap: 6px; font-size: var(--b2s-fs-xs); }
   .iw__site-head b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
   .iw__site-head span { color: var(--b2s-color-text-muted); }
   .iw__cells { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
-  .iw__cell { display: block; height: 7px; border-radius: 2px; background: #3b6fd8; }
-  .iw__cell.is-sole { background: #c0392b; }
-  .iw__sole { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--b2s-color-danger-soft, #fdecea); font-size: var(--b2s-fs-sm); }
+  .iw__cell { display: block; height: 7px; border-radius: 2px; background: var(--b2s-accent); }
+  .iw__cell.is-sole { background: var(--b2s-color-danger-strong); }
+  .iw__sole { display: flex; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--b2s-color-danger-soft); font-size: var(--b2s-fs-sm); }
   .iw__legend { display: flex; flex-wrap: wrap; gap: 14px; color: var(--b2s-color-text); font-size: var(--b2s-fs-xs); }
-  .iw__key { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: #3b6fd8; }
-  .iw__key.is-sole { background: #c0392b; }
+  .iw__key { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 2px; background: var(--b2s-accent); }
+  .iw__key.is-sole { background: var(--b2s-color-danger-strong); }
   .iw__partner { display: flex; align-items: center; gap: 12px; padding: 10px; border: 1px solid var(--b2s-color-border); border-radius: 12px; }
   .iw__partner span:last-child { display: flex; flex-direction: column; }
   .iw__partner b { font-weight: 500; }
@@ -309,16 +338,19 @@
   .iw__chipsbar { display: flex; flex-wrap: wrap; gap: 6px; }
   .iw__chipsbar button { padding: 5px 12px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); color: var(--b2s-color-text); font: inherit; font-size: var(--b2s-fs-xs); cursor: pointer; }
   .iw__chipsbar button span { color: var(--b2s-color-text-muted); }
-  .iw__chipsbar button.is-on { border-color: var(--b2s-color-text); background: var(--b2s-color-text); color: var(--b2s-color-surface); }
+  .iw__chipsbar button.is-on { border-color: var(--b2s-accent); background: var(--b2s-accent); color: var(--b2s-color-surface); }
   .iw__chipsbar button.is-on span { color: inherit; opacity: 0.7; }
   .iw__table { padding: 0; gap: 0; overflow: hidden; }
   .iw__row { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 120px; gap: 12px; align-items: center; padding: 11px 16px; border-top: 1px solid var(--b2s-color-border); color: inherit; text-decoration: none; font-size: var(--b2s-fs-sm); }
   .iw__row:first-child { border-top: 0; }
-  .iw__row:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .iw__row:hover { background: var(--b2s-color-surface-soft); }
   .iw__fname { display: flex; flex-direction: column; min-width: 0; }
   .iw__fname b { font-weight: 500; }
   .iw__fname small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--b2s-color-text-muted); }
   .iw__tag { justify-self: end; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: var(--b2s-fs-xs); font-weight: 500; }
-  .iw__tag.is-sole { background: var(--b2s-color-danger-soft, #fdecea); color: var(--b2s-color-danger-strong, #b42318); }
+  .iw__tag.is-sole { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
+  .iw__reset { display: grid; gap: 12px; }
+  .iw__reset p { margin: 0; color: var(--b2s-color-text-muted); line-height: 1.5; }
+  .iw__reset label { display: grid; gap: 6px; font-weight: 500; }
 </style>

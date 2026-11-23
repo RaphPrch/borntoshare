@@ -87,7 +87,7 @@
   const MENU: ContextMenuItem[] = [
     { key: 'permissions', label: t('Permissions and who reaches it'), icon: 'bi-shield-lock' },
     { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
-    { key: 'pilot', label: t('List and export with Pilot'), icon: 'bi-chat-square-text' },
+    { key: 'pilot', label: t('List and export with Raphaël'), icon: 'bi-chat-square-text' },
     { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
   ];
   function onMenuPick(key: string) {
@@ -196,7 +196,7 @@
   .ex__panel { padding: 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .ex__tiles { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .ex__tile { text-align: left; }
-  .ex__tile.is-on { border-color: var(--b2s-color-text); box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
+  .ex__tile.is-on { border-color: var(--b2s-accent); box-shadow: inset 0 0 0 1px var(--b2s-accent); }
   .ex__tile-head { display: flex; align-items: center; gap: 6px; font-size: var(--b2s-fs-sm); color: var(--b2s-color-text-muted); }
   .ex__tile b { display: block; margin: 4px 0; font-size: 26px; font-weight: 700; }
   .ex__tile small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
@@ -222,7 +222,7 @@
   .ex__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
   .ex__cell { display: flex; align-items: center; gap: 6px; min-width: 0; padding: 6px 8px; border: 1px solid transparent; border-radius: var(--b2s-radius-sm); font-size: var(--b2s-fs-xs); font-weight: 500; color: var(--b2s-color-text); text-decoration: none; transition: transform 0.12s ease, box-shadow 0.12s ease; }
   .ex__cell span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ex__cell:hover, .ex__cell:focus-visible { transform: translateY(-1px); box-shadow: var(--b2s-shadow-sm); border-color: var(--b2s-color-text); }
+  .ex__cell:hover, .ex__cell:focus-visible { transform: translateY(-1px); box-shadow: var(--b2s-shadow-sm); border-color: var(--b2s-accent-vivid); }
   .is-open_write { --ex-bg: var(--b2s-color-danger-soft); --ex-fg: var(--b2s-color-danger-strong); }
   .is-open_read { --ex-bg: var(--b2s-color-warning-soft); --ex-fg: var(--b2s-color-warning-strong); }
   .is-outside { --ex-bg: var(--b2s-color-info-soft); --ex-fg: var(--b2s-color-info-strong); }

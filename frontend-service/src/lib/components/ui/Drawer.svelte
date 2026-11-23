@@ -204,7 +204,7 @@
     position: absolute;
     inset: 0;
     border: none;
-    background: rgba(15, 23, 42, 0.22);
+    background: rgba(18, 59, 73, 0.22);
   }
 
   .b2s-drawer__panel {
@@ -244,7 +244,7 @@
     min-width: min(100vw, 460px);
     border-left: 1px solid var(--b2s-color-border-soft);
     border-radius: 0;
-    box-shadow: -20px 0 42px rgba(15, 23, 42, 0.16);
+    box-shadow: -20px 0 42px rgba(18, 59, 73, 0.16);
     overflow: hidden;
   }
 
@@ -258,7 +258,7 @@
 
   .b2s-drawer__footer {
     padding: 16px 24px;
-    border-top: 1px solid #e8edf6;
+    border-top: 1px solid var(--b2s-color-border-soft);
     gap: 12px;
   }
 
@@ -276,7 +276,7 @@
     justify-content: space-between;
     gap: 12px;
     padding: 22px 24px 18px;
-    border-bottom: 1px solid #e8edf6;
+    border-bottom: 1px solid var(--b2s-color-border-soft);
     background: #fff;
   }
 
@@ -291,9 +291,9 @@
     width: 40px;
     height: 40px;
     border-radius: var(--b2s-radius-md);
-    border: 1px solid #d7e1f0;
-    background: #edf4ff;
-    color: var(--b2s-topbar-bg, #0b1530);
+    border: 1px solid var(--b2s-color-border-soft);
+    background: var(--b2s-accent-soft);
+    color: var(--b2s-accent-strong);
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -340,8 +340,8 @@
   }
 
   .b2s-entity-drawer__close:hover {
-    background: #f2f5fb;
-    color: #1f2a44;
+    background: var(--b2s-color-surface-muted);
+    color: var(--b2s-color-text);
   }
 
   .b2s-entity-drawer__body {

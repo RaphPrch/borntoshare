@@ -290,7 +290,7 @@
   }
 
   .editing td {
-    background: #f8faff;
+    background: var(--b2s-color-surface-soft);
   }
 
   .cell-input {

@@ -139,7 +139,7 @@
   .ar5__lede { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ar5__body { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, 1fr); gap: 16px; align-items: start; }
   .ar5__row { grid-template-columns: minmax(200px, 1.2fr) minmax(200px, 1.4fr) 90px; width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
-  .ar5__row.is-sel { background: var(--b2s-accent-soft, #f1f9e3); }
+  .ar5__row.is-sel { background: var(--b2s-accent-soft); }
   .ar5__row code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ar5__tags { display: flex; flex-wrap: wrap; gap: 4px; }
   .ar5__side { position: sticky; top: calc(var(--b2s-shell-top) + 12px); display: grid; gap: 10px; }

@@ -10,8 +10,6 @@
   import { t } from '$lib/i18n';
   import { goto } from '$app/navigation';
   import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
-  import { copyText } from '$lib/utils/clipboard';
-  import { toast } from '$lib/stores/toast';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
 
@@ -82,7 +80,6 @@
   let broken = $derived(row?.inheritance_broken);
   let items = $derived(row
     ? [
-        { key: 'open', label: t('Open'), icon: 'bi-box-arrow-in-right', run: (target: StorageRootRow) => onOpen(target) },
         ...(onExtra ? [{ key: 'peek', label: t('Preview'), icon: 'bi-layout-sidebar-reverse', run: (target: StorageRootRow) => onExtra?.('peek', target) }] : []),
         ...($fivesEnabled ? [{ key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap',
           run: (target: StorageRootRow) => void goto(`/five-s/explore/${Number(target?.storage_root_id ?? 0)}`) }] : []),
@@ -93,10 +90,6 @@
           ...($governanceEnabled ? [{ key: 'guardians', label: t('Guardians…'), icon: 'bi-person-check', run: (target: StorageRootRow) => onExtra?.('guardians', target) }] : []),
           { key: 'quota', label: t('Quota…'), icon: 'bi-speedometer', run: (target: StorageRootRow) => onExtra?.('quota', target) }
         ] : []),
-        { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', run: (target: StorageRootRow) => {
-          const path = String((target as Record<string, unknown>)?.dfs_path ?? target?.root_path ?? '');
-          void copyText(path).then((ok) => ok && toast.success(t('Copied: {value}', { value: path })));
-        } },
         ...($governanceEnabled ? [{
           key: 'request',
           label: t('Request access'),
@@ -112,7 +105,8 @@
           run: (target: StorageRootRow) => onAction('inheritance', target)
         }] : []),
         ...(canManage ? [
-        { key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', run: (target: StorageRootRow) => onAction('sensitivity', target) },
+        // The sensitivity scan comes with the 5S module
+        ...($fivesEnabled ? [{ key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', run: (target: StorageRootRow) => onAction('sensitivity', target) }] : []),
         { key: 'measure', label: t('Measure the folder'), icon: 'bi-rulers', run: (target: StorageRootRow) => onAction('measure', target) },
         ...($governanceEnabled ? [{ key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', run: (target: StorageRootRow) => onAction('subfolder', target) }] : []),
         { key: 'delete', label: t('Delete the folder from the server'), icon: 'bi-trash', danger: true, run: (target: StorageRootRow) => onAction('delete', target) }] : [])
@@ -155,7 +149,7 @@
     border: 1px solid var(--b2s-color-border-soft);
     border-radius: 12px;
     background: var(--b2s-color-surface);
-    box-shadow: 0 18px 44px rgba(15, 26, 58, 0.22);
+    box-shadow: 0 18px 44px rgba(18, 59, 73, 0.22);
   }
 
   .cm__head {

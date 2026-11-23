@@ -1,4 +1,5 @@
 import { activitySummary, categoryOf, changedValues, groupByDay } from './timeline';
+import { readableReason } from './reason';
 
 function assert(condition: unknown, message: string): void {
   if (!condition) throw new Error(message);
@@ -22,4 +23,9 @@ const days = groupByDay(items.map((entry) => ({ entry, ms: Date.parse(entry.crea
 assert(days[0].rows.length === 2 && days.length === 5, 'grouped by day, newest first');
 const changes = changedValues({ context_json: { before: { name: 'A', bind_password_ref: 'x', zone: 1 }, after: { name: 'B', bind_password_ref: 'y', zone: 1 } } });
 assert(changes.length === 1 && changes[0].key === 'name' && changes[0].after === 'B', 'only real changes, never secrets');
+// The raw error of a call is shown by its message only
+assert(readableReason("503: {'error_code': 'SERVER_UNREACHABLE', 'message': 'Le serveur dfs01 ne répond plus', 'retry': True}") === 'Le serveur dfs01 ne répond plus', 'python dict message');
+assert(readableReason('{"code":"X","message":"It\'s down"}') === "It's down", 'json message');
+assert(readableReason('503: Service Unavailable') === 'Service Unavailable' && readableReason('SMB authentication failed') === 'SMB authentication failed', 'plain text kept');
+assert(readableReason(null) === '' && readableReason('') === '', 'empty');
 console.log('timeline OK');

@@ -127,8 +127,8 @@
   }
 
   .sa--on {
-    border-color: #b9cdf0;
-    background: #f8fbff;
+    border-color: var(--b2s-accent-border);
+    background: var(--b2s-color-surface-soft);
   }
 
   .sa-head {
@@ -146,7 +146,7 @@
     justify-content: center;
     border-radius: var(--b2s-radius-sm);
     background: var(--b2s-color-info-soft);
-    color: #0b63f4;
+    color: var(--b2s-accent);
   }
 
   .sa-copy {
@@ -166,7 +166,7 @@
 
   .sa-copy small {
     margin-top: 2px;
-    color: #596985;
+    color: var(--b2s-color-text-muted);
     font-size: var(--b2s-fs-xs);
   }
 
@@ -214,8 +214,8 @@
   }
 
   .sa-field input:focus {
-    border-color: #8db5ff;
-    box-shadow: 0 0 0 3px rgba(11, 99, 244, 0.12);
+    border-color: var(--b2s-accent-vivid);
+    box-shadow: 0 0 0 3px rgba(7, 156, 156, 0.12);
   }
 
   .sa-field :global(.b2s-input-with-action input) {

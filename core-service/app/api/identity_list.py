@@ -165,6 +165,25 @@ def _refuse_guardian_gap(db: Session, request: Request, *, action: str, identity
     )
 
 
+def _refuse_disabling_a_guardian(db: Session, request: Request, *, action: str, identity_id: int) -> None:
+    """A guardian is not disabled: their folders go to someone else first (the guardian page, or a deletion that hands them over)."""
+    count = int(identity_list_sql.guarded_folders_count(db, {"id": int(identity_id)}).scalar() or 0)
+    if not count:
+        return
+    actor_id, actor_display = _actor_from_headers(request)
+    log_activity(
+        db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
+        action=action, outcome="denied", target_type="identity", target_id=int(identity_id),
+        context_json={"code": "GUARDIAN_HANDOVER_REQUIRED", "guarded_folders": count},
+        correlation_id=request.headers.get("x-request-id") or None,
+    )
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={"code": "GUARDIAN_HANDOVER_REQUIRED",
+                "message": f"Gardien de {count} dossier(s) : confiez-les à quelqu'un d'autre avant de désactiver ce compte."},
+    )
+
+
 def _refuse_admin_loss(
     db: Session,
     request: Request,
@@ -740,7 +759,7 @@ async def update_identity(
     elif subject_type != "group" and (loses_admin or is_active is False):
         _refuse_admin_loss(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
     if subject_type != "group" and is_active is False:
-        _refuse_guardian_gap(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
+        _refuse_disabling_a_guardian(db, request, action="identity.application_role_updated", identity_id=int(identity_id))
     if subject_type == "group":
         before_row = identity_list_sql.update_identity_1(db, {"id": int(identity_id)}).mappings().first()
     else:

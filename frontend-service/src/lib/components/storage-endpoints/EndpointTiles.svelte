@@ -59,5 +59,5 @@
 </section>
 
 <style>
-  .is-on { border-color: var(--b2s-color-text) !important; box-shadow: inset 0 0 0 1px var(--b2s-color-text); }
+  .is-on { border-color: var(--b2s-accent) !important; box-shadow: inset 0 0 0 1px var(--b2s-accent); }
 </style>

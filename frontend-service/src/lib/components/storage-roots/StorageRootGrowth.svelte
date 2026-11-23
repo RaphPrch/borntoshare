@@ -92,5 +92,5 @@
   .gr__tip, .gr__muted { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .gr__tip b { color: var(--b2s-color-text); }
   .gr__forecast { display: flex; gap: 8px; align-items: center; margin: 2px 0 0; font-size: var(--b2s-fs-sm); }
-  .gr__forecast.is-soon { color: var(--b2s-color-warning-strong, #9a5b00); font-weight: 600; }
+  .gr__forecast.is-soon { color: var(--b2s-color-warning-strong); font-weight: 600; }
 </style>

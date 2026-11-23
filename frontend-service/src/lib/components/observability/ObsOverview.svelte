@@ -148,7 +148,7 @@
   </a>
 </div>
 
-<div class="cols cols--main">
+<div class="cols">
   <section class="panel">
     <header class="panel__head">
       <h3>{t('To handle')}</h3>
@@ -263,8 +263,8 @@
   }
 
   .hero.is-degraded {
-    background: #fffbeb;
-    border-color: #fde68a;
+    background: var(--b2s-color-warning-soft);
+    border-color: var(--b2s-color-warning-border);
   }
 
   .hero.is-down {
@@ -335,7 +335,7 @@
 
   .kpi:hover {
     border-color: var(--b2s-color-text-faint);
-    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
+    box-shadow: 0 4px 14px rgba(18, 59, 73, 0.06);
     color: var(--b2s-color-heading);
   }
 
@@ -372,19 +372,18 @@
     color: var(--b2s-color-warning-strong) !important;
   }
 
+  /* Two equal columns, the cards of a row as tall as each other */
   .cols {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
-    align-items: start;
+    align-items: stretch;
     margin-bottom: 14px;
   }
 
-  .cols--main {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
-
   .panel {
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface);
@@ -556,7 +555,7 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #22c55e;
+    background: var(--b2s-color-success);
   }
 
   .family.is-down {
@@ -564,7 +563,7 @@
   }
 
   .family.is-down .family__dot {
-    background: #ef4444;
+    background: var(--b2s-color-danger);
   }
 
   .family.is-degraded .family__dot {
@@ -590,8 +589,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .cols,
-    .cols--main {
+    .cols {
       grid-template-columns: 1fr;
     }
   }

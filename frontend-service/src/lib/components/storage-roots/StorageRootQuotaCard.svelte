@@ -313,11 +313,11 @@
   .qc header small, .qc__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .qc__muted { font-size: var(--b2s-fs-sm); }
   .qc__running { display: flex; gap: 10px; align-items: center; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
-  .qc__error { display: flex; gap: 8px; align-items: flex-start; margin: 0; color: var(--b2s-color-danger-strong, #b42318); font-size: var(--b2s-fs-sm); }
+  .qc__error { display: flex; gap: 8px; align-items: flex-start; margin: 0; color: var(--b2s-color-danger-strong); font-size: var(--b2s-fs-sm); }
   .qc__gauge { display: flex; flex-direction: column; gap: 8px; --qc-fill: var(--b2s-color-info-strong); }
-  .qc__gauge[data-tone='ok'] { --qc-fill: var(--b2s-color-success-strong, #1a7f37); }
-  .qc__gauge[data-tone='warning'] { --qc-fill: var(--b2s-color-warning-strong, #9a5b00); }
-  .qc__gauge[data-tone='danger'] { --qc-fill: var(--b2s-color-danger-strong, #b42318); }
+  .qc__gauge[data-tone='ok'] { --qc-fill: var(--b2s-color-success-strong); }
+  .qc__gauge[data-tone='warning'] { --qc-fill: var(--b2s-color-warning-strong); }
+  .qc__gauge[data-tone='danger'] { --qc-fill: var(--b2s-color-danger-strong); }
   .qc__figures { display: flex; align-items: baseline; gap: 8px; }
   .qc__figures strong { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
   .qc__figures span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
@@ -339,8 +339,8 @@
   .qc__size { display: grid; grid-template-columns: minmax(0, 1fr) 72px; gap: 6px; }
   .qc__seg { display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--b2s-color-neutral-soft); }
   .qc__seg button { flex: 1; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-xs); font-weight: 600; cursor: pointer; }
-  .qc__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(14, 18, 24, 0.12); }
-  .qc__warn { color: var(--b2s-color-warning-strong, #9a5b00); }
+  .qc__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(18, 59, 73, 0.12); }
+  .qc__warn { color: var(--b2s-color-warning-strong); }
   .qc__btns { display: flex; justify-content: flex-end; gap: 8px; }
   .qc__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
   .qc__actions .b2s-btn i { margin-right: 6px; }

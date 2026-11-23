@@ -70,7 +70,7 @@
     font-size: var(--b2s-fs-lg);
     line-height: 1.25;
     font-weight: 700;
-    color: #101828;
+    color: var(--b2s-color-heading);
   }
 
   .b2s-section-header-row__copy h3 span {

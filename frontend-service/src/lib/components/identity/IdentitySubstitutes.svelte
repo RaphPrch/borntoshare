@@ -145,7 +145,7 @@
   .su h2 { margin: 0; font-size: var(--b2s-fs-md); font-weight: 600; }
   .su__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .su__row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border: 1px solid var(--b2s-color-border); border-radius: 12px; }
-  .su__row.is-on { border-color: var(--b2s-color-success-border, #cfe9d9); background: var(--b2s-color-success-soft, #f3fbf6); }
+  .su__row.is-on { border-color: var(--b2s-color-success-border); background: var(--b2s-color-success-soft); }
   .su__row.is-by { background: var(--b2s-color-info-soft); border-color: transparent; }
   .su__badge { flex: none; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-surface); border: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-xs); }
   .su__who { flex: 1 1 180px; display: flex; flex-direction: column; min-width: 0; }

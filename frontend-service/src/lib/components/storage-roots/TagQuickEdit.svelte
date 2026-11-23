@@ -74,10 +74,10 @@
     border-radius: 6px; background: none; color: var(--b2s-color-text-muted); cursor: pointer; }
   .tq__add:hover { border-style: solid; color: var(--b2s-color-text); }
   .tq__pop { position: absolute; top: 24px; right: 0; z-index: 30; width: 240px; display: grid; gap: 8px; padding: 10px; border: 1px solid var(--b2s-color-border);
-    border-radius: 12px; background: var(--b2s-color-surface, #fff); box-shadow: 0 8px 24px rgba(14, 18, 24, 0.14); }
+    border-radius: 12px; background: var(--b2s-color-surface, #fff); box-shadow: 0 8px 24px rgba(18, 59, 73, 0.14); }
   .tq__pop .b2s-input { height: 32px; }
   .tq__pop ul { display: grid; gap: 2px; max-height: 220px; overflow: auto; margin: 0; padding: 0; list-style: none; font-size: var(--b2s-fs-sm); }
   .tq__pop label { display: flex; gap: 8px; align-items: center; padding: 3px 4px; border-radius: 6px; cursor: pointer; }
-  .tq__pop label:hover { background: var(--b2s-color-surface-muted, #f6f7f9); }
+  .tq__pop label:hover { background: var(--b2s-color-surface-muted); }
   .tq__none { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

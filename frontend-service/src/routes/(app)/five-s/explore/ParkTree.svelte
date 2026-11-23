@@ -105,20 +105,20 @@
 
 <style>
   .pt { position: sticky; top: calc(var(--b2s-shell-top) + 12px); display: grid; gap: 8px; align-content: start; max-height: calc(100vh - var(--b2s-shell-top) - 60px); overflow: auto; margin: 26px 0 26px 24px;
-    padding: 10px; border: 1px solid var(--b2s-color-border-soft, #e1e4ea); border-radius: 16px; background: var(--b2s-color-surface, #fff); }
-  .pt__find { display: flex; gap: 8px; align-items: center; height: 34px; padding: 0 10px; border: 1px solid var(--b2s-color-border-soft, #e1e4ea); border-radius: 9px;
+    padding: 10px; border: 1px solid var(--b2s-color-border-soft); border-radius: 16px; background: var(--b2s-color-surface, #fff); }
+  .pt__find { display: flex; gap: 8px; align-items: center; height: 34px; padding: 0 10px; border: 1px solid var(--b2s-color-border-soft); border-radius: 9px;
     color: var(--b2s-color-text-muted); font-size: 13px; }
   .pt__find input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; color: var(--b2s-color-text); }
   .pt__rows { display: grid; gap: 1px; }
   .pt__row { display: flex; gap: 6px; align-items: center; min-height: 32px; padding-right: 8px; border: 0; border-radius: 8px; background: none; font: inherit;
     font-size: 13.5px; text-align: left; color: var(--b2s-color-text); cursor: pointer; }
-  .pt__row:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .pt__row:hover { background: var(--b2s-color-surface-soft); }
   .pt__row.is-all, .pt__row.is-zone { font-weight: 600; }
-  .pt__row.is-on { background: #0e1218; color: #fff; }
-  .pt__row.is-on small { color: #b9bfca; }
-  .pt__row i { color: var(--b2s-color-text-faint, #8b93a3); }
+  .pt__row.is-on { background: var(--b2s-accent); color: #fff; }
+  .pt__row.is-on small { color: var(--b2s-color-border-strong); }
+  .pt__row i { color: var(--b2s-color-text-faint); }
   .pt__row.is-on i { color: #fff; }
-  .pt__car { width: 10px; flex: none; font-size: 10px; color: var(--b2s-color-text-faint, #8b93a3); }
+  .pt__car { width: 10px; flex: none; font-size: 10px; color: var(--b2s-color-text-faint); }
   .pt__label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pt__row small { flex: none; color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 400; }
   .pt__note { margin: 6px 4px; color: var(--b2s-color-text-muted); font-size: 13px; }

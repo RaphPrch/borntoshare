@@ -158,7 +158,7 @@
   .zo__seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; }
   .zo__seg span { margin-left: 5px; opacity: 0.7; }
   .zo__srv { display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .zo__srv:hover { background: var(--b2s-color-surface-soft, #f6f7f9); }
+  .zo__srv:hover { background: var(--b2s-color-surface-soft); }
   .zo__srv > i { color: var(--b2s-color-text-muted); }
   .zo__name { display: flex; flex-direction: column; min-width: 0; }
   .zo__name strong { font-weight: 500; font-size: var(--b2s-fs-sm); }

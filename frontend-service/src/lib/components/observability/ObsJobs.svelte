@@ -318,12 +318,12 @@
 
 <div class="obs-jobs">
   <section class="v2-stats" aria-label={t('Jobs summary')}>
-    <div class="v2-stat"><small>{t('Running or queued')}</small><b>{counts.active}</b></div>
-    <div class="v2-stat"><small>{t('Stuck')}</small><b style={counts.stuck ? 'color:#b45309' : ''}>{counts.stuck}</b>
+    <div class="v2-stat"><i class="bi bi-play-circle" aria-hidden="true"></i><small>{t('Running or queued')}</small><b>{counts.active}</b></div>
+    <div class="v2-stat"><i class="bi bi-pause-circle is-warn" aria-hidden="true"></i><small>{t('Stuck')}</small><b style={counts.stuck ? 'color:var(--b2s-color-warning-strong)' : ''}>{counts.stuck}</b>
       <span>{counts.stuck ? t('Flush them to free their folder or server') : t('None')}</span></div>
-    <div class="v2-stat"><small>{t('Failed (24 h)')}</small><b style={counts.failed ? 'color:#b42318' : ''}>{counts.failed}</b>
+    <div class="v2-stat"><i class="bi bi-x-octagon is-bad" aria-hidden="true"></i><small>{t('Failed (24 h)')}</small><b style={counts.failed ? 'color:var(--b2s-color-danger-strong)' : ''}>{counts.failed}</b>
       {#if failureRate != null}<span>{t('{rate} % of the finished jobs', { rate: failureRate })}</span>{/if}</div>
-    <div class="v2-stat"><small>{t('Succeeded (24 h)')}</small><b>{counts.succeeded}</b>
+    <div class="v2-stat"><i class="bi bi-check-circle" aria-hidden="true"></i><small>{t('Succeeded (24 h)')}</small><b>{counts.succeeded}</b>
       {#if medianRun != null}<span>{t('Median duration {duration}', { duration: formatSeconds(medianRun) })}</span>{/if}</div>
   </section>
 
@@ -665,7 +665,7 @@
     font-variant-numeric: tabular-nums;
   }
   .obs-num.is-long {
-    color: var(--b2s-color-warning-strong, #b54708);
+    color: var(--b2s-color-warning-strong);
   }
   .obs-bar {
     display: block;
@@ -679,10 +679,10 @@
     display: block;
     height: 100%;
     border-radius: 2px;
-    background: var(--b2s-color-info, #2563eb);
+    background: var(--b2s-color-info);
   }
   .obs-bar.is-over span {
-    background: var(--b2s-color-warning, #d97706);
+    background: var(--b2s-color-warning);
   }
   .obs-error {
     max-width: 360px;
@@ -759,8 +759,8 @@
     color: inherit;
   }
   .jd__timeline li.is-done::before {
-    border-color: var(--b2s-color-primary, #2563eb);
-    background: var(--b2s-color-primary, #2563eb);
+    border-color: var(--b2s-color-primary);
+    background: var(--b2s-color-primary);
   }
   .jd__timeline b {
     font-weight: 500;
@@ -794,7 +794,7 @@
     border: 0;
     background: none;
     padding: 0;
-    color: var(--b2s-color-primary, #2563eb);
+    color: var(--b2s-color-primary);
     cursor: pointer;
   }
   .jd__link {
@@ -810,7 +810,7 @@
     overflow: auto;
     padding: 10px 12px;
     border-radius: var(--b2s-radius-md, 8px);
-    background: var(--b2s-color-surface-muted, #f6f7f9);
+    background: var(--b2s-color-surface-muted);
     font-family: var(--b2s-font-mono);
     font-size: var(--b2s-fs-xs);
     white-space: pre-wrap;
@@ -819,6 +819,6 @@
   .jd summary {
     cursor: pointer;
     font-size: var(--b2s-fs-sm);
-    color: var(--b2s-color-primary, #2563eb);
+    color: var(--b2s-color-primary);
   }
 </style>

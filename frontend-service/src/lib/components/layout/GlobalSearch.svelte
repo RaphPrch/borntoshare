@@ -1,10 +1,4 @@
 <script lang="ts">
-  // The shortcut as the keyboard shows it: ⌘K on a Mac, Ctrl K elsewhere
-  let shortcutLabel = $state('Ctrl K');
-  $effect(() => {
-    if (/Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent)) shortcutLabel = '⌘K';
-  });
-  
   import { slideIndicator } from '$lib/utils/motion';
 
   /** The words typed, marked in each result (accents and case ignored) */
@@ -209,7 +203,7 @@
       select(results[activeIndex]);
     }
   }
-  const MENU_NAMES = new Set(['Dashboard', 'Pilot', 'Storage Roots', 'Access Management', 'Governance Jobs', 'Policies', 'Explorer', 'Inventory', 'Analytics',
+  const MENU_NAMES = new Set(['Dashboard', 'Raphaël', 'Storage Roots', 'Access Management', 'Governance Jobs', 'Policies', 'Explorer', 'Inventory', 'Analytics',
     'Insights & Recommendations', 'Storage Endpoints', 'Identity & Users', 'Settings']);
   // Pages are translated when read (except the names of the menu)
   let pages = $derived([
@@ -263,7 +257,7 @@
   let textActions = $derived(query.trim().length >= 2 && canSeeStorageRoots
     ? ([
         ...($fivesEnabled ? [{ group: t('Actions'), label: t('Find the file « {query} »', { query: query.trim() }), detail: t('In every measured folder'), href: `/five-s/explore?q=${encodeURIComponent(query.trim())}`, icon: 'bi-file-earmark-search' }] : []),
-        { group: t('Actions'), label: t('Ask Pilot: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/pilot?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
+        { group: t('Actions'), label: t('Ask Raphaël: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/pilot?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
       ] as Result[])
     : []);
   $effect.pre(() => {
@@ -313,7 +307,6 @@
 <button type="button" class="global-search-trigger" onclick={show} aria-label={t('Search (Ctrl+K)')} title={t('Search (Ctrl+K)')}>
   <i class="bi bi-search" aria-hidden="true"></i>
   <span class="global-search-trigger__text">{t('Search a folder, a person, a file, a page…')}</span>
-  <kbd class="global-search-trigger__key">{shortcutLabel}</kbd>
 </button>
 
 <AppModal {open} onClose={close} size="lg" showClose={false} ariaLabelledby="global-search-label" contentClass="global-search">
@@ -402,7 +395,6 @@
   }
 
   .global-search-trigger__text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-  .global-search-trigger__key { flex: none; padding: 1px 6px; border: 1px solid currentColor; border-radius: 5px; font-family: var(--b2s-font-mono, monospace); font-size: 11px; opacity: 0.7; }
   .global-search-trigger i {
     font-size: 14px;
     line-height: 1;
@@ -411,18 +403,6 @@
   .global-search-trigger:hover {
     border-color: var(--b2s-color-border);
     background: var(--b2s-color-surface);
-  }
-
-  .global-search-trigger::after {
-    content: '⌘K';
-    margin-left: auto;
-    padding: 0 6px;
-    border: 1px solid var(--b2s-color-border);
-    border-radius: 6px;
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text-muted);
-    font-size: 11px;
-    font-weight: 600;
   }
 
   kbd {
@@ -445,7 +425,7 @@
     align-items: center;
     gap: 10px;
     padding: 14px 18px;
-    border-bottom: 1px solid #e8edf6;
+    border-bottom: 1px solid var(--b2s-color-border-soft);
     color: var(--b2s-color-text-muted);
   }
 
@@ -487,11 +467,11 @@
   }
 
   [role='option'].is-active {
-    background: #eef4ff;
+    background: var(--b2s-accent-soft);
   }
 
   /* The active result glides with the arrows (slideIndicator) */
-  .global-search__results :global(.b2s-indicator) { border-radius: var(--b2s-radius-sm); background: #eef4ff; }
+  .global-search__results :global(.b2s-indicator) { border-radius: var(--b2s-radius-sm); background: var(--b2s-accent-soft); }
   :global(.global-search__results.has-indicator) [role='option'] { position: relative; z-index: 1; }
   :global(.global-search__results.has-indicator) [role='option'].is-active { background: transparent; }
   .global-search__label mark { padding: 0; border-radius: 3px; background: #fff1b8; color: inherit; font-weight: 600; }

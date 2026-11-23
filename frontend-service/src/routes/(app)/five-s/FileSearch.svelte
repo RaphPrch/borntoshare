@@ -161,7 +161,7 @@
   .fs5__peek { display: grid; grid-template-columns: max-content 1fr; gap: 10px 18px; margin: 0; font-size: var(--b2s-fs-sm); }
   .fs5__peek dt { color: var(--b2s-color-text-muted); }
   .fs5__peek dd { margin: 0; overflow-wrap: anywhere; }
-  .fs5__row.is-on { background: var(--b2s-accent-soft, #f1f9e3); }
+  .fs5__row.is-on { background: var(--b2s-accent-soft); }
   .fs5 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .fs5__q { flex: 1 1 320px; }
   .fs5__more { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }

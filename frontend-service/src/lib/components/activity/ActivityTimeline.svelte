@@ -203,8 +203,8 @@
   .at__list li:last-child::before { bottom: calc(100% - 20px); }
   .at__list li:only-child::before { display: none; }
   .at__ev { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 12px; width: 100%; padding: 8px 6px 8px 0; border: 0; border-radius: var(--b2s-radius-md); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-  .at__ev:hover .at__body, .at__ev.sel .at__body { background: var(--b2s-color-surface-soft, #f6f7f9); }
-  .at__ev.sel .at__body { box-shadow: inset 0 0 0 1px var(--b2s-color-border-mid, #cdd2db); }
+  .at__ev:hover .at__body, .at__ev.sel .at__body { background: var(--b2s-color-surface-soft); }
+  .at__ev.sel .at__body { box-shadow: inset 0 0 0 1px var(--b2s-color-border-mid); }
   .at__icon { position: relative; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; font-size: 15px; }
   .at__icon.is-access { background: var(--b2s-color-success-soft); color: var(--b2s-color-success-strong); }
   .at__icon.is-config { background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); }
@@ -226,7 +226,7 @@
   .at__detail th { text-align: left; color: var(--b2s-color-text-muted); font-weight: 500; padding: 4px 6px; border-bottom: 1px solid var(--b2s-color-border); }
   .at__detail td { padding: 4px 6px; border-bottom: 1px solid var(--b2s-color-border); overflow-wrap: anywhere; }
   .at__detail summary { cursor: pointer; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .at__detail pre { max-height: 240px; margin: 6px 0 0; padding: 10px; overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft, #f6f7f9); font-family: var(--b2s-font-mono); font-size: 11px; white-space: pre-wrap; }
+  .at__detail pre { max-height: 240px; margin: 6px 0 0; padding: 10px; overflow: auto; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: var(--b2s-color-surface-soft); font-family: var(--b2s-font-mono); font-size: 11px; white-space: pre-wrap; }
   .at__latest { margin: 0 0 4px; font-size: var(--b2s-fs-md); }
   .at__more { margin: 12px 0 0; font-size: var(--b2s-fs-sm); }
 </style>

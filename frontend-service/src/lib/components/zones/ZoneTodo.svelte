@@ -16,6 +16,8 @@
     onOpenServer?: (id: number) => void;
     onAddGuardians?: () => void;
     onReread?: () => void;
+    /** The folders of this zone with a gap in their ACL (the folders page, filtered) */
+    onOpenAclGaps?: () => void;
     onOpenRequests?: () => void;
     onOpenProvisioning?: () => void;
   }
@@ -28,6 +30,7 @@
     onOpenServer = () => {},
     onAddGuardians = () => {},
     onReread = () => {},
+    onOpenAclGaps = () => {},
     onOpenRequests = () => {},
     onOpenProvisioning = () => {}
   }: Props = $props();
@@ -59,10 +62,21 @@
           tone: 'warn' as const,
           icon: 'bi-arrow-clockwise',
           title: t('{count} folder(s) to read again', { count: summary.reread.length }),
-          detail: t('Failed test or gap in the ACL, on a server that answers'),
+          detail: t('Failed test, on a server that answers: a new test and ACL read settles it'),
           label: rereadBusy ? t('Reading…') : t('Read the ACLs'),
           busy: rereadBusy,
           run: onReread
+        }]
+      : []),
+    ...($governanceEnabled && summary.aclGap.length
+      ? [{
+          key: 'acl-gap',
+          tone: 'warn' as const,
+          icon: 'bi-shield-exclamation',
+          title: t('{count} folder(s) with a gap in the ACL', { count: summary.aclGap.length }),
+          detail: t('Rights set outside BornToShare, or a group missing: a new read does not settle it'),
+          label: t('See the folders'),
+          run: onOpenAclGaps
         }]
       : []),
     ...($governanceEnabled && pendingRequests
