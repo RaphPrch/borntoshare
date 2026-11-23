@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { governanceEnabled } from '$lib/utils/features';
+  import { governanceEnabled, fivesEnabled } from '$lib/utils/features';
   
 
   import { onMount } from 'svelte';
@@ -274,10 +274,6 @@
       .sort(byLabel);
   }
 
-  let zoneFilter = $state('');
-
-
-
   let checkedRows = $derived(rows.filter((row) => checked.has(String(rootId(row)))));
   $effect.pre(() => {
     pruneChecked(rows);
@@ -292,11 +288,8 @@
       }
     }
   });
-  // What was never done on the folders (a click filters them, then Ctrl + A and an action)
-  let neverScanned = $derived(rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-analyse').filters)).length);
-  let neverMeasured = $derived(rows.filter((row) => matchesFolderQuery(row, parseFolderQuery('est:non-mesure').filters)).length);
   let bulkMenuItems = $derived([
-    { key: 'sensitivity', label: t('Scan the sensitivity of the {count} folders', { count: checkedRows.length }), icon: 'bi-shield-lock' },
+    ...($fivesEnabled ? [{ key: 'sensitivity', label: t('Scan the sensitivity of the {count} folders', { count: checkedRows.length }), icon: 'bi-shield-lock' }] : []),
     { key: 'measure', label: t('Measure the {count} folders', { count: checkedRows.length }), icon: 'bi-rulers' },
     { key: 'clear', label: t('Clear the selection'), icon: 'bi-x-lg', separated: true }
   ] satisfies ContextMenuItem[]);
@@ -305,7 +298,7 @@
     ? ([
         ...(onBulkAnalysis && serverMenuRows.length
           ? [
-              { key: 'scan-all', label: t('Scan the sensitivity of its {count} folders', { count: serverMenuRows.length }), icon: 'bi-shield-lock' },
+              ...($fivesEnabled ? [{ key: 'scan-all', label: t('Scan the sensitivity of its {count} folders', { count: serverMenuRows.length }), icon: 'bi-shield-lock' }] : []),
               { key: 'measure-all', label: t('Measure its {count} folders', { count: serverMenuRows.length }), icon: 'bi-rulers' },
               { key: 'select-all', label: t('Select its folders'), icon: 'bi-check2-square' }
             ]
@@ -316,14 +309,9 @@
         { key: 'open', label: t('Open the file server'), icon: 'bi-hdd-network', separated: true }
       ] satisfies ContextMenuItem[])
     : []);
-  let zoneOptions = $derived([...new Map(rows.map((row) => [zoneKey(row), zoneLabel(row)])).entries()].sort((a, b) => a[1].localeCompare(b[1], 'fr')));
-  $effect.pre(() => {
-    if (zoneFilter && !zoneOptions.some(([key]) => key === zoneFilter)) zoneFilter = '';
-  });
-  let zonedRows = $derived(zoneFilter ? rows.filter((row) => zoneKey(row) === zoneFilter) : rows);
   // Express search: « tag:Finance gardien:alice est:sans-gardien … » filter the rows, the rest of the text searches the tree
   let parsed = $derived(parseFolderQuery(query));
-  let visibleRows = $derived(zonedRows.filter((row) =>
+  let visibleRows = $derived(rows.filter((row) =>
     (filter === 'all' || (filter === 'review' ? toReview(row) : filter === 'no-guardian' ? noGuardian(row) : pendingCount(row) > 0)) &&
     matchesFolderQuery(row, parsed.filters)
   ));
@@ -350,21 +338,12 @@
       .sort(byLabel);
   })());
   let filters = $derived([
-    { key: 'all', label: t('All'), count: zonedRows.length },
-    { key: 'review', label: t('To review'), count: zonedRows.filter(toReview).length },
-    ...($governanceEnabled ? [{ key: 'pending', label: t('Pending requests'), count: zonedRows.filter((row) => pendingCount(row) > 0).length }] : []),
-    ...($governanceEnabled ? [{ key: 'no-guardian', label: t('Without guardian'), count: zonedRows.filter(noGuardian).length }] : [])
+    { key: 'all', label: t('All'), count: rows.length },
+    { key: 'review', label: t('To review'), count: rows.filter(toReview).length },
+    ...($governanceEnabled ? [{ key: 'pending', label: t('Pending requests'), count: rows.filter((row) => pendingCount(row) > 0).length }] : []),
+    ...($governanceEnabled ? [{ key: 'no-guardian', label: t('Without guardian'), count: rows.filter(noGuardian).length }] : [])
   ].filter((item) => item.key === 'all' || item.count > 0));
 </script>
-
-{#if zoneOptions.length > 1}
-  <div class="tree-extra">
-    <select class="b2s-input" aria-label={t('Filter by zone')} bind:value={zoneFilter}>
-      <option value="">{t('All zones')}</option>
-      {#each zoneOptions as [key, label] (key)}<option value={key}>{label}</option>{/each}
-    </select>
-  </div>
-{/if}
 
 <EntitySidebarTree
   {onAdd}
@@ -438,14 +417,6 @@
           </a>
         </div>
       </div>
-    {:else if onBulkAnalysis}
-      {#if neverScanned || neverMeasured}
-        <p class="tree-todo">
-          {#if neverScanned}<button type="button" class="b2s-link-btn" onclick={() => onQueryChange('est:non-analyse')}>{t('{count} never scanned', { count: neverScanned })}</button>{/if}
-          {#if neverScanned && neverMeasured} · {/if}
-          {#if neverMeasured}<button type="button" class="b2s-link-btn" onclick={() => onQueryChange('est:non-mesure')}>{t('{count} never measured', { count: neverMeasured })}</button>{/if}
-        </p>
-      {/if}
     {/if}
   </div>{/snippet}
 </EntitySidebarTree>
@@ -479,11 +450,9 @@
 <StorageRootPeek row={menuRow ? null : peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />
 
 <style>
-  .tree-extra { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
   .tree-bulk { display: grid; gap: 8px; margin-top: 8px; padding: 8px 10px; border: 1px solid var(--b2s-accent-border); border-radius: var(--b2s-radius-md, 8px); background: var(--b2s-accent-soft); font-size: var(--b2s-fs-sm); }
   .tree-bulk__head { display: flex; align-items: center; gap: 8px; }
   .tree-bulk__head b { font-weight: 600; }
   .tree-bulk__close { margin-left: auto; border: 0; background: none; padding: 2px; color: var(--b2s-color-text-muted); cursor: pointer; }
   .tree-bulk__actions { display: flex; flex-wrap: wrap; gap: 6px; }
-  .tree-todo { margin: 6px 0 0; font-size: var(--b2s-fs-xs); }
 </style>

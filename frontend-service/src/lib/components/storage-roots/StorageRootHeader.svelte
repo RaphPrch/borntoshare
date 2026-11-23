@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   
 
   import { t } from '$lib/i18n';
@@ -27,7 +27,6 @@
     inheritanceBroken?: boolean | null;
     onRunRootProbe?: () => void;
     onNewAccessRequest?: () => void;
-    onEditRoot?: () => void;
     onDeleteRoot?: () => void;
     onToggleInheritance?: () => void;
     onDeleteFolder?: () => void;
@@ -50,7 +49,6 @@
     inheritanceBroken = null,
     onRunRootProbe = () => {},
     onNewAccessRequest = () => {},
-    onEditRoot = () => {},
     onDeleteRoot = () => {},
     onToggleInheritance = () => {},
     onDeleteFolder = () => {},
@@ -64,7 +62,8 @@
   $effect.pre(() => {
     actions = [
       ...(isAdmin && onMeasure ? [{ key: 'measure', label: t('Measure'), icon: 'bi-rulers', variant: 'secondary' as const, disabled, onClick: onMeasure }] : []),
-      ...(isAdmin && onScanSensitivity ? [{ key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', variant: 'secondary' as const, disabled, onClick: onScanSensitivity }] : []),
+      // The sensitivity scan comes with the 5S module
+      ...(isAdmin && onScanSensitivity && $fivesEnabled ? [{ key: 'sensitivity', label: t('Scan the sensitivity'), icon: 'bi-shield-lock', variant: 'secondary' as const, disabled, onClick: onScanSensitivity }] : []),
       {
         key: 'probe',
         label: rootProbeBusy ? t('Reading…') : t('Read the ACL'),
@@ -76,7 +75,6 @@
       },
       // Access requests, inheritance and sub-folders belong to the governance (not in a 5S-only installation)
       ...($governanceEnabled ? [{ key: 'access-request', label: t('Request access'), icon: 'bi-plus-lg', variant: 'primary' as const, disabled, onClick: onNewAccessRequest }] : []),
-      { key: 'edit', label: t('Edit storage root'), icon: 'bi-pencil-square', overflow: true, disabled, onClick: onEditRoot },
       ...(isAdmin
         ? ([
             ...($governanceEnabled ? [{

@@ -44,8 +44,8 @@ export function buildNav(ctx: NavContext): NavSection[] {
       key: 'governance',
       label: 'Governance',
       items: [
-        { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open',
-          ...(ctx.admin ? { action: { href: '/storage-roots/add', label: t('Add folders'), icon: 'bi-plus-lg' } } : {}) },
+        // Adding folders: the « + » of the folder list (no button in the top bar)
+        { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
         ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure', '/access-reviews'], count: ctx.pending,
             action: { href: '/access-requests/new', label: t('New request'), icon: 'bi-plus-lg' },
             tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },

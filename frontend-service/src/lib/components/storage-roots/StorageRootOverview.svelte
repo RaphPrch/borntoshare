@@ -170,55 +170,65 @@
     <RecentActivityCard items={activity} emptyLabel={t('No activity found for this storage root.')} onOpenHistory={onOpenActivity} />
   </div>
 
-  <section class="ov__card ov__side" aria-label={t('Governance')}>
+  <section class="ov__card ov__side gv" aria-label={t('Governance')}>
     <header><h2>{$governanceEnabled ? t('Governance') : t('Details')}</h2></header>
-    <dl>
-      {#if $governanceEnabled}
-      <div>
-        <dt>{t('Guardians')}</dt>
-        <dd>
-          {#each guardianNames as name (name)}
-            <span class="ov__chip" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><span class="ov__face is-tiny">{initials(name)}</span>{name}</span>
-          {:else}
-            <span class="ov__warn">{t('None: only the administrators can approve the requests.')}</span>
-          {/each}
-          {#if guardiansMissing && guardianNames.length}<span class="ov__warn">{t('Too few')}</span>{/if}
-          <button type="button" class="ov__add" onclick={onOpenGuardians}>{guardianNames.length ? t('Manage') : t('+ Add')}</button>
-        </dd>
-      </div>
-      {/if}
-      <div>
-        <dt>{t('Tags')}</dt>
-        <dd>
-          {#each tags as tag (tagId(tag))}<span class="ov__pill" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} policy={(tag as any).policy ?? null} automatic={Boolean((tag as any).automatic)} /></span>{/each}
-          <button type="button" class="ov__add" onclick={onOpenTags}>{tags.length ? t('Manage') : t('+ Tag')}</button>
-        </dd>
-      </div>
-      {#if subTags.length}
-        <div>
-          <dt>{t('Tagged sub-folders')}</dt>
-          <dd class="ov__subtags">
-            {#each subTags.slice(0, subTagsAll ? subTags.length : 4) as row (row.path)}
-              <span class="ov__subtag"><a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>
-                {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} policy={tag.policy ?? null} automatic={Boolean(tag.automatic)} />{/each}</span>
+    {#if $governanceEnabled}
+      <div class="gv__block">
+        <div class="gv__head">
+          <span class="gv__label"><i class="bi bi-person-check" aria-hidden="true"></i>{t('Guardians')}</span>
+          <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={onOpenGuardians}>{guardianNames.length ? t('Manage') : t('Add')}</button>
+        </div>
+        {#if guardianNames.length}
+          <ul class="gv__people">
+            {#each guardianNames as name (name)}
+              <li animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><span class="gv__face" aria-hidden="true">{initials(name)}</span><span>{name}</span></li>
             {/each}
-            {#if subTags.length > 4 && !subTagsAll}<button type="button" class="ov__add" onclick={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}
+          </ul>
+          {#if guardiansMissing}<p class="gv__note is-warn"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('Too few: name a second guardian for the absences.')}</p>{/if}
+        {:else}
+          <p class="gv__note is-warn"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{t('None: only the administrators can approve the requests.')}</p>
+        {/if}
+      </div>
+    {/if}
+    <div class="gv__block">
+      <div class="gv__head">
+        <span class="gv__label"><i class="bi bi-tags" aria-hidden="true"></i>{t('Tags')}</span>
+        <button type="button" class="b2s-btn b2s-btn-ghost b2s-btn-sm" onclick={onOpenTags}>{tags.length ? t('Manage') : t('Add')}</button>
+      </div>
+      {#if tags.length}
+        <div class="gv__tags">
+          {#each tags as tag (tagId(tag))}<span class="ov__pill" animate:flip={{ duration: dur(MOTION.base) }} in:pop={{ y: 4 }} out:pop={{ duration: MOTION.fast, y: 0 }}><TagPill label={tagLabel(tag)} color={tagColor(tag)} small={true} policy={(tag as any).policy ?? null} automatic={Boolean((tag as any).automatic)} /></span>{/each}
+        </div>
+      {:else}
+        <p class="gv__note">{t('No tag yet.')}</p>
+      {/if}
+    </div>
+    {#if subTags.length}
+      <div class="gv__block">
+        <div class="gv__head"><span class="gv__label"><i class="bi bi-folder2" aria-hidden="true"></i>{t('Tagged sub-folders')}</span></div>
+        <div class="ov__subtags">
+          {#each subTags.slice(0, subTagsAll ? subTags.length : 4) as row (row.path)}
+            <span class="ov__subtag"><a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>
+              {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} policy={tag.policy ?? null} automatic={Boolean(tag.automatic)} />{/each}</span>
+          {/each}
+          {#if subTags.length > 4 && !subTagsAll}<button type="button" class="b2s-link-btn" onclick={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}
+        </div>
+      </div>
+    {/if}
+    <dl class="gv__facts">
+      {#if zoneLabel}<div><dt><i class="bi bi-geo-alt" aria-hidden="true"></i>{t('Zone')}</dt><dd>{zoneLabel}</dd></div>{/if}
+      <div><dt><i class="bi bi-hdd-network" aria-hidden="true"></i>{t('File server')}</dt><dd>{#if endpointHref}<a class="ov__plain" href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd></div>
+      {#if $governanceEnabled}
+        <div>
+          <dt><i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Inheritance')}</dt>
+          <dd>
+            {#if !inheritance?.known}<span class="gv__muted">{t('Known at the next ACL read')}</span>
+            {:else if inheritance.broken}<span>{t('Broken: the folder keeps its own entries')}</span>
+            {:else}<span>{t('Inherited from the parent folder')}</span>{/if}
+            {#if isAdmin && inheritance?.known}<button type="button" class="b2s-link-btn" onclick={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
           </dd>
         </div>
-      {/if}
-      {#if zoneLabel}<div><dt>{t('Zone')}</dt><dd>{zoneLabel}</dd></div>{/if}
-      <div><dt>{t('File server')}</dt><dd>{#if endpointHref}<a class="ov__plain" href={endpointHref}>{endpointDisplay}</a>{:else}{endpointDisplay}{/if}</dd></div>
-      {#if $governanceEnabled}
-      <div>
-        <dt>{t('Inheritance')}</dt>
-        <dd>
-          {#if !inheritance?.known}<span class="ov__muted">{t('Known at the next ACL read')}</span>
-          {:else if inheritance.broken}<span>{t('Broken: the folder keeps its own entries')}</span>
-          {:else}<span>{t('Inherited from the parent folder')}</span>{/if}
-          {#if isAdmin && inheritance?.known}<button type="button" class="b2s-link-btn" onclick={onToggleInheritance}>{inheritance.broken ? t('Restore') : t('Break')}</button>{/if}
-        </dd>
-      </div>
-      <div><dt>{t('Directory')}</dt><dd>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</dd></div>
+        <div><dt><i class="bi bi-people" aria-hidden="true"></i>{t('Directory')}</dt><dd>{permissions?.snapshot_at ? t('Synchronised {ago}', { ago: timeAgo(permissions.snapshot_at) }) : '—'}</dd></div>
       {/if}
     </dl>
   </section>
@@ -233,9 +243,7 @@
   .ov__card { display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 16px 18px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }
   .ov__card header { display: flex; align-items: center; gap: 12px; }
   .ov__card h2 { margin: 0 auto 0 0; font-size: var(--b2s-fs-md); font-weight: 600; }
-  .ov__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ov__face.is-small { margin: 0; border: 0; }
-  .ov__face.is-tiny { width: 22px; height: 22px; margin: 0; border: 0; }
   .ov__ends { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
   .ov__ends li { display: flex; align-items: center; gap: 12px; }
   .ov__name { flex: 0 1 180px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -244,19 +252,30 @@
   .ov__bar.is-soon span { background: var(--b2s-color-warning); }
   .ov__when { flex: none; color: var(--b2s-color-text-soft); font-size: var(--b2s-fs-xs); white-space: nowrap; }
   .ov__side { position: sticky; top: calc(var(--b2s-shell-top) + 16px); }
-  .ov__side dl { margin: 0; }
-  .ov__side dl div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; padding: 9px 0; border-top: 1px solid var(--b2s-color-border); font-size: var(--b2s-fs-sm); }
-  .ov__side dl div:first-child { border-top: 0; }
-  .ov__side dt { color: var(--b2s-color-text-muted); }
-  .ov__side dd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
-  .ov__chip { display: inline-flex; align-items: center; gap: 6px; padding: 2px 8px 2px 2px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-neutral-soft); }
-  .ov__warn { color: var(--b2s-color-warning-strong); }
-  .ov__add { padding: 1px 8px; border: 1px dashed var(--b2s-color-border-mid); border-radius: 6px; background: transparent; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); cursor: pointer; }
-  .ov__add:hover { border-color: var(--b2s-color-info); color: var(--b2s-color-info-strong); }
   /* The file server: a link that reads as plain text (underlined on hover only) */
   .ov__plain { color: inherit; text-decoration: none; font-weight: 500; }
   .ov__plain:hover { color: var(--b2s-color-primary); text-decoration: underline; }
   .ov__subtags { display: grid; gap: 6px; }
   .ov__subtag { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
   .ov__subtag a { display: inline-flex; align-items: center; gap: 6px; font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
+  /* Governance card: blocks with a titled head and their action, then the facts of the folder */
+  .gv { gap: 0; padding: 0; }
+  .gv > header { padding: 16px 18px 6px; }
+  .gv__block { display: flex; flex-direction: column; gap: 10px; padding: 12px 18px 14px; border-bottom: 1px solid var(--b2s-color-border-soft); }
+  .gv__head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+  .gv__label { display: inline-flex; align-items: center; gap: 8px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
+  .gv__label i { color: var(--b2s-accent-vivid); font-size: 14px; }
+  .gv__people { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .gv__people li { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+  .gv__face { display: grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); font-size: 11px; font-weight: 700; }
+  .gv__tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .gv__note { display: flex; align-items: flex-start; gap: 8px; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); line-height: 1.45; }
+  .gv__note.is-warn { padding: 8px 10px; border-radius: var(--b2s-radius-sm); background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
+  .gv__muted { color: var(--b2s-color-text-muted); }
+  .gv__facts { display: grid; gap: 0; margin: 0; padding: 4px 18px 10px; }
+  .gv__facts div { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: baseline; padding: 9px 0; border-top: 1px solid var(--b2s-color-border-soft); font-size: var(--b2s-fs-sm); }
+  .gv__facts div:first-child { border-top: 0; }
+  .gv__facts dt { display: inline-flex; align-items: center; gap: 7px; color: var(--b2s-color-text-muted); }
+  .gv__facts dt i { color: var(--b2s-color-text-faint); }
+  .gv__facts dd { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; min-width: 0; overflow-wrap: anywhere; }
 </style>
