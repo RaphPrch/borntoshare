@@ -21,7 +21,7 @@
   
   interface Props {
     /**
-   * One person, as a page: identity card with the role as a switch (undo for a few seconds), « to do », figures,
+   * One person, as a page: identity card (the role is shown, not switched here), « to do », figures,
    * then what they guard (map by share, sole guardian folders, co-guardians), their requests and the activity.
    */
     item: Record<string, any>;
@@ -29,9 +29,7 @@
     /** The signed-in person: no demotion, disabling or deletion of one's own account */
     isSelf?: boolean;
     busy?: boolean;
-    onSetRole?: (role: 'user' | 'platform_admin') => Promise<boolean>;
     onToggleActive?: () => void;
-    onEdit?: () => void;
     onDelete?: () => void;
     /** Everyone, to pick a backup guardian */
     people?: Array<Record<string, any>>;
@@ -42,9 +40,7 @@
     canDelete = true,
     isSelf = false,
     busy = false,
-    onSetRole = async () => false,
     onToggleActive = () => {},
-    onEdit = () => {},
     onDelete = () => {},
     people = []
   }: Props = $props();
@@ -75,15 +71,6 @@
   }
   export const reload = () => id && load(id);
 
-  async function setRole(role: 'user' | 'platform_admin') {
-    if (busy || adminByGroupOnly || (role === 'platform_admin') === isAdmin) return;
-    const previous: 'user' | 'platform_admin' = isAdmin ? 'platform_admin' : 'user';
-    if (!(await onSetRole(role))) return;
-    await load(id);
-    toast.success(role === 'platform_admin' ? t('{name} is now an administrator.', { name: displayName }) : t('{name} is a user again.', { name: displayName }), {
-      action: { label: t('Undo'), run: async () => { if (await onSetRole(previous)) await load(id); } }
-    });
-  }
 
 
 
@@ -111,15 +98,18 @@
   let sole = $derived(guarded.filter((folder) => folder.sole));
   let requestsTotal = $derived(Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0));
   let actions = $derived([
-    { key: 'edit', label: t('Edit'), icon: 'bi-pencil', variant: 'secondary', onClick: onEdit },
     ...(isSelf ? [] : [
-      { key: 'toggle', label: active ? t('Disable') : t('Enable'), icon: active ? 'bi-pause-circle' : 'bi-play-circle', overflow: true, onClick: onToggleActive },
+      // A guardian is not disabled: their folders go to someone else first (the server refuses it too)
+      { key: 'toggle', label: active ? t('Disable') : t('Enable'), icon: active ? 'bi-pause-circle' : 'bi-play-circle', overflow: true,
+        disabled: active && guarded.length > 0,
+        title: active && guarded.length ? t('Guardian of {count} folder(s): hand them over to someone else before disabling the account.', { count: guarded.length }) : undefined,
+        onClick: onToggleActive },
       { key: 'delete', label: t('Delete'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled: !canDelete, onClick: onDelete }
     ])
   ] as EntityActionItem[]);
   let steps = $derived([
     ...(!active && guarded.length ? [{ key: 'off', tone: 'bad' as const, icon: 'bi-pause-circle', title: t('Disabled, but guardian of {count} folder(s)', { count: guarded.length }), detail: t('Its requests wait for the other guardians or an administrator.'), label: t('Enable'), run: onToggleActive }] : []),
-    ...(active && guarded.length && !hasMail ? [{ key: 'mail', tone: 'warn' as const, icon: 'bi-envelope-slash', title: t('{count} folder(s) wait for their validations, but there is no e-mail', { count: guarded.length }), detail: local ? t('Neither requests nor reminders reach them. Add an e-mail address.') : t('Neither requests nor reminders reach them. Fill the mail attribute in the directory: it is read again at the next synchronization.'), label: local ? t('Edit') : t('See the folders'), run: local ? onEdit : () => (tab = 'guarded') }] : []),
+    ...(active && guarded.length && !hasMail ? [{ key: 'mail', tone: 'warn' as const, icon: 'bi-envelope-slash', title: t('{count} folder(s) wait for their validations, but there is no e-mail', { count: guarded.length }), detail: local ? t('Neither requests nor reminders reach them. Add an e-mail address.') : t('Neither requests nor reminders reach them. Fill the mail attribute in the directory: it is read again at the next synchronization.'), label: t('See the folders'), run: () => (tab = 'guarded') }] : []),
     ...(sole.length ? [{ key: 'sole', tone: 'info' as const, icon: 'bi-person-exclamation', title: t('Only guardian of {count} folder(s)', { count: sole.length }), detail: t('Without them, only an administrator validates the requests of these folders.'), label: t('See them'), run: () => { tab = 'guarded'; shareFilter = 'sole'; } }] : [])
   ] as EntityTodoStep[]);
   // Map of what they guard: one tile per share, one cell per folder (red: only guardian)
@@ -162,10 +152,6 @@
       {/snippet}
     {#snippet side()}
       
-        <div class="iw__seg" role="radiogroup" aria-label={t('Role in BornToShare')}>
-          <button type="button" role="radio" aria-checked={!isAdmin} class:is-on={!isAdmin} disabled={busy || adminByGroupOnly || !data || (isSelf && isAdmin)} title={isSelf && isAdmin ? t('You cannot demote your own account.') : undefined} onclick={() => setRole('user')}>{t('User')}</button>
-          <button type="button" role="radio" aria-checked={isAdmin} class:is-on={isAdmin} disabled={busy || adminByGroupOnly || !data} onclick={() => setRole('platform_admin')}>{t('Administrator')}</button>
-        </div>
         {#if guarded.length}<small class="iw__plus">{t('+ guardian of {count} folder(s)', { count: guarded.length })}</small>{/if}
       
       {/snippet}
@@ -271,10 +257,6 @@
 <style>
   .iw { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .iw__plus { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
-  .iw__seg { display: flex; gap: 2px; padding: 3px; border-radius: 12px; background: var(--b2s-color-neutral-soft); }
-  .iw__seg button { padding: 8px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--b2s-color-text-muted); font: inherit; font-size: var(--b2s-fs-sm); font-weight: 600; cursor: pointer; }
-  .iw__seg button.is-on { background: var(--b2s-color-surface); color: var(--b2s-color-text); box-shadow: 0 1px 3px rgba(18, 59, 73, 0.12); }
-  .iw__seg button:disabled { cursor: default; }
   .iw__tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .iw__tiles .b2s-stat-tile { text-align: left; border: 1px solid var(--b2s-color-border); font: inherit; color: inherit; }
   .iw__tiles button.b2s-stat-tile { cursor: pointer; }

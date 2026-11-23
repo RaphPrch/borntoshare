@@ -76,3 +76,22 @@ def test_a_folder_never_loses_its_last_active_guardian(monkeypatch, logged) -> N
     assert refused.value.detail["code"] == "GUARDIAN_HANDOVER_REQUIRED"
     monkeypatch.setattr(router, "_orphaned_folders", lambda db, identity_id: [])
     router._refuse_guardian_gap(None, _request(7), action="identity.account_deleted", identity_id=8)
+
+
+class _Count:
+    def __init__(self, value: int) -> None:
+        self.value = value
+
+    def scalar(self) -> int:
+        return self.value
+
+
+def test_a_guardian_is_not_disabled(monkeypatch, logged) -> None:
+    # Even a guardian sharing the folders with others: the folders go to someone else first
+    monkeypatch.setattr(router.identity_list_sql, "guarded_folders_count", lambda db, params: _Count(3))
+    with pytest.raises(HTTPException) as refused:
+        router._refuse_disabling_a_guardian(None, _request(7), action="identity.application_role_updated", identity_id=8)
+    assert refused.value.status_code == 409 and refused.value.detail["code"] == "GUARDIAN_HANDOVER_REQUIRED"
+    assert logged[-1]["outcome"] == "denied"
+    monkeypatch.setattr(router.identity_list_sql, "guarded_folders_count", lambda db, params: _Count(0))
+    router._refuse_disabling_a_guardian(None, _request(7), action="identity.application_role_updated", identity_id=8)

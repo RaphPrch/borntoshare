@@ -83,7 +83,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
             { href: '/admin/zones', label: 'Zones', icon: 'bi-geo-alt',
               action: { href: '/admin/zones/new', label: t('Add a zone'), icon: 'bi-plus-lg' } },
             { href: '/admin/identity', label: 'Identity & Users', icon: 'bi-people', also: ['/admin/identity-sources'],
-              tabs: [{ href: '/admin/identity', label: t('Identities'), menu: false }, { href: '/admin/identity/admins', label: t('Administrators') }, { href: '/admin/identity-sources', label: t('Directories') }] },
+              tabs: [{ href: '/admin/identity', label: t('Identities'), menu: false }, { href: '/admin/identity-sources', label: t('Directories') }] },
             { href: '/admin/advanced-settings', label: 'Settings', icon: 'bi-sliders', also: ['/admin/tags'],
               tabs: [{ href: '/admin/advanced-settings', label: t('Settings'), menu: false }, { href: '/admin/tags', label: t('Tags') }] }
           ]

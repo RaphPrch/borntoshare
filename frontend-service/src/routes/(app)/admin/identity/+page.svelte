@@ -17,7 +17,6 @@
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import { normalizeText } from '$lib/utils/values';
-  import EditIdentityModal from './components/EditIdentityModal.svelte';
 
   
   interface Props {
@@ -39,7 +38,6 @@
   let query = $state('');
   let busy = $state(false);
   let showAdd = $state(false);
-  let editTarget = $state<Record<string, any> | null>(null);
   let deleteTarget = $state<Record<string, any> | null>(null);
   let deleteBusy = $state(false);
   // Deleting or disabling a person goes through the handover of the folders they would leave alone
@@ -153,9 +151,7 @@
         onDelete={() => (deleteTarget = selected)} />
     {:else if selected}
       <IdentityWorkspace bind:this={workspace} item={selected} {busy} canDelete={!isDefaultAdmin(selected)} isSelf={Number(selected.id) === Number(data.user?.id ?? 0)} people={items}
-        onSetRole={(role) => setRole(selected, role)}
         onToggleActive={() => toggleActive(selected)}
-        onEdit={() => (editTarget = selected)}
         onDelete={() => (leave = { item: selected, mode: 'delete' })} />
     {:else}
       <LoadingState block skeleton="detail" />
@@ -165,9 +161,6 @@
 
 <IdentityAddModal open={showAdd} existing={items} onClose={() => (showAdd = false)}
   onDone={async (id) => { await invalidateAll(); if (id) selectedKey = `user:${id}`; }} />
-
-<EditIdentityModal open={editTarget !== null} identity={editTarget} onClose={() => (editTarget = null)}
-  onDone={async () => { editTarget = null; await invalidateAll(); workspace?.reload(); }} />
 
 <IdentityLeaveDialog open={leave !== null} identity={leave?.item ?? null} mode={leave?.mode ?? 'delete'} candidates={items}
   onClose={() => (leave = null)}

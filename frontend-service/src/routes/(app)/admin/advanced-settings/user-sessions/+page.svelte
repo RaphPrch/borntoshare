@@ -13,7 +13,8 @@
   import { logAppError } from '$lib/logging';
   import { timeAgo } from '$lib/utils/format';
   import type { UserSession } from '$lib/api/admin-advanced-settings';
-  import { listUserSessions, revokeUserSession, saveSessionLimits } from '$lib/api/admin-advanced-settings';
+  import { listUserSessions, revokeUserSession, saveAdvancedSections, saveSessionLimits } from '$lib/api/admin-advanced-settings';
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import SettingRow from '$lib/components/settings/SettingRow.svelte';
   import FieldError from '$lib/components/ui/FieldError.svelte';
 
@@ -36,17 +37,38 @@
     $derived(Number.isInteger(Number(ttlHours)) && ttlHours >= 1 && ttlHours <= 720 && Number.isInteger(Number(idleMinutes)) && idleMinutes >= 1 && idleMinutes <= ttlHours * 60
       ? null
       : t('From 1 to 720 hours; inactivity from 1 minute to the maximum duration.'));
-  let canSaveLimits = $derived(!savingLimits && !limitsError && `${ttlHours}/${idleMinutes}` !== savedLimits);
+  // Failed sign-ins before a pause (applied by auth-service within a minute)
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let perAccount = $state(Number(data.advanced?.signIn?.maxFailuresPerAccount ?? 5));
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let perAddress = $state(Number(data.advanced?.signIn?.maxFailuresPerAddress ?? 50));
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let windowMinutes = $state(Number(data.advanced?.signIn?.windowMinutes ?? 15));
+  const signInSnap = () => JSON.stringify([Number(perAccount), Number(perAddress), Number(windowMinutes)]);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let savedSignIn = $state(signInSnap());
+
+  // One « Save »: the session limits and the sign-in limits, each written only when it changed
+  let limitsDirty = $derived(`${ttlHours}/${idleMinutes}` !== savedLimits);
+  let signInDirty = $derived(signInSnap() !== savedSignIn);
+  let canSaveLimits = $derived(!savingLimits && !limitsError && (limitsDirty || signInDirty));
+  guardUnsaved(() => limitsDirty || signInDirty);
 
   async function saveLimits() {
     if (!canSaveLimits) return;
     savingLimits = true;
     try {
-      await saveSessionLimits(fetch, Number(ttlHours) * 3600, Number(idleMinutes) * 60);
-      savedLimits = `${ttlHours}/${idleMinutes}`;
-      toast.success(t('Session limits saved.'));
+      if (limitsDirty) {
+        await saveSessionLimits(fetch, Number(ttlHours) * 3600, Number(idleMinutes) * 60);
+        savedLimits = `${ttlHours}/${idleMinutes}`;
+      }
+      if (signInDirty) {
+        await saveAdvancedSections(fetch, { signIn: { maxFailuresPerAccount: Number(perAccount), maxFailuresPerAddress: Number(perAddress), windowMinutes: Number(windowMinutes) } });
+        savedSignIn = signInSnap();
+      }
+      toast.success(t('Settings saved.'));
     } catch (e: unknown) {
-      reportUiError(e, t('Unable to save the session limits.'), 'advanced_settings.sessions.save');
+      reportUiError(e, t('Unable to save the settings.'), 'advanced_settings.sessions.save');
     } finally {
       savingLimits = false;
     }
@@ -145,22 +167,33 @@
       revokingId = null;
     }
   }
-  import SignInLimitsCard from '$lib/components/settings/SignInLimitsCard.svelte';
 </script>
 
-<ConfigCard title={t('Session limits')} subtitle={t('Apply within a minute, also to the sessions already open.')}>
-  <div class="adv-form-grid">
-    <SettingRow label={t('Maximum duration (hours)')}>
-      <input class="b2s-input" type="number" min="1" max="720" step="1" bind:value={ttlHours} />
-    </SettingRow>
-    <SettingRow label={t('Disconnect after inactivity (minutes)')}>
-      <input class="b2s-input" type="number" min="1" step="1" bind:value={idleMinutes} />
-      {#if limitsError}<FieldError>{limitsError}</FieldError>{/if}
-    </SettingRow>
-  </div>
+<ConfigCard title={t('Sessions and sign-ins')} subtitle={t('Apply within a minute, also to the sessions already open.')} icon="bi-shield-lock">
+  <section class="us-group">
+    <h3>{t('Session limits')}</h3>
+    <div class="adv-form-grid">
+      <SettingRow label={t('Maximum duration (hours)')}>
+        <input class="b2s-input" type="number" min="1" max="720" step="1" bind:value={ttlHours} />
+      </SettingRow>
+      <SettingRow label={t('Disconnect after inactivity (minutes)')}>
+        <input class="b2s-input" type="number" min="1" step="1" bind:value={idleMinutes} />
+        {#if limitsError}<FieldError>{limitsError}</FieldError>{/if}
+      </SettingRow>
+    </div>
+  </section>
+  <section class="us-group">
+    <h3>{t('Failed sign-ins')}</h3>
+    <p class="us-hint">{t('Beyond these failures, the next attempts wait until the window has passed.')}</p>
+    <div class="adv-form-grid">
+      <SettingRow label={t('Failures per account')}><input class="b2s-input" type="number" min="3" max="50" bind:value={perAccount} /></SettingRow>
+      <SettingRow label={t('Failures per address')}><input class="b2s-input" type="number" min="10" max="1000" bind:value={perAddress} /></SettingRow>
+      <SettingRow label={t('Window (minutes)')}><input class="b2s-input" type="number" min="1" max="1440" bind:value={windowMinutes} /></SettingRow>
+    </div>
+  </section>
   <div class="adv-actions">
     <button class="b2s-btn b2s-btn-primary" type="button" onclick={saveLimits} disabled={!canSaveLimits}>
-      {savingLimits ? t('Saving…') : t('Save changes')}
+      <i class="bi bi-check2" aria-hidden="true"></i>{savingLimits ? t('Saving…') : t('Save changes')}
     </button>
   </div>
 </ConfigCard>
@@ -267,12 +300,14 @@
   severity="warning"
 />
 
-<SignInLimitsCard signIn={data.advanced?.signIn ?? {}} />
-
 <ContextMenu open={Boolean(menu)} title={menu?.session.user ?? ''} items={menu ? sessionItems(menu.session) : []} at={menu?.at ?? { x: 0, y: 0 }}
   onClose={() => (menu = null)} onPick={(key) => void pickSession(key)} />
 
 <style>
+  .us-group { display: grid; gap: 8px; padding: 4px 0 14px; border-bottom: 1px solid var(--b2s-color-border-soft); }
+  .us-group + .us-group { padding-top: 14px; }
+  .us-group h3 { margin: 0; color: var(--b2s-color-heading); font-size: var(--b2s-fs-md); font-weight: 600; }
+  .us-hint { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .adv-current-session {
     margin-left: 8px;
     color: var(--b2s-color-text-muted);

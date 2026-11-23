@@ -5806,5 +5806,8 @@
   "Rights set outside BornToShare, or a group missing: a new read does not settle it": "Droits posés hors BornToShare, ou groupe manquant : une nouvelle lecture ne le règle pas",
   "Failed test: a new test and ACL read settles it": "Test en échec : un nouveau test et une relecture de l'ACL le règlent",
   "Failed test, on a server that answers: a new test and ACL read settles it": "Test en échec, sur un serveur qui répond : un nouveau test et une relecture de l'ACL le règlent",
-  "{count} folder(s) out of {total}": "{count} dossier(s) sur {total}"
+  "{count} folder(s) out of {total}": "{count} dossier(s) sur {total}",
+  "Guardian of {count} folder(s): hand them over to someone else before disabling the account.": "Gardien de {count} dossier(s) : confiez-les à quelqu'un d'autre avant de désactiver le compte.",
+  "Sessions and sign-ins": "Sessions et connexions",
+  "Settings saved.": "Réglages enregistrés."
 }

@@ -1201,3 +1201,11 @@ def substitute_rows_1(db: Session, params: Any, *, where: Any) -> Any:
                 ),
         params,
     )
+
+
+def guarded_folders_count(db: Session, params: Any) -> Any:
+    """SELECT COUNT(*) FROM storage_root_roles WHERE identity_id = :id AND guardian"""
+    return db.execute(
+        text("SELECT COUNT(*) FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian'"),
+        params,
+    )
