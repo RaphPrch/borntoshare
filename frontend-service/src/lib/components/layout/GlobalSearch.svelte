@@ -203,7 +203,7 @@
       select(results[activeIndex]);
     }
   }
-  const MENU_NAMES = new Set(['Dashboard', 'Pilot', 'Storage Roots', 'Access Management', 'Governance Jobs', 'Policies', 'Explorer', 'Inventory', 'Analytics',
+  const MENU_NAMES = new Set(['Dashboard', 'Raphaël', 'Storage Roots', 'Access Management', 'Governance Jobs', 'Policies', 'Explorer', 'Inventory', 'Analytics',
     'Insights & Recommendations', 'Storage Endpoints', 'Identity & Users', 'Settings']);
   // Pages are translated when read (except the names of the menu)
   let pages = $derived([
@@ -257,7 +257,7 @@
   let textActions = $derived(query.trim().length >= 2 && canSeeStorageRoots
     ? ([
         ...($fivesEnabled ? [{ group: t('Actions'), label: t('Find the file « {query} »', { query: query.trim() }), detail: t('In every measured folder'), href: `/five-s/explore?q=${encodeURIComponent(query.trim())}`, icon: 'bi-file-earmark-search' }] : []),
-        { group: t('Actions'), label: t('Ask Pilot: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/pilot?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
+        { group: t('Actions'), label: t('Ask Raphaël: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/pilot?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
       ] as Result[])
     : []);
   $effect.pre(() => {

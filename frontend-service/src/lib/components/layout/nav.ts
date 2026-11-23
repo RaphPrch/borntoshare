@@ -38,7 +38,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
     { key: 'workspace', label: 'Workspace', items: [
       { href: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', also: ['/live'] },
       // Questions on the folders, answered as lists to export (administrators and guardians)
-      ...(ctx.staff ? [{ href: '/pilot', label: 'Pilot', icon: 'bi-chat-square-text' }] : [])
+      ...(ctx.staff ? [{ href: '/pilot', label: 'Raphaël', icon: 'bi-chat-square-text' }] : [])
     ] },
     {
       key: 'governance',

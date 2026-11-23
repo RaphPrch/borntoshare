@@ -14,7 +14,7 @@ const searchPages: Record<SearchPageGroup, SearchPage[]> = {
     { title: 'Explorer', description: 'Content of the measured folders, 5S workshop, duplicates, rights to review.', href: '/five-s/explore', icon: 'bi-columns-gap' },
     { title: 'Inventory', description: 'Scans, folders measured, quarantine and archives.', href: '/five-s/scanner', icon: 'bi-list-ul' },
     { title: 'Analytics', description: '5S score of the folders and what to do first.', href: '/five-s', icon: 'bi-bar-chart' },
-    { title: 'Pilot', description: 'Questions on the folders, answered as lists to export.', href: '/pilot', icon: 'bi-chat-square-text' }
+    { title: 'Raphaël', description: 'Questions on the folders, answered as lists to export.', href: '/pilot', icon: 'bi-chat-square-text' }
   ],
   admin: [
     { title: 'Storage Endpoints', description: 'Configure and manage storage endpoint connectors.', href: '/admin/storage-endpoints', icon: 'bi-hdd-network' },

@@ -1,7 +1,9 @@
 /**
- * Pilot: questions in plain French on the folders, answered from what BornToShare already knows (the context list
- * of the storage roots, the permissions of a folder: ACL read × directory × requests). No model, no guess: a few
- * intents read from the words of the question; the answer says how the question was understood.
+ * Raphaël (formerly Pilot): questions in plain French on the folders, answered from what BornToShare already knows
+ * (the context list of the storage roots, their guardians, the permissions of a folder: ACL read × directory ×
+ * requests). No model, no guess: a few intents read from the words of the question; the answer says how the question
+ * was understood. The questions of the 5S module (files, duplicates, cold data, rights to review) are answered only
+ * when the module is active.
  */
 import { apiGetData, apiGetList, apiPostData, type FetchLike } from '$lib/api/client';
 import { getStorageRootPermissions, type PermissionPerson } from '$lib/api/storage-root-permissions';
@@ -37,24 +39,43 @@ const slug = (value: string) => fold(value).replace(/[^a-z0-9]+/g, '_').replace(
 const size = (row: Root) => num(row.content_size_bytes ?? row.estimated_size_bytes);
 const rootLink = (row: Root) => ({ label: name(row), href: `/storage-roots?selected=${row.storage_root_id}` });
 
-export const PILOT_EXAMPLES = [
-  'Exporte-moi tous les utilisateurs du dossier Finance',
-  'Quels groupes donnent accès au dossier RH ?',
-  'Quels dossiers contiennent des mots de passe ?',
-  'Quotas au-delà de 85 %',
-  'Dossiers jamais mesurés',
-  'Dossiers sans gardien',
-  'Les 10 plus gros dossiers',
-  'Doublons à libérer',
-  'Dossiers du serveur FILER01',
-  'Données froides depuis plus d’un an',
-  'Fichiers sensibles ouverts à tous',
-  'Dossiers avec des droits à revoir',
-  'Fichiers du propriétaire CORP\\jane',
-  'Fichiers pdf de plus de 100 Mo',
-  'Ajoute le tag Confidentiel au dossier Finance',
-  'Retire le tag Archive des dossiers du serveur FILER01'
+const EXAMPLES: Array<{ text: string; fives?: true }> = [
+  { text: 'Exporte-moi tous les utilisateurs du dossier Finance' },
+  { text: 'Exporte-moi les utilisateurs avec le nombre de dossiers dont ils sont responsables' },
+  { text: 'Exporte-moi les gardiens dont les données sont sensibles' },
+  { text: 'Exporte-moi les utilisateurs qui accèdent à des données sensibles' },
+  { text: 'Quels groupes donnent accès au dossier RH ?' },
+  { text: 'Quels dossiers contiennent des mots de passe ?' },
+  { text: 'Fichiers sensibles ouverts à tous' },
+  { text: 'Quotas au-delà de 85 %' },
+  { text: 'Dossiers jamais mesurés' },
+  { text: 'Dossiers sans gardien' },
+  { text: 'Les 10 plus gros dossiers' },
+  { text: 'Dossiers du serveur FILER01' },
+  { text: 'Doublons à libérer', fives: true },
+  { text: 'Données froides depuis plus d’un an', fives: true },
+  { text: 'Dossiers avec des droits à revoir', fives: true },
+  { text: 'Fichiers du propriétaire CORP\\jane', fives: true },
+  { text: 'Fichiers pdf de plus de 100 Mo', fives: true },
+  { text: 'Ajoute le tag Confidentiel au dossier Finance' },
+  { text: 'Retire le tag Archive des dossiers du serveur FILER01' }
 ];
+
+/** The examples offered: those of the 5S module only when it is active. */
+export function pilotExamples(fives: boolean): string[] {
+  return EXAMPLES.filter((example) => fives || !example.fives).map((example) => example.text);
+}
+
+// The questions only the 5S module answers: its file inventory, its fingerprints (duplicates), the age of the data,
+// the rights of the sub-folders. Same words as the intents below.
+const FIVES_FILES = /\b(fichiers?)\b/;
+const FIVES_FILE_FILTER = /proprietaire|appartenant|\.\w{2,5}\b|\b(pdf|docx?|xlsx?|pptx?|zip|iso|mp4|mkv|pst|msi|exe|jpe?g|png)\b|plus de \d|\d+\s*(mo|go|ko)/;
+const FIVES_RIGHTS = /droits? a revoir|orphelin|\bsid\b|droits? excessi|controle total|ecriture pour tous/;
+const FIVES_DATA = /doublon|froid|\b5s\b/;
+export function isFivesQuestion(q: string): boolean {
+  if (/sensib|mot(s)? de passe|secret/.test(q) && /ouvert|tous|tout le monde|everyone/.test(q)) return false; // sensitivity scan of the core
+  return FIVES_DATA.test(q) || FIVES_RIGHTS.test(q) || (FIVES_FILES.test(q) && FIVES_FILE_FILTER.test(q)) || (/archiv|ancien|vieux/.test(q) && !/\btags?\b/.test(q));
+}
 
 /** The folder named in the question: after « dossier », else any folder whose name is in the question (longest first). */
 function findFolder(question: string, roots: Root[]): { root: Root | null; asked: string | null; others: Root[] } {
@@ -81,14 +102,26 @@ function viaLabel(person: PermissionPerson): string {
     .join(', ') || '—';
 }
 
-export async function askPilot(fetchFn: FetchLike, question: string): Promise<PilotAnswer> {
+export async function askPilot(fetchFn: FetchLike, question: string, options: { fives?: boolean } = {}): Promise<PilotAnswer> {
   const q = fold(question);
-  const roots = await apiGetList<Root>(fetchFn, '/storage-roots/context').catch(() => [] as Root[]);
   const base = { question, ok: true, links: [] as PilotAnswer['links'] };
+  const fivesOn = options.fives !== false;
+
+  // ---- the 5S module is off: its questions are not answered ----
+  if (!fivesOn && !(ACTION_VERB.test(q) && /\btags?\b/.test(q)) && isFivesQuestion(q)) {
+    return { ...base, ok: false, intent: 'module 5S', source: '', columns: [], rows: [], file: null,
+      text: 'Cette question porte sur le contenu des dossiers (fichiers, doublons, données froides, droits des sous-dossiers) : elle relève du module 5S, qui n’est pas actif sur cette installation.' };
+  }
+
+  const roots = await apiGetList<Root>(fetchFn, '/storage-roots/context').catch(() => [] as Root[]);
   const table = (rows: Root[]) => rows.slice(0, 200);
 
   // ---- actions: put a tag on folders or take it off (nothing changes before « Appliquer ») ----
   if (ACTION_VERB.test(q) && /\btags?\b/.test(q)) return planTagAction(fetchFn, q, roots, base);
+
+  // ---- people × folders: who is responsible for what, who guards or reaches sensitive data ----
+  const people = await askPeopleAndFolders(fetchFn, q, roots, base);
+  if (people) return people;
 
   // ---- 5S module: files of the inventory, sensitive files open to all, rights to review ----
   const fives = await askFives(fetchFn, question, q, roots, base);
@@ -283,6 +316,106 @@ export function pilotTargets(rest: string, roots: Root[]): { list: Root[]; label
     else if (!hit) missing.push(partial.length > 1 ? `${wanted} (${partial.length} dossiers possibles)` : wanted);
   }
   return { list, label: list.map(name).join(', ') || 'aucun dossier', missing };
+}
+
+// ---- sensitivity of a folder: what the sensitivity scan found in its files, and its sensitivity tags ----
+const SCAN_GROUPS: Array<[string, string]> = [
+  ['password_files', 'Mots de passe'], ['key_files', 'Clés et jetons'], ['personal_files', 'Données personnelles'],
+  ['bank_files', 'Données bancaires'], ['risky_files', 'Fichiers à risque']
+];
+// Tags of these families mark a sensitive folder, except the levels that say it is not (« Public », « Interne »)
+const SENSITIVE_TAG_FAMILIES = ['confidentialite', 'conformite'];
+const NOT_SENSITIVE_TAGS = ['public', 'interne'];
+
+export function sensitiveTagNames(tags: Root[]): Set<string> {
+  return new Set(tags.filter((tag) => SENSITIVE_TAG_FAMILIES.includes(fold(tag.family)) && !NOT_SENSITIVE_TAGS.includes(fold(tag.name))).map((tag) => fold(tag.name)));
+}
+
+/** What makes the folder sensitive (empty: nothing found, or never scanned and no sensitivity tag). */
+export function sensitivityOf(row: Root, sensitiveTags: Set<string>): string[] {
+  const found = SCAN_GROUPS.filter(([field]) => num(row[field]) > 0).map(([, label]) => label);
+  if (!found.length && num(row.sensitive_files) > 0) found.push('Fichiers sensibles');
+  const tags = (Array.isArray(row.tags) ? row.tags : []).map((tag: Root) => String(tag.name ?? tag.label ?? '')).filter((tag: string) => sensitiveTags.has(fold(tag)));
+  return [...found, ...tags.filter((tag: string) => !found.some((label) => fold(label) === fold(tag)))];
+}
+
+type Guardian = { identity_id: number; login: string | null; name: string | null };
+const guardiansOf = (row: Root): Guardian[] => (Array.isArray(row.guardians) ? row.guardians : []);
+
+/** Reads the permissions of many folders, a few at a time (the list of a folder costs a tenth of a second). */
+async function permissionsOf(fetchFn: FetchLike, list: Root[], parallel = 8) {
+  const out: Array<{ root: Root; people: PermissionPerson[] }> = [];
+  let next = 0;
+  const worker = async () => {
+    while (next < list.length) {
+      const root = list[next++];
+      const data = await getStorageRootPermissions(fetchFn, Number(root.storage_root_id)).catch(() => null);
+      if (data) out.push({ root, people: data.people });
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(parallel, list.length) }, worker));
+  return out.sort((a, b) => name(a.root).localeCompare(name(b.root), 'fr'));
+}
+
+/** Lists across people and folders: the guardians and their folders, who reaches sensitive data. null: not one of them. */
+async function askPeopleAndFolders(fetchFn: FetchLike, q: string, roots: Root[], base: { question: string; ok: boolean; links: PilotAnswer['links'] }): Promise<PilotAnswer | null> {
+  const sensitiveWord = /sensib|confidenti|rgpd|reglementaire/.test(q);
+  const guardianWord = /gardien|responsab/.test(q) && !/sans gardien/.test(q);
+  const accessWord = /(utilisateur|personne|qui|login)/.test(q) && /(acce|acced|ouvr|lis|droit)/.test(q);
+  const summary = /responsab/.test(q) || (/gardien/.test(q) && /nombre|combien|chacun|chaque|liste|tous les|par gardien/.test(q));
+  if (!(guardianWord && (sensitiveWord || summary)) && !(sensitiveWord && accessWord)) return null;
+
+  const tags = await apiGetList<Root>(fetchFn, '/tags').catch(() => [] as Root[]);
+  const sensitiveTags = sensitiveTagNames(tags);
+  const sensitive = roots.map((root) => ({ root, labels: sensitivityOf(root, sensitiveTags) })).filter((item) => item.labels.length);
+  const source = 'analyse de sensibilité · tags de confidentialité et de conformité';
+
+  // Guardians of sensitive data: one line per guardian and folder
+  if (guardianWord && sensitiveWord) {
+    const rows = sensitive.flatMap(({ root, labels }) => guardiansOf(root).map((guardian) => ({ guardian, root, labels })))
+      .sort((a, b) => String(a.guardian.login ?? '').localeCompare(String(b.guardian.login ?? ''), 'fr') || name(a.root).localeCompare(name(b.root), 'fr'));
+    const people = new Set(rows.map((row) => row.guardian.identity_id)).size;
+    const orphan = sensitive.filter(({ root }) => !guardiansOf(root).length).length;
+    return { ...base, intent: 'gardiens × dossiers sensibles', source, links: [],
+      text: `${people} gardien(s) veillent sur ${sensitive.length - orphan} dossier(s) sensible(s)${orphan ? ` ; ${orphan} dossier(s) sensible(s) n’ont aucun gardien` : ''}.`,
+      columns: ['Login', 'Nom', 'Dossier', 'Sensibilité'],
+      rows: rows.map(({ guardian, root, labels }) => [{ text: guardian.login ?? '—', mono: true }, { text: guardian.name ?? '—' }, { text: name(root) }, { text: labels.join(', '), tone: 'bad' }]),
+      file: rows.length ? 'gardiens_donnees_sensibles.csv' : null };
+  }
+
+  // Each guardian and what they are responsible for
+  if (guardianWord) {
+    const byGuardian = new Map<number, { guardian: Guardian; folders: number; bytes: number; sensitive: number }>();
+    for (const root of roots) {
+      for (const guardian of guardiansOf(root)) {
+        const entry = byGuardian.get(guardian.identity_id) ?? { guardian, folders: 0, bytes: 0, sensitive: 0 };
+        entry.folders += 1;
+        entry.bytes += size(root);
+        if (sensitivityOf(root, sensitiveTags).length) entry.sensitive += 1;
+        byGuardian.set(guardian.identity_id, entry);
+      }
+    }
+    const list = [...byGuardian.values()].sort((a, b) => b.folders - a.folders || b.bytes - a.bytes);
+    const without = roots.filter((root) => !guardiansOf(root).length).length;
+    return { ...base, intent: 'gardiens → dossiers, volume', source: 'gardiens des dossiers · dernières mesures', links: [],
+      text: `${list.length} personne(s) sont responsables d’au moins un dossier${without ? ` ; ${without} dossier(s) n’ont aucun gardien` : ''}.`,
+      columns: ['Login', 'Nom', 'Dossiers', 'Volume', 'Dossiers sensibles'],
+      rows: list.map((entry) => [{ text: entry.guardian.login ?? '—', mono: true }, { text: entry.guardian.name ?? '—' }, { text: String(entry.folders) },
+        { text: entry.bytes ? formatBytes(entry.bytes) : '—' }, { text: String(entry.sensitive), tone: entry.sensitive ? 'warn' : undefined }]),
+      file: list.length ? 'gardiens_dossiers.csv' : null };
+  }
+
+  // People who reach sensitive data: one line per person and folder
+  const reached = await permissionsOf(fetchFn, sensitive.map((item) => item.root));
+  const labelsOf = new Map(sensitive.map((item) => [Number(item.root.storage_root_id), item.labels]));
+  const rows = reached.flatMap(({ root, people }) => people.map((person) => ({ person, root, labels: labelsOf.get(Number(root.storage_root_id)) ?? [] })));
+  const persons = new Set(rows.map((row) => row.person.username ?? row.person.name)).size;
+  return { ...base, intent: 'personnes × dossiers sensibles', source: `droits lus (ACL × annuaire × demandes) · ${source}`, links: [],
+    text: `${persons} personne(s) accèdent à ${reached.length} dossier(s) sensible(s), ${rows.length} accès au total.${reached.length < sensitive.length ? ` Les droits de ${sensitive.length - reached.length} dossier(s) n’ont pas pu être lus.` : ''}`,
+    columns: ['Login', 'Nom', 'Droit', 'Dossier', 'Sensibilité'],
+    rows: rows.map(({ person, root, labels }) => [{ text: person.username ?? '—', mono: true }, { text: person.name }, { text: levelLabel(person.level), tone: person.level === 'write' ? 'warn' : 'info' },
+      { text: name(root) }, { text: labels.join(', '), tone: 'bad' }]),
+    file: rows.length ? 'acces_donnees_sensibles.csv' : null };
 }
 
 async function planTagAction(fetchFn: FetchLike, q: string, roots: Root[], base: { question: string; ok: boolean; links: PilotAnswer['links'] }): Promise<PilotAnswer> {

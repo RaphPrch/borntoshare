@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
-import { applyPilotAction, askPilot } from './pilot-engine';
+import { applyPilotAction, askPilot, pilotExamples } from './pilot-engine';
 
 // The API of the core, simulated: two folders and the permissions of « Finance »
 const roots = [
   { storage_root_id: 1, storage_root_name: 'Finance', storage_endpoint_name: 'FILER01', root_path: '\\\\filer01\\DATA\\Finance', password_files: 2, key_files: 0, personal_files: 1,
-    quota_used_percent: 92, quota_used_bytes: 9e9, quota_limit_bytes: 1e10, quota_pending_requests: 1, guardians_count: 1, content_size_bytes: 9e9, content_files: 1200, cold_1y_bytes: 6e9, tags: [{ id: 7, name: 'Archive' }] },
+    quota_used_percent: 92, quota_used_bytes: 9e9, quota_limit_bytes: 1e10, quota_pending_requests: 1, guardians_count: 1, guardians: [{ identity_id: 5, login: 'amartin', name: 'Alice Martin' }], content_size_bytes: 9e9, content_files: 1200, cold_1y_bytes: 6e9, tags: [{ id: 7, name: 'Archive' }] },
   { storage_root_id: 2, storage_root_name: 'TEST', storage_endpoint_name: 'FILER02', root_path: '\\\\filer02\\TEST', guardians_count: 0, content_size_bytes: null }
 ];
 const permissions = {
@@ -18,7 +18,7 @@ const permissions = {
 };
 const searched: string[] = [];
 const posted: Array<{ url: string; body: any }> = [];
-const tags = [{ id: 7, name: 'Archive' }, { id: 8, name: 'Données de santé' }, { id: 9, name: 'Confidentiel' }];
+const tags = [{ id: 7, name: 'Archive' }, { id: 8, name: 'Données de santé' }, { id: 9, name: 'Confidentiel', family: 'Confidentialité' }];
 const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
   const url = String(input);
   if (init?.method === 'POST') {
@@ -96,3 +96,36 @@ const missingFolder = await askPilot(fetchFn, 'Ajoute le tag Confidentiel aux do
 assert.deepEqual(missingFolder.action?.rootIds, [1]);
 assert.ok(missingFolder.text.includes('Introuvable : nope'));
 console.log('pilot-engine actions: ok');
+
+
+// ---- Raphaël: people × folders ----
+const responsible = await askPilot(fetchFn, 'Exporte-moi la liste de tous les utilisateurs avec le nombre de données dont ils sont responsables');
+assert.equal(responsible.intent, 'gardiens → dossiers, volume');
+assert.deepEqual(responsible.columns, ['Login', 'Nom', 'Dossiers', 'Volume', 'Dossiers sensibles']);
+assert.equal(responsible.rows.length, 1);
+assert.deepEqual([0, 1, 2, 4].map((column) => responsible.rows[0][column].text), ['amartin', 'Alice Martin', '1', '1']);
+assert.notEqual(responsible.rows[0][3].text, '—', 'the volume of the guarded folders');
+const guardiansSensitive = await askPilot(fetchFn, 'Exporte-moi la liste des gardiens dont leurs données sont sensibles');
+assert.equal(guardiansSensitive.intent, 'gardiens × dossiers sensibles');
+assert.equal(guardiansSensitive.rows.length, 1);
+assert.equal(guardiansSensitive.rows[0][2].text, 'Finance');
+assert.ok(guardiansSensitive.rows[0][3].text.includes('Mots de passe') && guardiansSensitive.rows[0][3].text.includes('Données personnelles'));
+const reachSensitive = await askPilot(fetchFn, 'Exporte-moi la liste des utilisateurs qui accèdent à de la donnée sensible');
+assert.equal(reachSensitive.intent, 'personnes × dossiers sensibles');
+assert.deepEqual(reachSensitive.columns, ['Login', 'Nom', 'Droit', 'Dossier', 'Sensibilité']);
+assert.deepEqual(reachSensitive.rows.map((row) => [row[0].text, row[2].text, row[3].text]), [['cmartin', 'Modification', 'Finance'], ['jdupont', 'Lecture', 'Finance']]);
+assert.equal(reachSensitive.file, 'acces_donnees_sensibles.csv');
+// A plain folder question is still a folder question
+assert.equal((await askPilot(fetchFn, 'Exporte-moi tous les utilisateurs du dossier Finance')).intent, 'dossier:Finance → personnes');
+
+// ---- 5S module off: its questions are not answered, its examples not offered ----
+const off = { fives: false };
+const duplicates = await askPilot(fetchFn, 'Doublons à libérer', off);
+assert.equal(duplicates.ok, false);
+assert.equal(duplicates.intent, 'module 5S');
+assert.equal((await askPilot(fetchFn, 'Fichiers pdf de plus de 100 Mo', off)).intent, 'module 5S');
+assert.equal((await askPilot(fetchFn, 'Dossiers avec des droits à revoir', off)).intent, 'module 5S');
+assert.equal((await askPilot(fetchFn, 'Fichiers sensibles ouverts à tous', off)).rows.length, 1, 'the sensitivity scan is not the 5S');
+assert.ok((await askPilot(fetchFn, 'Retire le tag Archive des dossiers du serveur FILER', off)).action, 'a tag named Archive is not a 5S question');
+assert.ok(!pilotExamples(false).includes('Doublons à libérer') && pilotExamples(true).includes('Doublons à libérer'));
+console.log('raphael: ok');

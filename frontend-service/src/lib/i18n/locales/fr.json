@@ -5762,5 +5762,8 @@
   "Manager view": "Vue gestionnaire",
   "No problem lately on the platform.": "Aucun problème récent sur la plateforme.",
   "Nothing lately on your folders.": "Rien de récent sur vos dossiers.",
-  "Nothing lately on your requests.": "Rien de récent sur vos demandes."
+  "Nothing lately on your requests.": "Rien de récent sur vos demandes.",
+  "Ask Raphaël: « {query} »": "Demander à Raphaël : « {query} »",
+  "List and export with Raphaël": "Lister et exporter avec Raphaël",
+  "The first {shown} lines are shown; the export holds all {count}.": "Les {shown} premières lignes sont affichées ; l'export les contient toutes ({count})."
 }

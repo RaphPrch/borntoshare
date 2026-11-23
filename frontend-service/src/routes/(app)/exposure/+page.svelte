@@ -87,7 +87,7 @@
   const MENU: ContextMenuItem[] = [
     { key: 'permissions', label: t('Permissions and who reaches it'), icon: 'bi-shield-lock' },
     { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
-    { key: 'pilot', label: t('List and export with Pilot'), icon: 'bi-chat-square-text' },
+    { key: 'pilot', label: t('List and export with Raphaël'), icon: 'bi-chat-square-text' },
     { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
   ];
   function onMenuPick(key: string) {
