@@ -55,7 +55,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
               tabs: [{ href: '/observability', label: t('Administrator view') }, { href: '/observability/mine', label: t('Manager view') }] }]
           : ctx.staff ? [{ href: '/observability/mine', label: 'Governance Jobs', icon: 'bi-list-task' }] : []),
         // Automations of the governance (tags, alerts, scans… on a rule): administrators
-        ...(ctx.admin ? [{ href: '/admin/policies', label: 'Policies', icon: 'bi-magic' }] : [])
+        ...(ctx.admin ? [{ href: '/policies', label: 'Policies', icon: 'bi-magic' }] : [])
       ]
     },
     {

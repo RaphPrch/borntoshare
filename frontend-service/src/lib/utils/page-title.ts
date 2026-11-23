@@ -7,7 +7,7 @@ const TITLES: [prefix: string, label: string][] = [
   ['/exposure', 'Access Management'],
   ['/access-reviews', 'Access Management'],
   ['/observability', 'Governance Jobs'],
-  ['/admin/policies', 'Policies'],
+  ['/policies', 'Policies'],
   ['/five-s', 'Analytics'],
   ['/five-s/explore', 'Explorer'],
   ['/five-s/duplicates', 'Explorer'],

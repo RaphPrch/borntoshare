@@ -148,7 +148,7 @@
   </a>
 </div>
 
-<div class="cols cols--main">
+<div class="cols">
   <section class="panel">
     <header class="panel__head">
       <h3>{t('To handle')}</h3>
@@ -372,19 +372,18 @@
     color: var(--b2s-color-warning-strong) !important;
   }
 
+  /* Two equal columns, the cards of a row as tall as each other */
   .cols {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
-    align-items: start;
+    align-items: stretch;
     margin-bottom: 14px;
   }
 
-  .cols--main {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  }
-
   .panel {
+    display: flex;
+    flex-direction: column;
     border: 1px solid var(--b2s-color-border-soft);
     border-radius: var(--b2s-radius-md);
     background: var(--b2s-color-surface);
@@ -590,8 +589,7 @@
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .cols,
-    .cols--main {
+    .cols {
       grid-template-columns: 1fr;
     }
   }
