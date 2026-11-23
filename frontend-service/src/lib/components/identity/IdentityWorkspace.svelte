@@ -3,7 +3,10 @@
   import CountUp from '$lib/components/ui/CountUp.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { apiGetList } from '$lib/api/client';
-  import { getIdentityOverview, type IdentityOverview } from '$lib/api/identity';
+  import { adminChangePassword, getIdentityOverview, type IdentityOverview } from '$lib/api/identity';
+  import AppModal from '$lib/components/ui/AppModal.svelte';
+  import FieldError from '$lib/components/ui/FieldError.svelte';
+  import { reportUiError } from '$lib/errors';
   import ActivityTimeline from '$lib/components/activity/ActivityTimeline.svelte';
   import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import EntityHeroCard from '$lib/components/entity/EntityHeroCard.svelte';
@@ -99,6 +102,8 @@
   let requestsTotal = $derived(Object.values(data?.requests ?? {}).reduce((sum, value) => sum + Number(value || 0), 0));
   let actions = $derived([
     ...(isSelf ? [] : [
+      // A local account: the administrator sets a temporary password, changed by the person at the next sign-in
+      ...(local ? [{ key: 'password', label: t('Reset the password'), icon: 'bi-key', overflow: true, onClick: openReset }] : []),
       // A guardian is not disabled: their folders go to someone else first (the server refuses it too)
       { key: 'toggle', label: active ? t('Disable') : t('Enable'), icon: active ? 'bi-pause-circle' : 'bi-play-circle', overflow: true,
         disabled: active && guarded.length > 0,
@@ -107,6 +112,35 @@
       { key: 'delete', label: t('Delete'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled: !canDelete, onClick: onDelete }
     ])
   ] as EntityActionItem[]);
+  // ---- reset the password of a local account ----
+  let resetOpen = $state(false);
+  let newPassword = $state('');
+  let confirmPassword = $state('');
+  let resetBusy = $state(false);
+  let resetTried = $state(false);
+  function openReset() {
+    newPassword = '';
+    confirmPassword = '';
+    resetTried = false;
+    resetOpen = true;
+  }
+  let resetError = $derived(!resetTried ? null : !newPassword.trim() ? t('New password is required.') : newPassword !== confirmPassword ? t('Password confirmation must match.') : null);
+  async function resetPassword() {
+    resetTried = true;
+    if (resetError || resetBusy) return;
+    resetBusy = true;
+    try {
+      await adminChangePassword(fetch, { username: String(data?.username ?? item?.username ?? '').trim(), new_password: newPassword });
+      toast.success(t('Temporary password set: {name} chooses a new one at the next sign-in.', { name: displayName }));
+      resetOpen = false;
+    } catch (error: unknown) {
+      reportUiError(error, t('Unable to reset the password.'), 'identity.password_reset');
+    } finally {
+      resetBusy = false;
+      newPassword = '';
+      confirmPassword = '';
+    }
+  }
   let steps = $derived([
     ...(!active && guarded.length ? [{ key: 'off', tone: 'bad' as const, icon: 'bi-pause-circle', title: t('Disabled, but guardian of {count} folder(s)', { count: guarded.length }), detail: t('Its requests wait for the other guardians or an administrator.'), label: t('Enable'), run: onToggleActive }] : []),
     ...(active && guarded.length && !hasMail ? [{ key: 'mail', tone: 'warn' as const, icon: 'bi-envelope-slash', title: t('{count} folder(s) wait for their validations, but there is no e-mail', { count: guarded.length }), detail: local ? t('Neither requests nor reminders reach them. Add an e-mail address.') : t('Neither requests nor reminders reach them. Fill the mail attribute in the directory: it is read again at the next synchronization.'), label: t('See the folders'), run: () => (tab = 'guarded') }] : []),
@@ -254,6 +288,19 @@
 
 </div>
 
+<AppModal open={resetOpen} onClose={() => (resetOpen = false)} size="md" title={t('Reset the password')} subtitle={displayName} iconClass="bi bi-key">
+  <form class="iw__reset" onsubmit={(event) => { event.preventDefault(); void resetPassword(); }}>
+    <p>{t('A temporary password: the person chooses their own at the next sign-in. Give it to them by a separate channel.')}</p>
+    <label>{t('New password')}<input class="b2s-input" type="password" autocomplete="new-password" bind:value={newPassword} /></label>
+    <label>{t('Confirm the password')}<input class="b2s-input" type="password" autocomplete="new-password" bind:value={confirmPassword} /></label>
+    {#if resetError}<FieldError>{resetError}</FieldError>{/if}
+  </form>
+  {#snippet footer()}
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => (resetOpen = false)}>{t('Cancel')}</button>
+    <button type="button" class="b2s-btn b2s-btn-primary" disabled={resetBusy} onclick={() => void resetPassword()}><i class="bi bi-check2" aria-hidden="true"></i>{resetBusy ? t('Saving…') : t('Reset the password')}</button>
+  {/snippet}
+</AppModal>
+
 <style>
   .iw { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
   .iw__plus { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
@@ -303,4 +350,7 @@
   .iw__tag { justify-self: end; padding: 2px 10px; border-radius: var(--b2s-radius-pill); background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: var(--b2s-fs-xs); font-weight: 500; }
   .iw__tag.is-sole { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
   .mono { font-family: var(--b2s-font-mono); font-size: var(--b2s-fs-xs); }
+  .iw__reset { display: grid; gap: 12px; }
+  .iw__reset p { margin: 0; color: var(--b2s-color-text-muted); line-height: 1.5; }
+  .iw__reset label { display: grid; gap: 6px; font-weight: 500; }
 </style>

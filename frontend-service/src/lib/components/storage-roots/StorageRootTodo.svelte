@@ -2,20 +2,11 @@
   import { governanceEnabled } from '$lib/utils/features';
   
 
-  import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import AppModal from '$lib/components/ui/AppModal.svelte';
   import { goto } from '$app/navigation';
   import { t } from '$lib/i18n';
-  import { initials, timeAgo } from '$lib/utils/format';
-  import { reportUiError } from '$lib/errors';
-  import { toast } from '$lib/stores/toast';
-  import {
-    bulkDecision,
-    getApprovalPreview,
-    listPendingRequestsForRoot,
-    type ApprovalPreview,
-    type PendingRootRequest
-  } from '$lib/api/access-requests';
+  import { initials } from '$lib/utils/format';
+  import { listPendingRequestsForRoot, type PendingRootRequest } from '$lib/api/access-requests';
 
   type AlertItem = { key: string; type?: string; title: string; subtitle?: string | null; tone?: 'warning' | 'error'; message?: string | null; group?: string | null; people?: string[] };
   type Step = { key: string; type: string; tone: 'bad' | 'warn'; icon: string; title: string; detail: string; group: string; people: string[] };
@@ -24,28 +15,29 @@
   
   interface Props {
     /**
-   * « To do on this folder »: its open alerts, each with the action that settles it, then its pending
-   * requests decided in place (validating shows what the worker will do before it runs).
+   * « To do on this folder »: its open alerts, each with the guide and the action that settles it, then one line
+   * for its pending requests (decided on the requests page, not here).
    */
     rootId?: number | null;
+    /** Name of the folder: the requests page opens filtered on it */
+    rootName?: string;
     alertItems?: AlertItem[];
     busy?: boolean;
     onRunProbe?: () => void;
     onOpenGuardians?: () => void;
     onOpenPermissions?: () => void;
     onViewAllAlerts?: () => void;
-    onDecided?: () => void;
   }
 
   let {
     rootId = null,
+    rootName = '',
     alertItems = [],
     busy = false,
     onRunProbe = () => {},
     onOpenGuardians = () => {},
     onOpenPermissions = () => {},
-    onViewAllAlerts = () => {},
-    onDecided = () => {}
+    onViewAllAlerts = () => {}
   }: Props = $props();
 
   const PROBE_TYPES = ['root_probe_failed', 'root_probe_unknown', 'endpoint_unreachable', 'endpoint_probe_failed'];
@@ -57,9 +49,6 @@
   let requests: PendingRootRequest[] = $state([]);
   let loadedFor: number | null = $state(null);
   let seq = 0;
-  let deciding: { request: PendingRootRequest; decision: 'approve' | 'reject' } | null = $state(null);
-  let preview: ApprovalPreview | null = $state(null);
-  let decidingBusy = $state(false);
 
 
   async function load(id: number | null) {
@@ -77,42 +66,9 @@
     }
   }
 
-  async function ask(request: PendingRootRequest, decision: 'approve' | 'reject') {
-    deciding = { request, decision };
-    preview = null;
-    if (decision === 'approve') {
-      try {
-        preview = await getApprovalPreview(fetch, request.request_id);
-      } catch {
-        preview = null;
-      }
-    }
-  }
-
-
-  async function decide() {
-    const target = deciding;
-    deciding = null;
-    if (!target) return;
-    decidingBusy = true;
-    try {
-      const result = await bulkDecision(fetch, [target.request.request_id], target.decision);
-      if (Number(result?.failed_ids?.length ?? 0) > 0) throw new Error(String(Object.values(result?.failed_reasons ?? {})[0] ?? ''));
-      toast.success(target.decision === 'approve' ? t('Request validated: the access is in place.') : t('Request refused.'));
-      await load(rootId);
-      onDecided();
-    } catch (error: unknown) {
-      reportUiError(error, t('The decision failed.'), 'storage-root.todo');
-      await load(rootId);
-    } finally {
-      decidingBusy = false;
-    }
-  }
-
   // « GG_…_RW: Alice Martin, Bob Durand (+3) » → the group and the people named by the alert
   const groupOf = (detail: string) => (detail.includes(':') ? detail.split(':')[0].trim() : '');
   const peopleOf = (detail: string) => (detail.includes(':') ? detail.slice(detail.indexOf(':') + 1).split(',').map((name) => name.trim()).filter(Boolean) : []);
-  const levelLabel = (code: string | null) => (String(code ?? '').toLowerCase() === 'write' ? t('modify') : t('read'));
   let steps = $derived(alertItems
     .filter((item) => typeOf(item) !== 'pending_access_validation')
     // Without the governance (5S only): no guardian to add for the requests, no permissions tab to open
@@ -131,22 +87,7 @@
   $effect.pre(() => {
     if (rootId !== loadedFor) void load(rootId);
   });
-  let previewItem = $derived(preview?.items?.[0]);
-  let impact = $derived(deciding?.decision === 'approve'
-    ? [
-        ...(previewItem
-          ? [
-              previewItem.group_action === 'create'
-                ? t('The AD group {group} is created in {ou}.', { group: previewItem.group_name ?? '', ou: previewItem.target_ou_dn ?? '' })
-                : t('The AD group {group} is reused.', { group: previewItem.group_name ?? '' }),
-              t('{name} is added to the group by the worker.', { name: deciding.request.requested_for_display ?? '' }),
-              previewItem.acl === 'modify' ? t('The group gets Modify on the folder.') : t('The group gets Read and execute on the folder.')
-            ]
-          : []),
-        ...(preview?.blockers ?? []).map((b) => b.message)
-      ]
-    : [t('{name} is told that the request is refused; nothing changes on the folder.', { name: deciding?.request.requested_for_display ?? '' })]);
-  let total = $derived(steps.length + requests.length);
+  let total = $derived(steps.length + (requests.length ? 1 : 0));
 
   // ---- « Details »: what the alert means, why it happens, what to do exactly, and the action that settles it ----
   let opened: Step | null = $state(null);
@@ -233,23 +174,12 @@
         <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={busy} onclick={() => (opened = step)}>{t('Details')}</button>
       </div>
     {/each}
-    {#each requests.slice(0, 5) as request (request.request_id)}
+    {#if requests.length}
       <div class="todo__row">
-        <span class="todo__avatar" aria-hidden="true">{initials(request.requested_for_display ?? '')}</span>
-        <span class="todo__text">
-          <strong>{t('{name} asks for {level}', { name: request.requested_for_display ?? t('Someone'), level: levelLabel(request.access_profile_name) })}</strong>
-          <small>
-            {#if request.justification}{request.justification} · {/if}{#if request.created_at}{timeAgo(request.created_at)} · {/if}<a href={`/access-requests?request=${request.request_id}`}>{request.request_code ?? t('Details')}</a>
-          </small>
-        </span>
-        <span class="todo__decide">
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={decidingBusy} onclick={() => ask(request, 'reject')}>{t('Refuse')}</button>
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" disabled={decidingBusy} onclick={() => ask(request, 'approve')}>{t('Validate')}</button>
-        </span>
+        <span class="todo__icon is-info" aria-hidden="true"><i class="bi bi-envelope"></i></span>
+        <span class="todo__text"><strong>{t('{count} pending request(s)', { count: requests.length })}</strong><small>{t('To decide by the guardians of the folders')}</small></span>
+        <a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href={`/access-requests?status=pending&q=${encodeURIComponent(rootName)}`}>{t('See the requests')}</a>
       </div>
-    {/each}
-    {#if requests.length > 5}
-      <a class="todo__more" href="/access-requests?status=pending">{t('{count} more request(s) to review', { count: requests.length - 5 })}</a>
     {/if}
   </section>
 {/if}
@@ -274,19 +204,6 @@
   {/snippet}
 </AppModal>
 
-<ConfirmActionModal
-  open={Boolean(deciding)}
-  onClose={() => (deciding = null)}
-  onConfirm={decide}
-  severity={deciding?.decision === 'approve' ? 'warning' : 'danger'}
-  title={deciding?.decision === 'approve'
-    ? t('Validate the request of {name}?', { name: deciding?.request.requested_for_display ?? '' })
-    : t('Refuse the request of {name}?', { name: deciding?.request.requested_for_display ?? '' })}
-  impactItems={impact}
-  confirmLabel={deciding?.decision === 'approve' ? t('Validate') : t('Refuse')}
-  confirmVariant={deciding?.decision === 'approve' ? 'primary' : 'danger'}
-/>
-
 <style>
   .guide { display: grid; gap: 16px; }
   .guide h3 { margin: 0 0 6px; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; }
@@ -302,12 +219,10 @@
   .todo h2 + .todo__row { border-top: 0; }
   .todo__icon, .todo__avatar { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px; font-size: 13px; }
   .todo__icon.is-bad { background: var(--b2s-color-danger-soft); color: var(--b2s-color-danger-strong); }
+  .todo__icon.is-info { background: var(--b2s-accent-soft); color: var(--b2s-accent-strong); }
   .todo__icon.is-warn { background: var(--b2s-color-warning-soft); color: var(--b2s-color-warning-strong); }
   .todo__avatar { border-radius: 50%; background: var(--b2s-color-info-soft); color: var(--b2s-color-info-strong); font-size: 11px; font-weight: 700; }
   .todo__text { display: flex; flex-direction: column; min-width: 0; }
   .todo__text strong { font-weight: 600; font-size: var(--b2s-fs-sm); }
   .todo__text small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); overflow-wrap: anywhere; }
-  .todo__text a { color: inherit; text-decoration: underline; }
-  .todo__decide { display: flex; gap: 6px; }
-  .todo__more { display: block; padding: 8px 16px 10px 56px; border-top: 1px solid var(--b2s-color-border); color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
 </style>

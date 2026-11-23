@@ -252,7 +252,7 @@
     onOpenGuardians={() => onOpenGovernanceDrawer('guardian')}
     onOpenPermissions={() => onSelectTab('effective-access')}
     {onViewAllAlerts}
-    onDecided={loadPermissions}
+    rootName={selectedRootCodeOrName}
   />
 
   <div class="v2-tabs" role="tablist" aria-label={t('Storage root sections')} tabindex="-1" onkeydown={onTabKey}>
