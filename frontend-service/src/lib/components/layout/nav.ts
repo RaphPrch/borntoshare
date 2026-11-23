@@ -47,7 +47,6 @@ export function buildNav(ctx: NavContext): NavSection[] {
         // Adding folders: the « + » of the folder list (no button in the top bar)
         { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
         ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure', '/access-reviews'], count: ctx.pending,
-            action: { href: '/access-requests/new', label: t('New request'), icon: 'bi-plus-lg' },
             tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },
               ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }, { href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
         // Administrators: the platform (health, alerts, jobs) and, as a tab, what a manager sees; managers: their own view

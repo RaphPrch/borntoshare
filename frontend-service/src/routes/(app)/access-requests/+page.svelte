@@ -699,6 +699,8 @@
       <i class="bi bi-search" aria-hidden="true"></i>
       <input type="search" aria-label={t('Search access requests')} placeholder={t('Search requester, resource, path…')} bind:value={searchText} />
     </label>
+    <!-- The new request starts from the list of the requests only (not from Exposure or Reviews) -->
+    <a class="b2s-btn b2s-btn-primary ar-new" href="/access-requests/new"><i class="bi bi-plus-lg" aria-hidden="true"></i>{t('New request')}</a>
   </header>
 
   <QuotaRequestsStrip isAdmin={me?.is_admin === true} />
@@ -1556,4 +1558,5 @@
   .ar-foot span { margin-right: auto; }
   .ar-person small { white-space: nowrap; }
   .ar-filters__end { margin-left: auto; }
+  .ar-new { min-height: 44px; }
 </style>
