@@ -518,6 +518,7 @@
   {:else if !current || !root}
     <InlineAlert tone="info">{t('The detailed tree appears after the next measure of this folder with the 5S module (Measure on its page).')}</InlineAlert>
   {:else}
+    {#if trail.length > 1}
     <header class="fx__head">
       <div>
         <nav class="fx__crumbs" aria-label={t('Path')}>
@@ -531,20 +532,13 @@
         </nav>
       </div>
     </header>
+    {/if}
 
-    <section class="fx__scan" aria-label={t('Scanner')}>
-      <span class="fx__scan-name"><span class="fx__dot" class:is-busy={Boolean(scanner?.running)} aria-hidden="true"></span>{t('5S scanner')}{scanner?.last?.scanner ? ` · ${scanner.last.scanner}` : ''}</span>
-      {#if scanner?.running}
-        <span>{t('Measure in progress')}{scanner.running.progress?.chunks_total ? ` · ${scanner.running.progress.chunks_done}/${scanner.running.progress.chunks_total}` : ''}</span>
-      {/if}
-      <span>{t('Last measure')} <b>{scanner?.last?.finished_at ? `${formatDate(scanner.last.finished_at)} (${timeAgo(scanner.last.finished_at)})` : '—'}</b></span>
-      <span>{t('Mode')} <b>{scanner?.last?.mode === 'incremental' ? t('incremental') : scanner?.last?.mode === 'full' ? t('full') : '—'}</b> · {duration(scanner?.last?.elapsed_ms)}</span>
-      <span>{t('Pieces')} <b>{scanner?.pieces ?? 0}</b>{scanner?.last?.pieces_kept ? ` · ${t('{count} kept', { count: scanner.last.pieces_kept })}` : ''}</span>
-      <span>{t('Change journal')} <b class:is-warn={!scanner?.journal}>{scanner?.journal ? t('available: incremental scans') : t('unavailable: full scans only')}</b></span>
-      {#if scanner?.window}<span>{t('Window')} <b>{scanner.window.window_start}–{scanner.window.window_end}</b>{scanner.window.full_every_days ? ` · ${t('full every {days} d', { days: scanner.window.full_every_days })}` : ''}</span>{/if}
-      {#if scanner?.last?.status === 'failed'}<span class="fx__scan-err">{scanner.last.error}</span>{/if}
-      {#if level?.completeness ?? scanner?.last?.completeness}<span><MeasureCompleteness value={level?.completeness ?? scanner?.last?.completeness} compact /></span>{/if}
-    </section>
+    <!-- The scanner itself is not shown: only a measure in progress, or the error of the last one -->
+    {#if scanner?.running}
+      <p class="fx__note"><span class="fx__dot is-busy" aria-hidden="true"></span>{t('Measure in progress')}{scanner.running.progress?.chunks_total ? ` · ${scanner.running.progress.chunks_done}/${scanner.running.progress.chunks_total}` : ''}</p>
+    {/if}
+    {#if scanner?.last?.status === 'failed'}<p class="fx__note is-bad"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i>{scanner.last.error}</p>{/if}
     <MeasureCompleteness value={level?.completeness ?? scanner?.last?.completeness} />
 
     <section class="fx__kpis" aria-label={t('Figures')}>
@@ -808,13 +802,8 @@
   .fx__crumbs button { border: 0; background: none; padding: 2px 4px; color: var(--b2s-color-primary); cursor: pointer; font: inherit; }
   .fx__crumbs button.is-current { color: inherit; font-weight: 600; cursor: default; }
   .fx__crumbs i { font-size: 11px; color: var(--b2s-color-text-muted); }
-  .fx__scan { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 10px 14px; border-radius: 12px; background: var(--b2s-topbar-bg); color: var(--b2s-color-border); font-size: 13px; }
-  .fx__scan b { color: #fff; font-weight: 600; }
-  .fx__scan b.is-warn { color: var(--b2s-color-warning-border); }
-  .fx__scan-name { display: inline-flex; gap: 8px; align-items: center; color: #fff; font-weight: 600; }
   .fx__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--b2s-brand); }
   .fx__dot.is-busy { background: var(--b2s-accent-vivid); }
-  .fx__scan-err { color: var(--b2s-color-danger-border); }
   .fx__kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; }
   .fx__kpis > div { display: grid; gap: 2px; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); }
   .fx__kpis span, .fx__kpis small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
@@ -934,4 +923,6 @@
   .fx__live.is-warn td { color: var(--b2s-color-warning-strong); background: var(--b2s-color-warning-soft); }
   .fx__live .b2s-link-btn { margin-left: 8px; }
   .fx__live.is-info td { color: var(--b2s-color-info-strong); background: var(--b2s-color-info-soft); }
+  .fx__note { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
+  .fx__note.is-bad { color: var(--b2s-color-danger-strong); }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import FileSearch from '../FileSearch.svelte';
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
+  import Pagination from '$lib/components/ui/Pagination.svelte';
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { apiGetData, apiPostData } from '$lib/api/client';
@@ -60,6 +61,14 @@
       const x = read(a), y = read(b);
       return (x < y ? -1 : x > y ? 1 : 0) * (sortDesc ? -1 : 1);
     });
+  });
+  // A page at a time (the selection still covers every folder shown by the filters)
+  let listPage = $state(1);
+  let pageSize = $state(50);
+  let paged = $derived(shown.slice((listPage - 1) * pageSize, listPage * pageSize));
+  $effect.pre(() => {
+    void shown.length;
+    untrack(() => { if ((listPage - 1) * pageSize >= shown.length) listPage = 1; });
   });
 
   let volume = $derived(inScope.reduce((sum, f) => sum + (f.size_bytes ?? 0), 0));
@@ -195,14 +204,14 @@
         <span role="columnheader" aria-sort={ariaSort('score')}><button type="button" class="ex-sort" onclick={() => sortBy('score')}>5S {arrow('score')}</button></span>
         <span></span>
       </div>
-      {#each shown as folder (folder.id)}
+      {#each paged as folder (folder.id)}
         {@const trend = trendOf(folder)}
         <div class="v2-row ex-grid" class:is-picked={picked.has(folder.id)} role="row" tabindex="-1" oncontextmenu={openMenu(folder)}>
           <label class="ex-check"><input type="checkbox" checked={picked.has(folder.id)} onchange={() => flip(folder.id)} aria-label={t('Choose {name}', { name: folder.name })} /></label>
           <div class="v2-nm"><a href={`/five-s/explore/${folder.id}`}>{folder.name}</a><small title={folder.path}>{folder.path}</small></div>
           <div class="v2-nm"><span>{folder.server ?? '—'}</span><span class="v2-sub">{folder.zone ?? '—'}</span></div>
           <div class="ex-vol"><span>{folder.size_bytes != null ? formatBytes(folder.size_bytes) : '—'}</span>
-            {#if trend.length > 1}<Sparkline points={trend} width={88} height={24} title={t('{count} measures: {from} → {to}', { count: trend.length, from: formatBytes(trend[0]), to: formatBytes(trend[trend.length - 1]) })} />{/if}</div>
+            {#if trend.length > 1}<Sparkline points={trend} width={140} height={24} title={t('{count} measures: {from} → {to}', { count: trend.length, from: formatBytes(trend[0]), to: formatBytes(trend[trend.length - 1]) })} />{/if}</div>
           <span class="ex-num">{folder.dup_bytes == null ? '—' : folder.dup_bytes ? formatBytes(folder.dup_bytes) : t('none')}</span>
           <span>{#if folder.sensitive_files}<span class="v2-tag is-bad">{t('{count} file(s)', { count: folder.sensitive_files })}</span>{:else}<span class="ex-mut">{t('none')}</span>{/if}</span>
           <span class="ex-when" title={folder.measured_at ? formatDate(folder.measured_at) : ''}>{folder.measured_at ? timeAgo(folder.measured_at) : t('never')}</span>
@@ -213,6 +222,7 @@
         <div class="v2-empty">{inScope.length ? t('No folder matches these filters.') : t('No measured folder here yet.')}</div>
       {/each}
     </div>
+    {#if shown.length > pageSize}<Pagination total={shown.length} bind:page={listPage} bind:pageSize pageSizes={[50, 100, 200]} />{/if}
     <p class="ex-hint">{t('Right click on a folder: its 5S workshop, duplicates, report and sheet.')}</p>
   {/if}
 </section>
@@ -221,7 +231,8 @@
   onClose={() => (menu = null)} {onPick} />
 
 <style>
-  .ex-grid { grid-template-columns: 36px minmax(200px, 2fr) minmax(120px, 1fr) 190px 110px 110px 120px 56px 36px; min-width: 1000px; }
+  /* Folder and server narrower, the volume and its last measures wider */
+  .ex-grid { grid-template-columns: 36px minmax(170px, 1.3fr) minmax(100px, 0.7fr) minmax(240px, 1.4fr) 110px 110px 120px 56px 36px; min-width: 1040px; }
   .ex-list { overflow-x: auto; }
   .ex-check { display: flex; align-items: center; justify-content: center; cursor: pointer; }
   .ex-check input { width: 16px; height: 16px; accent-color: var(--b2s-accent); }
