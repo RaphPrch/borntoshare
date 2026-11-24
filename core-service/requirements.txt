@@ -1,6 +1,6 @@
 # core-service — runtime dependencies (Python 3.14)
 # Pinned: the same library has the same version in every service. Update them together.
-fastapi==0.162.5
+fastapi==0.165.0
 uvicorn[standard]==0.54.0
 pydantic==2.14.3
 pydantic-settings==2.16.3
