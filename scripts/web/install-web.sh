@@ -114,6 +114,11 @@ if systemctl is-active -q firewalld; then
   firewall-cmd -q --reload
 fi
 
+# A server where httpd never started: the default certificate of mod_ssl (ssl.conf) is made by httpd-init.service
+# at its first start, and httpd -t refuses the configuration until then
+if [ ! -s /etc/pki/tls/certs/localhost.crt ] && [ -x /usr/libexec/httpd-ssl-gencerts ]; then
+  systemctl start httpd-init.service 2>/dev/null || /usr/libexec/httpd-ssl-gencerts
+fi
 httpd -t
 systemctl daemon-reload
 systemctl enable -q b2s-web httpd
