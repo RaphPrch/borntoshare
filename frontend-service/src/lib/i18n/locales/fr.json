@@ -5805,5 +5805,12 @@
   "Renew": "Renouveler",
   "A new request for the same folder and level: a guardian decides again.": "Une nouvelle demande pour le même dossier et le même niveau : un gardien décide à nouveau.",
   "Renewal of {code}: ": "Renouvellement de {code} : ",
-  "Renewal of {code}: the same folder and level are ready. Say why you still need it; a guardian decides again.": "Renouvellement de {code} : le même dossier et le même niveau sont prêts. Dites pourquoi vous en avez encore besoin ; un gardien décide à nouveau."
+  "Renewal of {code}: the same folder and level are ready. Say why you still need it; a guardian decides again.": "Renouvellement de {code} : le même dossier et le même niveau sont prêts. Dites pourquoi vous en avez encore besoin ; un gardien décide à nouveau.",
+  "Audit evidence pack": "Pack de preuves d'audit",
+  "A ZIP of CSV files with the SHA-256 of each file: audit log, requests, review decisions.": "Un ZIP de fichiers CSV avec le SHA-256 de chacun : journal d'audit, demandes, décisions de revue.",
+  "The period goes from the oldest date to the most recent.": "La période va de la date la plus ancienne à la plus récente.",
+  "400 days at most: shorten the period.": "400 jours au plus : réduisez la période.",
+  "The whole platform": "Toute la plateforme",
+  "For one folder: its sheet › … › Audit evidence pack.": "Pour un seul dossier : sa fiche › … › Pack de preuves d'audit.",
+  "Download": "Télécharger"
 }

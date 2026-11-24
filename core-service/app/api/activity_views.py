@@ -145,3 +145,42 @@ def post_activity_event(request: Request, payload: dict = Body(default_factory=d
         action_id=created.get("id"),
         message="activity.event.created",
     )
+
+
+@router.get("/evidence-pack")
+def export_evidence_pack(
+    request: Request,
+    since: str,
+    until: str,
+    root_id: int | None = None,
+    zone_id: int | None = None,
+    db: Session = Depends(get_db),
+):
+    """Audit evidence pack (administrators): a ZIP of CSV files for a period and a scope, with the SHA-256 of each file."""
+    from datetime import date
+
+    from fastapi import HTTPException, status
+    from fastapi.responses import Response
+
+    from app.services import evidence_pack
+    from app.services.activity_log import log_activity
+    from app.services.authorization import require_admin
+
+    actor = actor_from_request(request)
+    require_admin(actor)
+    try:
+        start, end = date.fromisoformat(since), date.fromisoformat(until)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={"code": "EVIDENCE_DATES_INVALID", "message": "Dates attendues : AAAA-MM-JJ."})
+    if end < start or (end - start).days > evidence_pack.MAX_DAYS:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail={
+            "code": "EVIDENCE_PERIOD_INVALID", "message": f"La période va du plus ancien au plus récent, sur {evidence_pack.MAX_DAYS} jours au plus."})
+    data, filename = evidence_pack.build(db, since=start, until=end, root_id=root_id, zone_id=zone_id, by=actor.display_name)
+    # The export itself is part of the audit trail
+    log_activity(
+        db, actor_type="user", actor_id=actor.identity_id, actor_display=actor.display_name, action="audit.evidence_pack_exported",
+        outcome="success", target_type="storage_root" if root_id else ("zone" if zone_id else "platform"), target_id=root_id or zone_id,
+        context_json={"since": since, "until": until, "root_id": root_id, "zone_id": zone_id, "bytes": len(data)},
+        correlation_id=request.headers.get("x-request-id") or None,
+    )
+    return Response(content=data, media_type="application/zip", headers={"Content-Disposition": f'attachment; filename="{filename}"'})

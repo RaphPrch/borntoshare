@@ -87,6 +87,10 @@
               onClick: onToggleInheritance
             },
             { key: 'subfolder', label: t('New sub-folder'), icon: 'bi-folder-plus', overflow: true, disabled, onClick: onCreateSubfolder }] : []),
+            // Audit evidence of this folder over the last 12 months (ZIP built by core-service)
+            { key: 'evidence', label: t('Audit evidence pack'), icon: 'bi-file-earmark-zip', overflow: true, disabled: !selectedStorageRootId,
+              onClick: () => window.location.assign(`/api/activity/evidence-pack?${new URLSearchParams({ root_id: String(selectedStorageRootId),
+                since: new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10), until: new Date().toISOString().slice(0, 10) })}`) },
             { key: 'delete', label: t('Remove from BornToShare'), icon: 'bi-x-circle', overflow: true, disabled, onClick: onDeleteRoot },
             { key: 'delete-folder', label: t('Delete the folder from the server'), icon: 'bi-trash', variant: 'danger', overflow: true, disabled, onClick: onDeleteFolder }
           ] satisfies EntityActionItem[])

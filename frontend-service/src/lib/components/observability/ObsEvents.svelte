@@ -17,6 +17,7 @@
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { formatActivityItem } from '$lib/activity/format';
+  import EvidencePackDialog from './EvidencePackDialog.svelte';
   import { reportUiError } from '$lib/errors';
   import { searchEvents, type EventSearch, type ObsPeriod } from '$lib/api/observability';
   import type { StatusVariant } from '$lib/utils/status';
@@ -32,6 +33,8 @@
   let { period = '24h', initialOutcome = '', initialModule = '' }: Props = $props();
 
   let items: Record<string, unknown>[] = $state([]);
+  // Audit evidence pack (ZIP built by core-service)
+  let evidenceOpen = $state(false);
   let total = $state(0);
   let modules: string[] = $state([]);
   let page = $state(1);
@@ -225,7 +228,11 @@
     <button type="button" class="b2s-btn b2s-btn-secondary b2s-toolbar__end" onclick={exportCsv} disabled={exporting || total === 0}>
       <i class={`bi ${exporting ? 'bi-hourglass-split' : 'bi-download'}`} aria-hidden="true"></i>{t('Export CSV')}
     </button>
+    <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => (evidenceOpen = true)} title={t('A ZIP of CSV files with the SHA-256 of each file: audit log, requests, review decisions.')}>
+      <i class="bi bi-file-earmark-zip" aria-hidden="true"></i>{t('Audit evidence pack')}
+    </button>
   </div>
+  <EvidencePackDialog open={evidenceOpen} onClose={() => (evidenceOpen = false)} />
 
   {#if loadError}
     <InlineAlert tone="error">{loadError}</InlineAlert>
