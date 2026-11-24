@@ -21,9 +21,9 @@ run() { if [ -n "$STAGE" ]; then echo "  (stage) $*"; else "$@"; fi; }
 if [ -z "$STAGE" ]; then
   [ "$(id -u)" = 0 ] || { echo "À lancer en root (sudo)" >&2; exit 1; }
   NODE=$(command -v node || true)
-  [ -n "$NODE" ] || { echo "Node.js introuvable : dnf module install nodejs:22" >&2; exit 1; }
+  [ -n "$NODE" ] || { echo "Node.js introuvable : dnf module install nodejs:26" >&2; exit 1; }
   major=$("$NODE" -p 'process.versions.node.split(".")[0]')
-  [ "$major" -ge 20 ] || { echo "Node.js $major trop ancien : 20 au moins (22 conseillé)" >&2; exit 1; }
+  [ "$major" -ge 26 ] || { echo "Node.js $major trop ancien : 26 au moins (dnf module install nodejs:26)" >&2; exit 1; }
   command -v httpd >/dev/null || { echo "httpd introuvable : dnf install httpd mod_ssl" >&2; exit 1; }
   [ -e /etc/httpd/conf.modules.d/00-ssl.conf ] || { echo "mod_ssl absent : dnf install mod_ssl" >&2; exit 1; }
   [ -f "$CERT" ] || { echo "Certificat $CERT introuvable sur ce serveur" >&2; exit 1; }

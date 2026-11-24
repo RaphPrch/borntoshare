@@ -24,8 +24,8 @@ masqués) et le journal du déploiement restent dans `~/.cache/b2s-install-lab/r
 |---|---|---|
 | `lab-db` | MariaDB 11.4, mot de passe root propre à l'exécution | `mariadb:11.4` |
 | `lab-app` | serveur BornToShare : Podman imbriqué, `podman-compose`, `make` | `Containerfile.app-host` |
-| `lab-app` (natif) | systemd, Python 3.12, Redis du système, Node.js 22 + npm, httpd, gcc et krb5 pour le worker | `Containerfile.native-host` |
-| `lab-web` | serveur web annexe (hybride) : systemd, httpd + mod_ssl, Node.js 22, sshd, compte `labdeploy` (sudo) | `Containerfile.web-host` |
+| `lab-app` (natif) | systemd, Python 3.12, Redis du système, Node.js 26 + npm, httpd, gcc et krb5 pour le worker | `Containerfile.native-host` |
+| `lab-web` | serveur web annexe (hybride) : systemd, httpd + mod_ssl, Node.js 26, sshd, compte `labdeploy` (sudo) | `Containerfile.web-host` |
 | contrôleur | joue le wizard par ses écrans (ou son API) et le premier parcours dans un navigateur (Playwright) | `localhost/b2s-pw` |
 
 Les images produit sont celles du dépôt (`localhost/b2s-*:latest`) : archivées une fois (`lab.sh images`), puis

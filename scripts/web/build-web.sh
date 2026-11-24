@@ -22,7 +22,7 @@ if command -v podman >/dev/null 2>&1 && [ "$(deploy_mode)" != native ]; then
   podman cp "$cid:/app/build" "$OUT/app/build"
   podman cp "$cid:/app/package.json" "$OUT/app/package.json"
 else
-  command -v npm >/dev/null 2>&1 || { echo "npm introuvable : installer Node.js 22 (dnf module install nodejs:22)" >&2; exit 1; }
+  command -v npm >/dev/null 2>&1 || { echo "npm introuvable : installer Node.js 26 (dnf module install nodejs:26)" >&2; exit 1; }
   (cd frontend-service && npm ci --no-fund --no-audit >/dev/null && B2S_VERSION="${B2S_VERSION:-}" npm run build >/dev/null)
   cp -r frontend-service/build "$OUT/app/build"
   cp frontend-service/package.json "$OUT/app/package.json"

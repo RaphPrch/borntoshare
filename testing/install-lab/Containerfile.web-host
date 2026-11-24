@@ -1,7 +1,7 @@
-# Simulated annex web server of the install lab (hybrid): systemd, Apache httpd + mod_ssl, Node.js 22, sshd and a
+# Simulated annex web server of the install lab (hybrid): systemd, Apache httpd + mod_ssl, Node.js 26, sshd and a
 # deployment account with sudo, as the wizard requires. Test only: the key and the account are made for each run.
 FROM docker.io/library/almalinux:9
-RUN dnf -y module enable nodejs:22 && dnf -y install systemd httpd mod_ssl nodejs openssh-server sudo openssl \
+RUN dnf -y module enable nodejs:26 && dnf -y install systemd httpd mod_ssl nodejs openssh-server sudo openssl \
       procps-ng iproute hostname && dnf clean all \
     && useradd -m labdeploy && echo 'labdeploy ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/labdeploy && chmod 0440 /etc/sudoers.d/labdeploy \
     && install -d -m 0700 -o labdeploy -g labdeploy /home/labdeploy/.ssh \

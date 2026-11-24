@@ -176,11 +176,11 @@ function prereqs() {
     add("Python 3.12 ou plus", "un environnement par service, dans /opt/borntoshare", h.python || `absent (${h.python_any || "aucun"})`, h.python ? "ok" : "bad");
     add("Redis", "file des travaux et sessions (redis-server)", h.redis || "absent : dnf install redis", h.redis ? "ok" : "bad");
     add("Client MariaDB", "paquets SQL, sauvegardes", h.mariadb_client || "absent : dnf install mariadb", h.mariadb_client ? "ok" : "bad");
-    add("npm", "construit l’interface sur ce serveur", h.npm || "absent : dnf module install nodejs:22", h.npm ? "ok" : "bad");
+    add("npm", "construit l’interface sur ce serveur", h.npm || "absent : dnf module install nodejs:26", h.npm ? "ok" : "bad");
     add("Droits root", "le déploiement crée le compte b2s, les unités, /etc/borntoshare", h.sudo === "root" ? "root" : h.sudo === "nopasswd" ? "sudo" : "lancer sudo make deploy", sudo ? "ok" : "warn");
   }
   if (state.mode !== "containers" && !annex()) {
-    add("Node.js 20 ou plus", "l’interface, en service systemd", h.node || "absent : dnf module install nodejs:22", major(h.node) >= 20 ? "ok" : "bad");
+    add("Node.js 26 ou plus", "l’interface, en service systemd", h.node || "absent : dnf module install nodejs:26", major(h.node) >= 26 ? "ok" : "bad");
     add("httpd et mod_ssl", "publication HTTPS", h.httpd ? (h.mod_ssl ? h.httpd : `${h.httpd}, sans mod_ssl`) : "absent : dnf install httpd mod_ssl", h.httpd && h.mod_ssl ? "ok" : "bad");
     add("SELinux : httpd vers l’interface", "booléen httpd_can_network_connect", h.selinux === "Disabled" ? "SELinux inactif" : h.httpd_can_network_connect || "?", h.selinux === "Disabled" || h.httpd_can_network_connect === "on" ? "ok" : "warn");
     add("Port 443", "le vhost de BornToShare", h.port_443 === "free" ? "libre" : "déjà servi par httpd : le vhost s’ajoute", "ok");

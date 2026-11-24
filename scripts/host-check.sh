@@ -18,7 +18,7 @@ done
 PYTHON=$( [ -n "$PYTHON_BIN" ] && version_of "$PYTHON_BIN" --version )
 PYTHON_ANY=$(has python3 && version_of python3 --version)
 NODE=$(has node && version_of node --version)
-# Native: the interface is built here with npm (the package of the nodejs:22 module, not always installed with node)
+# Native: the interface is built here with npm (the package of the nodejs:26 module, not always installed with node)
 NPM=$(has npm && version_of npm --version)
 HTTPD=$( (has httpd && version_of httpd -v) || true)
 MOD_SSL=$( [ -e /etc/httpd/conf.modules.d/00-ssl.conf ] || [ -e /usr/lib64/httpd/modules/mod_ssl.so ] && echo yes)

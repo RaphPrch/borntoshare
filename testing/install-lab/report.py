@@ -11,7 +11,7 @@ from pathlib import Path
 TOPOLOGY = {
     "containers": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis, interface : Podman)",
     "hybrid": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis : Podman ; ports ouverts à l'annexe) · "
-              "lab-web (annexe : systemd, httpd + mod_ssl, Node.js 22, interface poussée par SSH)",
+              "lab-web (annexe : systemd, httpd + mod_ssl, Node.js 26, interface poussée par SSH)",
     "native": "lab-db (MariaDB 11.4) · lab-app (systemd : services b2s-*, Redis et Python 3.12 du système, interface sous httpd ; accès Internet pour pip et npm)",
     "faults": "topologie hybride ; une panne à la fois après l'installation : message explicite attendu, puis reprise par make deploy",
 }

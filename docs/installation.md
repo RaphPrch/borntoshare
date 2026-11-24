@@ -4,7 +4,7 @@
 
 | Élément | Attendu |
 |---|---|
-| Hôte | Linux (RHEL 9 ou équivalent), `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum. Selon la façon d'installer (section 2) : Podman 4+ et podman-compose ; ou Python 3.12, Redis, Node.js 20+, httpd et mod_ssl |
+| Hôte | Linux (RHEL 9 ou équivalent), `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum. Selon la façon d'installer (section 2) : Podman 4+ et podman-compose ; ou Python 3.12, Redis, Node.js 26+, httpd et mod_ssl |
 | Base | MariaDB 10.6+ ou 11.x, joignable en 3306 ; un compte avec les droits de création (root) le temps du wizard |
 | Réseau | Les flux de [architecture.md](architecture.md#flux-à-ouvrir-vers-lextérieur) ouverts depuis l'hôte |
 | Annuaire | Un AD joignable en LDAPS (636) et Kerberos (88) avec le certificat de son autorité ; un compte de lecture, un compte de connexion et, pour les accès, un compte délégué sur l'OU des groupes seulement (voir [droits-ad.md](droits-ad.md)) |
@@ -74,8 +74,8 @@ s'ouvre sur le choix de la façon d'installer :
 | Façon | Ce serveur | Interface web | Demande |
 |---|---|---|---|
 | **Tout en conteneurs** (recommandé) | Podman : services, Redis, interface | conteneur publié sur `FRONTEND_PUBLISHED_PORT`, ou derrière votre reverse proxy | podman, podman-compose |
-| **Hybride** | Podman : services, Redis | service Node.js `b2s-web` publié par Apache httpd, **sur ce serveur ou sur un serveur web annexe** | en plus : httpd, mod_ssl, Node.js 20+ (là où tourne l'interface) |
-| **Sans conteneur** | unités systemd `b2s-*`, chacune avec son environnement Python, Redis du système | idem hybride | Python 3.12+, Redis, client MariaDB, Node.js 20+, httpd, mod_ssl ; `sudo make deploy` |
+| **Hybride** | Podman : services, Redis | service Node.js `b2s-web` publié par Apache httpd, **sur ce serveur ou sur un serveur web annexe** | en plus : httpd, mod_ssl, Node.js 26+ (là où tourne l'interface) |
+| **Sans conteneur** | unités systemd `b2s-*`, chacune avec son environnement Python, Redis du système | idem hybride | Python 3.12+, Redis, client MariaDB, Node.js 26+, httpd, mod_ssl ; `sudo make deploy` |
 
 Puis, étape par étape (seules celles qui servent à la façon choisie apparaissent) :
 
