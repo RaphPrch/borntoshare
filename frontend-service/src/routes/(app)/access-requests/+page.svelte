@@ -76,6 +76,12 @@
   let shown = $state(PAGE);
   // Two more views of the counters: accesses ending within 30 days, requests refused in the last 30 days
   let extra = $state<'none' | 'ending' | 'refused'>('none');
+  // The level, the search and the extra filter back to « all » (the tab stays)
+  function clearFilters() {
+    accessFilter = 'all';
+    searchText = '';
+    extra = 'none';
+  }
 
   let selectedRequestId = $state<number | null>(null);
   let selectedRequestDetail = $state<any | null>(null);
@@ -720,6 +726,9 @@
       {/each}
     </div>
     <SavedViews key="requests" current={{ segment, extra, accessFilter, searchText }} apply={applyView} />
+    {#if accessFilter !== 'all' || searchText || extra !== 'none'}
+      <button type="button" class="b2s-link-btn" onclick={clearFilters}>{t('Clear the filters')}</button>
+    {/if}
     <span class="ar-filters__end">
       <ColumnPicker columns={OPTIONAL_COLS} hidden={hiddenCols} onChange={(next) => (hiddenCols = next)} />
     </span>
@@ -762,7 +771,7 @@
               <td colspan="7" class="ar-empty">
                 {#if accessFilter !== 'all' || searchText || extra !== 'none'}
                   <EmptyStateInline message={t('No request matches these filters.')} actionLabel={t('Clear the filters')} actionIcon="bi-x-circle"
-                    onAction={() => { accessFilter = 'all'; searchText = ''; extra = 'none'; }} />
+                    onAction={clearFilters} />
                 {:else}
                   <EmptyStateInline message={segment === 'pending' ? t('No request is waiting for a review.') : t('No request matches these filters.')}
                     actionLabel={t('New access request')} href="/access-requests/new" actionIcon="bi-plus-lg" shortcut="N" />

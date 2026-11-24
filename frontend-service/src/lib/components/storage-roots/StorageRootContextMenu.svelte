@@ -1,6 +1,6 @@
 <script module lang="ts">
-  /** Other entries of the v2 menu, handled by the page: the side preview and the sections of the folder sheet */
-  export type FolderMenuExtra = 'peek' | 'tags' | 'guardians' | 'quota' | 'permissions';
+  /** Other entries of the menu, handled by the page: the parts of the folder sheet */
+  export type FolderMenuExtra = 'tags' | 'guardians' | 'quota' | 'permissions';
 </script>
 
 <script lang="ts">
@@ -19,7 +19,7 @@
     onAction?: (kind: FolderActionKind, row: StorageRootRow) => void;
     /** Platform administrators: the operations on the folder of the file server; everyone can request an access */
     canManage?: boolean;
-    /** v2: preview, tags, guardians, quota, permissions (absent: those entries are not shown) */
+    /** Tags, guardians, quota, permissions of the folder (absent: those entries are not shown) */
     onExtra?: ((key: FolderMenuExtra, row: StorageRootRow) => void) | null;
   }
 
@@ -35,7 +35,6 @@
   let broken = $derived(row?.inheritance_broken);
   let items = $derived(row
     ? [
-        ...(onExtra ? [{ key: 'peek', label: t('Preview'), icon: 'bi-layout-sidebar-reverse', run: (target: StorageRootRow) => onExtra?.('peek', target) }] : []),
         ...($fivesEnabled ? [{ key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap',
           run: (target: StorageRootRow) => void goto(`/five-s/explore/${Number(target?.storage_root_id ?? 0)}`) }] : []),
         ...(onExtra && $governanceEnabled ? [{ key: 'permissions', label: t('Permissions and who reaches it'), icon: 'bi-shield-lock', separated: true,

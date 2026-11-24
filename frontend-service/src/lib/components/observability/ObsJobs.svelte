@@ -357,6 +357,9 @@
       <option value="all">{t('All targets')}</option>
       {#each targetsPresent as kind (kind)}<option value={kind}>{TARGET_LABEL()[kind] ?? kind}</option>{/each}
     </select>
+    {#if query || statusFilter !== 'all' || typeFilter !== 'all' || targetFilter !== 'all'}
+      <button type="button" class="b2s-link-btn" onclick={() => { query = ''; statusFilter = 'all'; typeFilter = 'all'; targetFilter = 'all'; }}>{t('Clear the filters')}</button>
+    {/if}
     <label class="obs-toggle">
       <input type="checkbox" bind:checked={showRoutine} onchange={() => refresh(false)} />
       {t('Automatic health checks')}

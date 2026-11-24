@@ -7,6 +7,7 @@
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { formatBytes, formatDate, timeAgo } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
+  import { recall, remember } from '$lib/utils/remember';
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
@@ -39,11 +40,12 @@
     { key: 'growing', label: t('Growing'), test: (f) => { const p = trendOf(f); return p.length > 1 && p[p.length - 1] > p[0] * 1.05; } },
     { key: 'stale', label: t('Not measured for 30 days'), test: (f) => !(Date.now() - measuredAt(f) <= 30 * DAY) }
   ];
-  let chips = $state<Record<string, boolean>>({});
-
   type SortKey = 'name' | 'size' | 'dup' | 'sensitive' | 'measured' | 'score';
-  let sortKey = $state<SortKey>('size');
-  let sortDesc = $state(true);
+  // Chips, sort and page size kept between visits, like the other lists
+  const saved = recall('explore', { chips: '', sortKey: 'size', sortDesc: true, pageSize: 50 });
+  let chips = $state<Record<string, boolean>>(Object.fromEntries(saved.chips.split(',').filter(Boolean).map((key) => [key, true])));
+  let sortKey = $state<SortKey>(saved.sortKey as SortKey);
+  let sortDesc = $state(saved.sortDesc);
   const SORTS: Record<SortKey, (f: ParkFolder) => number | string> = {
     name: (f) => f.name.toLowerCase(), size: (f) => f.size_bytes ?? -1, dup: (f) => f.dup_bytes ?? -1, sensitive: (f) => f.sensitive_files ?? 0,
     measured: (f) => measuredAt(f) || 0, score: (f) => f.score ?? -1
@@ -64,7 +66,8 @@
   });
   // A page at a time (the selection still covers every folder shown by the filters)
   let listPage = $state(1);
-  let pageSize = $state(50);
+  let pageSize = $state(saved.pageSize);
+  $effect(() => remember('explore', { chips: Object.keys(chips).filter((key) => chips[key]).join(','), sortKey, sortDesc, pageSize }));
   let paged = $derived(shown.slice((listPage - 1) * pageSize, listPage * pageSize));
   $effect.pre(() => {
     void shown.length;
@@ -175,6 +178,7 @@
         <button type="button" class:is-on={chips[chip.key]} aria-pressed={Boolean(chips[chip.key])} onclick={() => (chips = { ...chips, [chip.key]: !chips[chip.key] })}>
           {chip.label}<small>{inScope.filter(chip.test).length}</small></button>
       {/each}
+      {#if Object.values(chips).some(Boolean)}<button type="button" class="b2s-link-btn" onclick={() => (chips = {})}>{t('Clear the filters')}</button>{/if}
     </div>
 
     {#if pickedRows.length}

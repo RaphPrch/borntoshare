@@ -4,6 +4,8 @@
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { copyText } from '$lib/utils/clipboard';
   import { toast } from '$lib/stores/toast';
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
+  import { recall, remember } from '$lib/utils/remember';
 
   /**
    * List pane of the Identities page, grouped by what people do: administrators, guardians, users, directory groups.
@@ -32,7 +34,9 @@
     onOpenAdmins = () => {}
   }: Props = $props();
 
-  let filter = $state('all');
+  // The quick filter is kept between visits, like the other lists
+  let filter = $state(recall('identities', { filter: 'all' }).filter);
+  $effect(() => remember('identities', { filter }));
   const isGroup = (item: Item) => String(item?.type ?? '').toLowerCase() === 'group';
   const isAdmin = (item: Item) => Boolean(item?.is_admin) || (Array.isArray(item?.roles) && item.roles.includes('platform_admin'));
   const active = (item: Item) => item?.is_active !== false && String(item?.status ?? 'active').toLowerCase() !== 'inactive';
@@ -88,6 +92,25 @@
     })
     .filter((node) => (node.children ?? []).length > 0));
 
+  // Export: the people and groups shown (quick filter and search applied), for a review or an audit
+  function exportCsv() {
+    const needle = query.trim().toLowerCase();
+    const rows = items
+      .filter((item) => keep(item, filter))
+      .filter((item) => !needle || `${nameOf(item)} ${item?.username ?? ''} ${item?.email ?? ''} ${item?.source_name ?? ''}`.toLowerCase().includes(needle))
+      .sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'fr'));
+    downloadCsv(csvFilename('identities'), [
+      { header: t('Name'), value: nameOf },
+      { header: t('Login'), value: (item) => item?.username ?? '' },
+      { header: t('E-mail'), value: (item) => item?.email ?? '' },
+      { header: t('Kind'), value: (item) => (isGroup(item) ? t('Group') : isAdmin(item) ? t('Administrator') : t('User')) },
+      { header: t('Source'), value: (item) => item?.source_name ?? '' },
+      { header: t('Guarded folders'), value: (item) => guarded(item) || '' },
+      { header: t('Status'), value: (item) => (active(item) ? t('Active') : t('Inactive')) }
+    ], rows);
+    toast.success(t('{file} downloaded: {count} line(s).', { file: csvFilename('identities'), count: rows.length }));
+  }
+
   // Right click on a person or a group: open it, copy its login or its e-mail
   let menuItem: Item | null = $state(null);
   let menuAt = $state({ x: 0, y: 0 });
@@ -131,12 +154,13 @@
 >
   {#snippet belowSearch()}<div class="ids-admins">
     <button type="button" class="b2s-link-btn" onclick={onOpenAdmins}><i class="bi bi-diagram-3" aria-hidden="true"></i>{t('Who administers BornToShare')}</button>
+    <button type="button" class="b2s-link-btn" onclick={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
   </div>{/snippet}
 </EntitySidebarTree>
 
 <ContextMenu open={menuItem != null} title={menuItem ? nameOf(menuItem) : ''} subtitle={menuItem?.source_name ?? ''} items={menuItems} at={menuAt} onClose={() => (menuItem = null)} onPick={onMenuPick} />
 
 <style>
-  .ids-admins { margin: -4px 0 8px; }
+  .ids-admins { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: -4px 0 8px; }
   .ids-admins .b2s-link-btn { display: inline-flex; gap: 6px; align-items: center; font-size: var(--b2s-fs-xs); }
 </style>

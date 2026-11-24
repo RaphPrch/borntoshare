@@ -91,7 +91,6 @@
   import StorageRootGovernanceDrawer from '$lib/components/storage-roots/StorageRootGovernanceDrawer.svelte';
   import StorageRootTreePanel from '$lib/components/storage-roots/StorageRootTreePanel.svelte';
   import StorageRootTable from '$lib/components/storage-roots/StorageRootTable.svelte';
-  import StorageRootList from '$lib/components/storage-roots/StorageRootList.svelte';
   import type { FolderMenuExtra } from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
   import EntityWorkspace from '$lib/components/entity/EntityWorkspace.svelte';
   import StorageRootDetailView from '$lib/components/storage-roots/StorageRootDetailView.svelte';
@@ -1431,7 +1430,7 @@
     showTagsModal = true;
   };
 
-  // v2 list: the entries of its menu open the folder, then the part asked (tags, guardians, quota, permissions)
+  // Right click on a folder of the tree: open it, then the part asked (tags, guardians, quota, permissions)
   async function listExtra(key: FolderMenuExtra, row: StorageRootRow) {
     const id = Number(row?.storage_root_id ?? 0);
     if (!id) return;
@@ -1823,23 +1822,13 @@
           onFolderAction={data.user?.is_admin === true ? folderAction : null}
           onServerAction={data.user?.is_admin === true ? serverAction : null}
           onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
+          onExtra={listExtra}
         />
       
           {/snippet}
 
-    {#if !selectedStorageRootId}
-      <!-- No folder chosen yet: the list of all the folders (or of the search), next to the tree -->
-      <StorageRootList
-        rows={ctxRows}
-        query={$storageRootsUiStore.query}
-        isAdmin={data.user?.is_admin === true}
-        onQueryChange={(value) => storageRootsUiStore.setQuery(value)}
-        onOpenRoot={selectRoot}
-        onFolderAction={data.user?.is_admin === true ? folderAction : null}
-        onExtra={listExtra}
-        onBulkAnalysis={data.user?.is_admin === true ? bulkAnalysis : null}
-      />
-    {:else}
+    <!-- A folder is always open: the first one when none was chosen -->
+    {#if selectedStorageRootId}
     <StorageRootDetailView
       {detailsLoading}
       {selectedStorageRootId}

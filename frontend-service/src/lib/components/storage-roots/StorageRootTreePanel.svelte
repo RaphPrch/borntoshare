@@ -11,7 +11,9 @@
   import { matchesFolderQuery, parseFolderQuery } from '$lib/components/storage-roots/folder-query';
   import FolderQueryAssist from '$lib/components/storage-roots/FolderQueryAssist.svelte';
   import StorageRootPeek from '$lib/components/storage-roots/StorageRootPeek.svelte';
-  import StorageRootContextMenu from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
+  import StorageRootContextMenu, { type FolderMenuExtra } from '$lib/components/storage-roots/StorageRootContextMenu.svelte';
+  import { csvFilename, downloadCsv } from '$lib/utils/csv';
+  import { toast } from '$lib/stores/toast';
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import type { FolderActionKind } from '$lib/components/storage-roots/StorageRootFolderActions.svelte';
   import type { StorageRootRow } from '$lib/utils/storage-roots';
@@ -47,6 +49,8 @@
     onServerAction?: ((kind: 'share' | 'add-folders' | 'open', endpointId: number) => void) | null;
     /** Several folders at once (administrators): scan the sensitivity or measure them all */
     onBulkAnalysis?: ((kind: 'sensitivity' | 'measure', rows: StorageRootRow[]) => Promise<void> | void) | null;
+    /** Right click on a folder: open it on a part of its sheet (tags, guardians, quota, permissions) */
+    onExtra?: ((key: FolderMenuExtra, row: StorageRootRow) => void) | null;
   }
 
   let {
@@ -60,8 +64,26 @@
     onSelectRoot = () => {},
     onFolderAction = null,
     onServerAction = null,
-    onBulkAnalysis = null
+    onBulkAnalysis = null,
+    onExtra = null
   }: Props = $props();
+
+  // Export: the folders the tree shows (search and quick filter applied)
+  function exportCsv() {
+    const file = csvFilename('storage-roots');
+    downloadCsv(file, [
+      { header: t('Folder'), value: (row: StorageRootRow) => row.storage_root_name ?? '' },
+      { header: t('Path'), value: (row: StorageRootRow) => row.root_path ?? '' },
+      { header: t('DFS path'), value: (row: StorageRootRow) => row.dfs_path ?? '' },
+      { header: t('Server'), value: (row: StorageRootRow) => row.storage_endpoint_name ?? '' },
+      { header: t('Zone'), value: (row: StorageRootRow) => row.zone_name ?? '' },
+      { header: t('Size (bytes)'), value: (row: StorageRootRow) => row.content_size_bytes ?? row.estimated_size_bytes ?? '' },
+      { header: t('Quota used (%)'), value: (row: StorageRootRow) => row.quota_used_percent ?? '' },
+      { header: t('Guardians'), value: (row: StorageRootRow) => row.guardians_count ?? '' },
+      { header: t('Open alerts'), value: (row: StorageRootRow) => row.open_alerts_count ?? 0 }
+    ], visibleRows);
+    toast.success(t('{file} downloaded: {count} line(s).', { file, count: visibleRows.length }));
+  }
 
   // Folders ticked (Ctrl/Cmd + click, Shift + click, the box of the row); only those still listed count
   let checked = $state(new Set<string>());
@@ -393,6 +415,8 @@
 >
   {#snippet belowSearch()}<div>
     <FolderQueryAssist {query} {rows} count={visibleRows.length} {onQueryChange} />
+    <button type="button" class="b2s-link-btn tree-export" disabled={!visibleRows.length} onclick={exportCsv}
+      title={t('Export CSV ({count} lines)', { count: visibleRows.length })}><i class="bi bi-download" aria-hidden="true"></i>{t('Export CSV')}</button>
     {#if onBulkAnalysis && checkedRows.length}
       <div class="tree-bulk" role="region" aria-label={t('Selection')}>
         <div class="tree-bulk__head">
@@ -405,9 +429,11 @@
           </button>
         </div>
         <div class="tree-bulk__actions">
-          <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} onclick={() => runBulk('sensitivity', checkedRows)}>
-            <i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Scan the sensitivity')}
-          </button>
+          {#if $fivesEnabled}
+            <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} onclick={() => runBulk('sensitivity', checkedRows)}>
+              <i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Scan the sensitivity')}
+            </button>
+          {/if}
           <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={bulkBusy} onclick={() => runBulk('measure', checkedRows)}>
             <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure')}
           </button>
@@ -444,6 +470,7 @@
   onClose={() => (menuRow = null)}
   onAction={(kind, row) => onFolderAction?.(kind, row)}
   canManage={Boolean(onFolderAction)}
+  {onExtra}
 />
 
 <StorageRootPeek row={menuRow ? null : peekRow} anchor={peekAnchor} alert={peekRow ? rootAlertSummary(peekRow) : null} />
@@ -454,4 +481,5 @@
   .tree-bulk__head b { font-weight: 600; }
   .tree-bulk__close { margin-left: auto; border: 0; background: none; padding: 2px; color: var(--b2s-color-text-muted); cursor: pointer; }
   .tree-bulk__actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tree-export { display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 6px; font-size: var(--b2s-fs-xs); }
 </style>
