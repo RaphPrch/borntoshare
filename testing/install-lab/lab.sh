@@ -285,6 +285,19 @@ checks_faults() {
   for _ in $(seq 1 30); do web systemctl is-active sshd >/dev/null 2>&1 && break; sleep 2; done
   check "reprise : annexe revenue, make deploy" redeploy
 
+  # SSH to the annex (11.4): a key it does not know, an account without sudo, a host key that changed
+  app sh -c 'ssh-keygen -q -t ed25519 -N "" -f /root/.ssh/lab_unknown && sed -i "s|^B2S_WEB_SSH_KEY=.*|B2S_WEB_SSH_KEY=/root/.ssh/lab_unknown|" .env'
+  expect_failure "panne SSH : clé inconnue de l'annexe" "Permission denied|publickey" redeploy
+  app sh -c 'sed -i "s|^B2S_WEB_SSH_KEY=.*|B2S_WEB_SSH_KEY=/root/.ssh/lab_ed25519|" .env && rm -f /root/.ssh/lab_unknown*'
+  web mv /etc/sudoers.d/labdeploy /root/labdeploy.sudoers
+  expect_failure "panne SSH : compte sans sudo sur l'annexe" "sudo|password is required|not in the sudoers" redeploy
+  web mv /root/labdeploy.sudoers /etc/sudoers.d/labdeploy
+  web sh -c 'rm -f /etc/ssh/ssh_host_*key* && ssh-keygen -A >/dev/null && systemctl restart sshd'
+  expect_failure "panne SSH : clé d'hôte de l'annexe changée" "HOST IDENTIFICATION HAS CHANGED|Host key verification failed" redeploy
+  # The administrator checks the new key, then removes the old one from known_hosts
+  app ssh-keygen -R lab-web >/dev/null 2>&1
+  check "reprise : clé d'hôte acceptée, make deploy" redeploy
+
   # Certificate missing on the annex
   app sed -i 's|^B2S_WEB_CERT=.*|B2S_WEB_CERT=/etc/pki/lab/absent.crt|' .env
   expect_failure "panne : certificat introuvable sur l'annexe" "Certificat|absent.crt" redeploy
