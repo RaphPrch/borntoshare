@@ -282,7 +282,7 @@
   </div>
 </div>
 
-<StorageRootContextMenu row={menuRow} at={menuAt} onClose={() => (menuRow = null)} onOpen={(row) => onOpenRoot(id(row))}
+<StorageRootContextMenu row={menuRow} at={menuAt} onClose={() => (menuRow = null)}
   onAction={(kind, row) => onFolderAction?.(kind, row)} canManage={isAdmin && Boolean(onFolderAction)} onExtra={extra} />
 
 <StorageRootSidePeek row={peekRow} score={peekRow ? scoreOf(peekRow) : null} {isAdmin} onClose={() => (peekRow = null)}

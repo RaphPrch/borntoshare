@@ -442,7 +442,6 @@
   row={menuRow}
   at={menuAt}
   onClose={() => (menuRow = null)}
-  onOpen={(row) => onSelectRoot(rootId(row))}
   onAction={(kind, row) => onFolderAction?.(kind, row)}
   canManage={Boolean(onFolderAction)}
 />
