@@ -202,7 +202,9 @@ def drive_screens() -> None:
             net = deploy_plan["network"]
             for field, key in (("n_host", "web_host"), ("n_ip", "web_ip"), ("n_api", "api_host"), ("n_auth", "auth_port"),
                                ("n_core", "core_port"), ("n_fives", "fives_port"), ("n_user", "ssh_user"), ("n_key", "ssh_key")):
-                page.fill(f"#{field}", str(net[key]))
+                # The port of the 5S module shows only when the module is chosen
+                if page.locator(f"#{field}").is_visible():
+                    page.fill(f"#{field}", str(net[key]))
             next_to("modules")
             return f"annexe {net['web_host']} ({net['web_ip']}), API {net['api_host']}, SSH {net['ssh_user']}"
 
