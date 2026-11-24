@@ -12,6 +12,7 @@ TOPOLOGY = {
     "containers": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis, interface : Podman)",
     "hybrid": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis : Podman ; ports ouverts à l'annexe) · "
               "lab-web (annexe : systemd, httpd + mod_ssl, Node.js 22, interface poussée par SSH)",
+    "native": "lab-db (MariaDB 11.4) · lab-app (systemd : services b2s-*, Redis et Python 3.12 du système, interface sous httpd ; accès Internet pour pip et npm)",
     "faults": "topologie hybride ; une panne à la fois après l'installation : message explicite attendu, puis reprise par make deploy",
 }
 
@@ -60,7 +61,7 @@ def main(cache: Path) -> None:
     for scenario, info in sorted(latest.items()):
         ok = sum(1 for s in info["steps"] if s["ok"])
         lines.append(f"| {scenario} | {info['run']} | {info['commit']} | {ok}/{len(info['steps'])} | {info['duration']} s | runs/{info['run']}/report.md |")
-    lines += ["", "| Mode | Statut |", "|---|---|", "| native | non couvert par le labo : à valider sur une vraie VM avec systemd |"]
+    lines += ["", "| Mode | Statut |", "|---|---|", "| native (vraie VM) | le scénario native est un essai partiel dans un conteneur systemd : SELinux, firewalld et noyau réels à valider sur VM |"]
     (cache / "report.md").write_text("\n".join(lines) + "\n")
     print((cache / "report.md").read_text())
 

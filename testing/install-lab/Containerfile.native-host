@@ -1,0 +1,9 @@
+# Simulated server of the native installation (B2S_DEPLOY_MODE=native): systemd, Python of the distribution, Redis of
+# the system, MariaDB client, Node.js 22 and httpd for the interface; gcc and krb5 headers for the worker (gssapi).
+# Partial check only: a container is not a real server (no SELinux, no firewalld, shared kernel). Test only.
+FROM docker.io/library/almalinux:9
+RUN dnf -y module enable nodejs:22 && dnf -y install systemd python3.12 python3.12-devel gcc krb5-devel krb5-workstation \
+      samba-client redis mariadb httpd mod_ssl nodejs make git jq sudo openssl procps-ng iproute hostname findutils \
+    && dnf clean all && rm -f /etc/httpd/conf.d/welcome.conf
+STOPSIGNAL SIGRTMIN+3
+CMD ["/sbin/init"]
