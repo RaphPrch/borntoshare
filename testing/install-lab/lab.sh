@@ -341,9 +341,9 @@ checks_native() {
   check "natif : journaux dans journald" app sh -c 'journalctl -u b2s-core --no-pager -n 3 -o cat | tail -3; [ "$(journalctl -u b2s-core --no-pager -o cat | wc -l)" -gt 0 ]'
   check "natif : interface publiée par httpd (https://lab-app)" app sh -c 'systemctl is-active httpd b2s-web && curl -sk -o /dev/null -w "%{http_code}\n" https://lab-app/login | grep 200'
   check "natif : redémarrage automatique après un arrêt brutal" app sh -c 'pid=$(systemctl show -p MainPID --value b2s-core); kill -9 "$pid";
-    for i in $(seq 1 40); do sleep 3; new=$(systemctl show -p MainPID --value b2s-core); if [ "$new" != 0 ] && [ "$new" != "$pid" ] && curl -sf -o /dev/null http://127.0.0.1:8102/health; then echo "relancé (pid $pid → $new) en $((i*3)) s"; exit 0; fi; done; exit 1'
+    for i in $(seq 1 40); do sleep 3; new=$(systemctl show -p MainPID --value b2s-core); if [ "$new" != 0 ] && [ "$new" != "$pid" ] && curl -sf -o /dev/null http://127.0.0.1:8102/health; then echo "relancé (pid $pid → $new) en $((i*3)) s"; exit 0; fi; done; systemctl status b2s-core --no-pager -n 0 | head -6; journalctl -u b2s-core --no-pager -n 12 -o cat; exit 1'
   check "natif : arrêt puis démarrage (borntoshare.target)" app sh -c 'systemctl stop borntoshare.target && systemctl start borntoshare.target &&
-    for i in $(seq 1 40); do curl -sf -o /dev/null http://127.0.0.1:8102/health && echo "core sain après $((i*3)) s" && exit 0; sleep 3; done; exit 1'
+    for i in $(seq 1 40); do curl -sf -o /dev/null http://127.0.0.1:8102/health && echo "core sain après $((i*3)) s" && exit 0; sleep 3; done; systemctl status b2s-core --no-pager -n 0 | head -6; journalctl -u b2s-core --no-pager -n 12 -o cat; exit 1'
   check "natif : réinstallation (make deploy)" app bash -c 'make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -6 /tmp/deploy.out; exit $rc'
   check "natif : point de retour (.previous) après réinstallation" app sh -c 'ls -d /opt/borntoshare/app/*.previous'
   check "natif : désinstallation documentée (make uninstall)" app sh -c 'make -n uninstall'

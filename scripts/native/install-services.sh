@@ -293,6 +293,8 @@ UNIT
   run systemctl enable borntoshare.target $units
   # shellcheck disable=SC2086
   run systemctl restart $units
+  # The target itself too: « systemctl restart borntoshare.target » (rollback, documentation) acts on its units
+  run systemctl start borntoshare.target
   echo "  unités : $units"
 }
 
