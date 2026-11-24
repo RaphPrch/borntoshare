@@ -3080,7 +3080,6 @@
   "“{name}” already authenticates this domain: turn off “Authenticate users”.": "« {name} » authentifie déjà ce domaine : désactivez « Authentifier les utilisateurs ».",
   "Fix the failed test, or create it anyway.": "Corrigez le test en échec, ou créez l’annuaire quand même.",
   "Test the dedicated accounts to continue.": "Testez les comptes dédiés pour continuer.",
-  "Leave this page? What you entered will be lost.": "Quitter cette page ? Votre saisie sera perdue.",
   "Add a file server first: its folders are listed here.": "Ajoutez d’abord un serveur de fichiers : ses dossiers s’afficheront ici.",
   "Add folders to manage": "Ajouter des dossiers à gérer",
   "Add other folders": "Ajouter d’autres dossiers",

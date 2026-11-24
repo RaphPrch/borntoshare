@@ -2,7 +2,8 @@
   import { untrack } from 'svelte';
 
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
-  import { beforeNavigate, goto } from '$app/navigation';
+  import { goto } from '$app/navigation';
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import { getIdentityJob } from '$lib/api/identity';
   import { t } from '$lib/i18n';
   import { resolveCredentials } from '$lib/api/credentials';
@@ -398,12 +399,7 @@
   }
 
   // What was typed is lost by leaving before the creation
-  beforeNavigate((navigation) => {
-    if (navigation.type === 'leave' || locked || createdId !== null) return;
-    if ((host.trim() || bindDn.trim() || password) && !window.confirm(t('Leave this page? What you entered will be lost.'))) {
-      navigation.cancel();
-    }
-  });
+  guardUnsaved(() => !locked && createdId === null && Boolean(host.trim() || bindDn.trim() || password));
 
   const USES = [
     { key: 'snapshot_enabled', title: 'Snapshot inventory', text: 'Needed to search and import users and groups of this source.' },

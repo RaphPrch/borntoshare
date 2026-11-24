@@ -6,6 +6,8 @@
   import { recall, remember } from '$lib/utils/remember';
   import { downloadCsv } from '$lib/utils/csv';
   import { toast } from '$lib/stores/toast';
+  import { reportUiError } from '$lib/errors/report';
+  import { copyText } from '$lib/utils/clipboard';
   import { dur, MOTION } from '$lib/utils/motion';
   import { applyPilotAction, askPilot, pilotExamples, type PilotAnswer, type PilotCell } from '$lib/components/pilot/pilot-engine';
   import { fivesEnabled } from '$lib/utils/features';
@@ -42,7 +44,7 @@
       remember('pilot', { history });
       draft = '';
     } catch (failure) {
-      toast.error(failure instanceof Error ? failure.message : t('Unable to answer.'));
+      reportUiError(failure, t('Unable to answer.'), 'pilot.ask');
     } finally {
       busy = false;
     }
@@ -65,8 +67,7 @@
 
   async function copyRows(answer: PilotAnswer) {
     const lines = [answer.columns.join('\t'), ...answer.rows.map((row) => row.map((cell) => cell.text).join('\t'))];
-    await navigator.clipboard?.writeText(lines.join('\n')).catch(() => null);
-    toast.success(t('Copied: paste it in Excel or an e-mail.'));
+    if (await copyText(lines.join('\n'))) toast.success(t('Copied: paste it in Excel or an e-mail.'));
   }
 
   // /pilot?q=… (from the dashboard): asked at once

@@ -413,8 +413,8 @@
       await invalidateAll();
       // The worker reads them in the background: the to-do is read again once it had time to answer
       for (const delay of [20000, 60000]) setTimeout(() => void invalidateAll(), delay);
-    } catch (e: any) {
-      toast.error(String(e?.message ?? t('The action failed.')));
+    } catch (e) {
+      reportUiError(e, t('The action failed.'), 'zone.bulk-check');
     } finally {
       rereadBusy = false;
     }
@@ -756,9 +756,9 @@
         }))
         .filter((ep) => ep.id > 0)
         .sort((a, b) => a.name.localeCompare(b.name, 'en', { sensitivity: 'base' }));
-    } catch (e: any) {
+    } catch (e) {
       attachableEndpoints = [];
-      toast.error(String(e?.message ?? t('Unable to load existing endpoints.')));
+      reportUiError(e, t('Unable to load existing endpoints.'), 'zone.load-endpoints');
     } finally {
       attachEndpointsLoading = false;
     }

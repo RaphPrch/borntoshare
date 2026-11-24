@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { toast } from '$lib/stores/toast';
+  import { reportUiError } from '$lib/errors/report';
   import { formatDate } from '$lib/utils/format';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { runProbeWithPolling } from '$lib/jobs/probe-runner';
@@ -71,7 +72,7 @@
       if (result.ok && details.certificate_pem) found = details as Found;
       else toast.error(t(String(result.errorMessage ?? result.result?.message ?? 'Unable to read the certificate.')));
     } catch (error) {
-      toast.error(error instanceof Error && error.message ? error.message : t('Unable to read the certificate.'));
+      reportUiError(error, t('Unable to read the certificate.'), 'identity-source.read-certificate');
     } finally {
       fetching = false;
     }

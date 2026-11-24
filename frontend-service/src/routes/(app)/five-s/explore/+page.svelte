@@ -216,7 +216,7 @@
           <span>{#if folder.sensitive_files}<span class="v2-tag is-bad">{t('{count} file(s)', { count: folder.sensitive_files })}</span>{:else}<span class="ex-mut">{t('none')}</span>{/if}</span>
           <span class="ex-when" title={folder.measured_at ? formatDate(folder.measured_at) : ''}>{folder.measured_at ? timeAgo(folder.measured_at) : t('never')}</span>
           <span class={`v2-tag is-${toneOf(folder.score)}`}>{folder.score ?? '—'}</span>
-          <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: folder.name })} onclick={openMenu(folder)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
+          <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: folder.name })} title={t('Actions on {name}', { name: folder.name })} onclick={openMenu(folder)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
         </div>
       {:else}
         <div class="v2-empty">{inScope.length ? t('No folder matches these filters.') : t('No measured folder here yet.')}</div>

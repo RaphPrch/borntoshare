@@ -282,7 +282,7 @@
               </span>
               <span class="sc5__end">
                 {#if isAdmin && run.status === 'queued'}<button type="button" class="b2s-link-btn" onclick={() => cancel(run)}>{t('Cancel')}</button>{/if}
-                <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: run.folder_name ?? '' })}
+                <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: run.folder_name ?? '' })} title={t('Actions on {name}', { name: run.folder_name ?? '' })}
                   onclick={openMenu({ id: run.storage_root_id, name: run.folder_name ?? `#${run.storage_root_id}`, run })}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
               </span>
             </div>
@@ -318,7 +318,7 @@
               <span class="v2-sub">{#if row.content_updated_at}<RelativeTime value={row.content_updated_at} />{:else}—{/if}</span>
               <span class="sc5__states"><span class={`v2-tag is-${state.tone}`}>{state.label}</span>
                 {#if measureState(row) && measureState(row).status !== 'complete'}<span class="v2-tag is-warn" title={measureState(row).reasons.join(', ')}>{COMPLETENESS_LABEL()[measureState(row).status]}</span>{/if}</span>
-              <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: target.name })} onclick={openMenu(target)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
+              <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: target.name })} title={t('Actions on {name}', { name: target.name })} onclick={openMenu(target)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
             </div>
           {:else}
             <p class="v2-empty">{t('No folder matches.')}</p>

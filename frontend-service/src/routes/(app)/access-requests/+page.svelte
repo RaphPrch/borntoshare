@@ -858,7 +858,7 @@
           <small class="ar-mono">{requestCode(selectedRequest)}</small>
         </div>
       </div>
-      <button type="button" class="ar-close" aria-label={t('Close')} onclick={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
+      <button type="button" class="ar-close" aria-label={t('Close')} title={t('Close')} onclick={closeDetail}><i class="bi bi-x-lg" aria-hidden="true"></i></button>
     </div>
     <p class="ar-sentence">
       {accessKind(selectedRequest) === 'write' ? t('requests write access to') : accessKind(selectedRequest) === 'read' ? t('requests read access to') : t('requests access to')}
@@ -954,7 +954,7 @@
             {/each}
             {#if decisionRunning === 'approve' || decisionRunning === 'revoke'}
               <li class="is-in_progress">
-                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                <span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span>
                 <div><strong>{t('Waiting for Active Directory…')}</strong></div>
               </li>
             {/if}
@@ -1478,7 +1478,7 @@
   }
 
   .ar-log li > i,
-  .ar-log li > .spinner-border {
+  .ar-log li > .b2s-spinner {
     margin-top: 2px;
   }
 

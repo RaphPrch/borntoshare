@@ -8,6 +8,7 @@
   import { t } from '$lib/i18n';
   import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   import { formatBytes } from '$lib/utils/format';
+  import { copyText } from '$lib/utils/clipboard';
 
   /**
    * Insights & Recommendations (v2): what the last measures, scans and ACL reads of the folders reveal, each with
@@ -89,7 +90,7 @@
     if (!insight) return;
     if (key === 'folders') void openFolders(insight);
     if (key === 'policy') void goto('/policies');
-    if (key === 'copy') await navigator.clipboard?.writeText(insight.query).catch(() => null);
+    if (key === 'copy') await copyText(insight.query);
   }
 </script>
 

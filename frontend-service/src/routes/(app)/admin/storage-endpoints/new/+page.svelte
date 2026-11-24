@@ -3,7 +3,8 @@
 
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { tick, untrack } from 'svelte';
-  import { beforeNavigate, goto } from '$app/navigation';
+  import { goto } from '$app/navigation';
+  import { guardUnsaved } from '$lib/utils/unsaved';
   import { t } from '$lib/i18n';
   import { resolveCredentials } from '$lib/api/credentials';
   import { createStorageEndpoint } from '$lib/api/storage-endpoints';
@@ -274,10 +275,7 @@
   }
 
   let done = false;
-  beforeNavigate((navigation) => {
-    if (navigation.type === 'leave' || done || creating) return;
-    if ((host.trim() || account.trim() || password) && !window.confirm(t('Leave this page? What you entered will be lost.'))) navigation.cancel();
-  });
+  guardUnsaved(() => !done && !creating && Boolean(host.trim() || account.trim() || password));
 
   let cleanHost = $derived(strip(host));
   let hostValid = $derived(isValidIPv4(cleanHost) || isValidHostname(cleanHost));

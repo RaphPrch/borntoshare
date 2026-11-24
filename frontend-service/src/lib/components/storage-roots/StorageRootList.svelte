@@ -262,7 +262,7 @@
           <TagQuickEdit rootId={id(row)} {tags} onChange={(next) => (row.tags = next)} />
         </div>
         <span><span class={`v2-tag is-${state.tone}`}>{state.label}</span></span>
-        <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: String(row.storage_root_name ?? '') })} onclick={openMenu(row)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
+        <button type="button" class="v2-dots" aria-label={t('Actions on {name}', { name: String(row.storage_root_name ?? '') })} title={t('Actions on {name}', { name: String(row.storage_root_name ?? '') })} onclick={openMenu(row)}><i class="bi bi-three-dots" aria-hidden="true"></i></button>
       </div>
     {:else}
       <div class="v2-empty">{t('No folder matches.')} <button type="button" class="b2s-link-btn" onclick={() => { quick = 'all'; onQueryChange(''); }}>{t('Clear the filters')}</button></div>

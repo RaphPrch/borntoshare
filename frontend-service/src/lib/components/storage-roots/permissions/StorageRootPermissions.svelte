@@ -277,7 +277,7 @@
           </div>
         </div>
         {#if d.propagation?.state === 'running'}
-          <p class="pm-note"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> {t('The rights are being applied to the content of the folder. On a big folder it can take a while.')}</p>
+          <p class="pm-note"><span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {t('The rights are being applied to the content of the folder. On a big folder it can take a while.')}</p>
         {:else if d.propagation?.state === 'failed'}
           <p class="pm-note is-bad"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i> {t('The rights could not reach all the content of the folder: some people may be refused inside. Use « Repair the ACL ».')}</p>
         {/if}
