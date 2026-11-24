@@ -43,7 +43,9 @@ python_bin() {
 }
 
 do_secrets() {
-  install -d -m 0750 "$ETC"
+  # Shared with the interface under httpd (b2s-web, web.env): crossed by both accounts, listed by none; each file
+  # keeps its own owner
+  install -d -m 0751 "$ETC"
   install -d -m 0700 "$SECRETS"
   if [ -z "$STAGE" ] && ! id "$USER_NAME" >/dev/null 2>&1; then
     useradd --system --home-dir /var/lib/borntoshare --shell /sbin/nologin "$USER_NAME"
@@ -81,7 +83,7 @@ do_secrets() {
     chmod 0400 "$file"
     case "$file" in *.cnf) owner root:root "$file" ;; *) owner "$USER_NAME:$USER_NAME" "$file" ;; esac
   done
-  owner "root:$USER_NAME" "$ETC"
+  owner root:root "$ETC"
   chmod 0751 "$SECRETS"
 }
 

@@ -36,7 +36,9 @@ fi
 WEB="$STAGE/opt/borntoshare/web"
 ETC="$STAGE/etc/borntoshare"
 install -d -m 0755 "$STAGE/opt/borntoshare"
-install -d -m 0750 "$ETC"
+# /etc/borntoshare may hold the native services too (b2s): crossed by both accounts, each file keeps its owner. Giving
+# the directory to b2s-web locked b2s out: its services failed at their next start (reboot included)
+install -d -m 0751 "$ETC"
 # The interface: the running one becomes the rollback point
 rm -rf "$WEB.next"
 cp -r app "$WEB.next"
@@ -45,7 +47,7 @@ mv "$WEB.next" "$WEB"
 chmod -R a+rX,go-w "$WEB"
 install -m 0640 web.env "$ETC/web.env"
 install -m 0640 web.secrets "$ETC/web.secrets"
-if [ -z "$STAGE" ]; then chown root:b2s-web "$ETC" "$ETC/web.env" "$ETC/web.secrets"; fi
+if [ -z "$STAGE" ]; then chown root:root "$ETC"; chown root:b2s-web "$ETC/web.env" "$ETC/web.secrets"; fi
 
 install -d "$STAGE/etc/systemd/system"
 cat > "$STAGE/etc/systemd/system/b2s-web.service" <<UNIT
