@@ -5,6 +5,7 @@
   import type { EntityActionItem } from '$lib/components/entity/EntityActionGroup.svelte';
   import EntityHeroCard from '$lib/components/entity/EntityHeroCard.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
 
@@ -25,11 +26,17 @@
   }: Props = $props();
 
   let members: IdentityGroupMember[] | null = $state(null);
+  // A failed reading is not « no member »: it says so and offers to read again
+  let membersFailed = $state(false);
   let loadedFor = $state('');
   async function load() {
     loadedFor = key;
     members = null;
-    members = await listIdentityGroupMembers(fetch, item.id).catch(() => []);
+    membersFailed = false;
+    members = await listIdentityGroupMembers(fetch, item.id).catch(() => {
+      membersFailed = true;
+      return [];
+    });
   }
   let key = $derived(String(item?.id ?? ''));
   $effect.pre(() => {
@@ -55,9 +62,14 @@
   </EntityHeroCard>
   <p class="gw__note">{t('Every member of this group gets the role. Arrivals and departures are managed in the directory and read again at each synchronization.')}</p>
   <section class="gw__card" aria-label={t('Members')}>
-    <header><h2>{t('Members')}</h2>{#if members}<small>{t('{count} member(s)', { count: members.length })}</small>{/if}</header>
+    <header><h2>{t('Members')}</h2>{#if members && !membersFailed}<small>{t('{count} member(s)', { count: members.length })}</small>{/if}</header>
     {#if members === null}
       <LoadingState skeleton="rows" rows={3} />
+    {:else if membersFailed}
+      <InlineAlert tone="error" compact>
+        {t('Unable to load the members of this group.')}
+        {#snippet actions()}<button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={load}>{t('Retry')}</button>{/snippet}
+      </InlineAlert>
     {:else if members.length}
       {#each members as member (member.id ?? member.username)}
         <div class="gw__row">

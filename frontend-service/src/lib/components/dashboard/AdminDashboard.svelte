@@ -8,6 +8,7 @@
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
+  import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
 
   /**
    * Administrator dashboard (v2): a greeting with the day in one line, the figures, what is left to handle and the
@@ -46,21 +47,33 @@
   let missingSecrets: MissingSecret[] = $state([]);
   let lateTasks: LateTask[] = $state([]);
   let loaded = $state(false);
+  // A reading that failed: the front page does not claim that everything is up to date
+  let loadFailed = $state(false);
+  function soft<T>(request: Promise<T[]>): Promise<T[]> {
+    return request.catch(() => {
+      loadFailed = true;
+      return [] as T[];
+    });
+  }
 
-  onMount(async () => {
+  async function load() {
+    loaded = false;
+    loadFailed = false;
     [roots, endpoints, missingSecrets, lateTasks] = await Promise.all([
       // The columns of the journal and the tiles only (the whole folder list weighed megabytes)
-      apiGetList<Root>(fetch, '/storage-roots/context', { fields: 'storage_root_id,storage_root_name,root_path,dfs_path,zone_name,storage_endpoint_id,storage_endpoint_name,content_size_bytes,estimated_size_bytes,content_files,measure_status,password_files,key_files,quota_used_percent,quota_pending_requests,guardians_count,open_alerts_count' }).catch(() => []),
-      apiGetList<Endpoint>(fetch, '/storage-endpoints/context').catch(() => []),
-      apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing').catch(() => []),
-      apiGetList<LateTask>(fetch, '/infrastructure/schedules/late').catch(() => [])
+      soft(apiGetList<Root>(fetch, '/storage-roots/context', { fields: 'storage_root_id,storage_root_name,root_path,dfs_path,zone_name,storage_endpoint_id,storage_endpoint_name,content_size_bytes,estimated_size_bytes,content_files,measure_status,password_files,key_files,quota_used_percent,quota_pending_requests,guardians_count,open_alerts_count' })),
+      soft(apiGetList<Endpoint>(fetch, '/storage-endpoints/context')),
+      soft(apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing')),
+      soft(apiGetList<LateTask>(fetch, '/infrastructure/schedules/late'))
     ]);
     loaded = true;
     if ($fivesEnabled) {
       const fives = await apiGetData<{ score: number | null }>(fetch, '/modules/fives/five-s').catch(() => null);
       fivesScore = fives?.score ?? null;
     }
-  });
+  }
+
+  onMount(load);
 
   const size = (row: Root) => num(row.content_size_bytes ?? row.estimated_size_bytes);
   const measured = (row: Root) => row.content_size_bytes != null || ['done', 'running'].includes(String(row.measure_status ?? ''));
@@ -204,8 +217,14 @@
           {/if}
         </article>
       {:else}
-        <p class="jr-calm">{loaded ? t('Nothing to handle: everything is up to date.') : t('Loading…')}</p>
+        {#if !loadFailed}<p class="jr-calm">{loaded ? t('Nothing to handle: everything is up to date.') : t('Loading…')}</p>{/if}
       {/each}
+      {#if loadFailed}
+        <InlineAlert tone="error" compact>
+          {t('Part of the platform could not be read: this front page may be incomplete.')}
+          {#snippet actions()}<button type="button" class="b2s-btn b2s-btn-secondary b2s-btn-sm" onclick={load}>{t('Retry')}</button>{/snippet}
+        </InlineAlert>
+      {/if}
     </div>
     <aside>
       <ThreadOfTheDay events={activities} seeAll="/observability?tab=audit" empty={t('No problem lately on the platform.')} />

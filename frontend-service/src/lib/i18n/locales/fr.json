@@ -5813,5 +5813,7 @@
   "Temporary password set: {name} chooses a new one at the next sign-in.": "Mot de passe temporaire posé : {name} en choisit un nouveau à sa prochaine connexion.",
   "Unable to reset the password.": "Impossible de réinitialiser le mot de passe.",
   "A temporary password: the person chooses their own at the next sign-in. Give it to them by a separate channel.": "Un mot de passe temporaire : la personne choisit le sien à sa prochaine connexion. Transmettez-le-lui par un autre canal.",
-  "Confirm the password": "Confirmer le mot de passe"
+  "Confirm the password": "Confirmer le mot de passe",
+  "Unable to load the members of this group.": "Impossible de lire les membres de ce groupe.",
+  "Part of the platform could not be read: this front page may be incomplete.": "Une partie de la plateforme n'a pas pu être lue : cette une peut être incomplète."
 }
