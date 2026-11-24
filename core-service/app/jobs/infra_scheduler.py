@@ -13,6 +13,7 @@ import logging
 from typing import Any
 
 from sqlalchemy import text
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.core.db import SessionLocal, engine
@@ -65,7 +66,7 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             try:
                 from app.services.derived_measure import derive_missing
 
-                derived = derive_missing(db)
+                derived = await run_in_threadpool(derive_missing, db)
                 if derived:
                     message += f" · {derived} dossier(s) mesuré(s) d'après leur parent"
             except Exception:
@@ -94,7 +95,7 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             # The 1st of the month: the monthly report of the month before, once (Settings › Notifications)
             from app.services.monthly_report import maybe_send
 
-            if maybe_send(db):
+            if await run_in_threadpool(maybe_send, db):
                 message = f"{message} · rapport mensuel envoyé"
         elif task == "dfs_read":
             # The file servers (and, chosen in its options, their folders and the DFS namespaces)

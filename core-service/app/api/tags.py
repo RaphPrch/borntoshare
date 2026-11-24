@@ -13,14 +13,9 @@ from app.data.models.tag import Tag
 from app.schemas.tag_attachment import TagAttachmentRequest
 from app.data.models.storage_root_tag import storage_root_tag
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, can_access_admin, is_storage_root_guardian, require_admin
+from app.services.authorization import actor_ids, actor_from_request, can_access_admin, is_storage_root_guardian, require_admin
 
 router = APIRouter(prefix="/tags", tags=["tags"])
-
-
-def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
-    actor = actor_from_request(request)
-    return actor.identity_id, actor.display_name
 
 
 # ============================================================
@@ -92,7 +87,7 @@ def create_tag(payload: TagCreate, request: Request, db: Session = Depends(get_d
     db.commit()
     db.refresh(tag)
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -136,7 +131,7 @@ def update_tag(tag_id: int, payload: TagUpdate, request: Request, db: Session = 
     db.refresh(tag)
 
     after = {"name": tag.name, "color": tag.color, "family": tag.family}
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -190,7 +185,7 @@ def delete_tag(tag_id: int, request: Request, db: Session = Depends(get_db)):
     db.delete(tag)
     db.commit()
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -230,7 +225,7 @@ def merge_tag(tag_id: int, payload: TagMerge, request: Request, db: Session = De
     db.delete(source)
     db.commit()
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -312,7 +307,7 @@ def attach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
         )
 
     tag_label, resource_name = _attachment_names(db, payload)
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -350,7 +345,7 @@ def detach_tag(payload: TagAttachmentRequest, request: Request, db: Session = De
     db.commit()
 
     tag_label, resource_name = _attachment_names(db, payload)
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",

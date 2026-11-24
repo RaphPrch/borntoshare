@@ -3,6 +3,7 @@ Its growth curve and its duplicates with other folders belong to the 5S module (
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -12,7 +13,6 @@ from app.api.quotas import _audit, _folder
 from app.core.db import get_db
 from app.services import remediations, scans
 from app.services.authorization import actor_from_request, require_admin
-from app.data.models.storage_root import StorageRoot
 
 router = APIRouter(prefix="/storage-roots", tags=["storage-roots"])
 
@@ -153,7 +153,7 @@ async def stop_run(root_id: int, payload: StopPayload, request: Request, db: Ses
         # Measured by the scanner of the 5S module: it is told to stop too (it checks before each batch)
         from app.services import modules
 
-        modules.stop_scan(int(root_id), by=actor.display_name)
+        await run_in_threadpool(modules.stop_scan, int(root_id), by=actor.display_name)
         scans.record_failure(db, int(root_id), row["job_id"], reason)
     else:
         from app.services import sensitivity as _sensitivity

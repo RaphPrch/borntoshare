@@ -6,6 +6,7 @@ import logging
 import os
 import httpx
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from app.data.repositories import identity_list_sql
@@ -17,7 +18,7 @@ from app.api.internal_auth_local import _hash_b2s_password
 from app.api._helpers import ui_data, ui_list
 from app.schemas.identity_search import IdentitySearchRequest
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, admin_or_internal
+from app.services.authorization import actor_ids, admin_or_internal
 
 
 logger = logging.getLogger("core.identity")
@@ -29,11 +30,6 @@ _APP_ROLE_CODE_MAP = {
     "platform_admin": "platform_admin",
     "platform_administrator": "platform_admin",
 }
-
-
-def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
-    actor = actor_from_request(request)
-    return actor.identity_id, actor.display_name
 
 
 def _pick_identity_source(db: Session, source_id: int | None) -> IdentitySource | None:
@@ -151,7 +147,7 @@ def _refuse_guardian_gap(db: Session, request: Request, *, action: str, identity
     folders = _orphaned_folders(db, identity_id)
     if not folders:
         return
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
         action=action, outcome="denied", target_type="identity", target_id=int(identity_id),
@@ -170,7 +166,7 @@ def _refuse_disabling_a_guardian(db: Session, request: Request, *, action: str, 
     count = int(identity_list_sql.guarded_folders_count(db, {"id": int(identity_id)}).scalar() or 0)
     if not count:
         return
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
         action=action, outcome="denied", target_type="identity", target_id=int(identity_id),
@@ -193,7 +189,7 @@ def _refuse_admin_loss(
     group_id: int | None = None,
 ) -> None:
     """Nobody removes their own account or rights, and the platform always keeps one administrator."""
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     code = message = None
     if identity_id is not None and actor_id is not None and int(identity_id) == int(actor_id):
         code, message = "IDENTITY_SELF_CHANGE_FORBIDDEN", "Vous ne pouvez pas supprimer, désactiver ou rétrograder votre propre compte."
@@ -533,7 +529,7 @@ async def create_identity(
 
     db.commit()
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     target_display = str(row.get("display_name") or row.get("username") or target_id)
     correlation_id = request.headers.get("x-request-id") or None
     target_type = "identity_group" if subject_type == "group" else "identity"
@@ -601,7 +597,7 @@ async def delete_identity(
     db: Session = Depends(get_db),
 ):
     normalized_type = _normalize_identity_type(identity_type) if identity_type is not None else None
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     correlation_id = request.headers.get("x-request-id") or None
 
     if normalized_type == "group":
@@ -673,7 +669,7 @@ async def delete_identity(
     identity_list_sql.delete_identity_7(db, {"id": int(identity_id)})
     identity_list_sql.delete_identity_8(db, {"id": int(identity_id)})
     db.commit()
-    _close_sessions(int(identity_id))
+    await run_in_threadpool(_close_sessions, int(identity_id))
 
     log_activity(
         db,
@@ -795,7 +791,7 @@ async def update_identity(
 
     db.commit()
     if subject_type != "group" and (loses_admin or is_active is False):
-        _close_sessions(int(identity_id))
+        await run_in_threadpool(_close_sessions, int(identity_id))
 
     if subject_type == "group":
         row = identity_list_sql.update_identity_3(db, {"id": int(identity_id)}).mappings().first()
@@ -805,7 +801,7 @@ async def update_identity(
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Identity not found")
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     target_display = str(row.get("display_name") or row.get("username") or row.get("id"))
     correlation_id = request.headers.get("x-request-id") or None
 
@@ -926,7 +922,7 @@ def hand_over_guardianship(identity_id: int, request: Request, payload: dict[str
     folder_ids = [f["id"] for f in _orphaned_folders(db, int(identity_id))] if scope == "orphaned" else [
         int(row[0]) for row in identity_list_sql.hand_over_guardianship_2(db, {"id": int(identity_id)}).all()
     ]
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     added = 0
     for root_id in folder_ids:
         exists = identity_list_sql.hand_over_guardianship_3(db, {"root": root_id, "to": to_id}).first()
@@ -995,7 +991,7 @@ def create_substitute(identity_id: int, request: Request, payload: dict[str, Any
     overlap = identity_list_sql.create_substitute_4(db, {"id": int(identity_id), "starts": starts_at, "ends": ends_at}).first()
     if overlap:
         refuse("SUBSTITUTE_OVERLAP", "Une suppléance couvre déjà une partie de cette période.", 409)
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     result = identity_list_sql.create_substitute_5(db, {"id": int(identity_id), "sub": substitute_id, "starts": starts_at, "ends": ends_at,
          "reason": (str(payload.get("reason") or "").strip()[:300] or None), "by": actor_display})
     db.commit()
@@ -1010,7 +1006,7 @@ def create_substitute(identity_id: int, request: Request, payload: dict[str, Any
 
 @router.delete("/substitutes/{substitute_id}", dependencies=[Depends(admin_or_internal)])
 def revoke_substitute(substitute_id: int, request: Request, db: Session = Depends(get_db)):
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     row = identity_list_sql.revoke_substitute_1(db, {"id": int(substitute_id)}).first()
     if row is None:
         raise HTTPException(status_code=404, detail="Substitution not found")

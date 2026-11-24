@@ -18,7 +18,6 @@ from app.services.identity_source_fields import (
     source_auth_priority,
     source_capabilities,
 )
-from app.data.models.storage_endpoint import StorageEndpoint
 from app.data.repositories.identity_source_purge_repo import purge_identity_source_related_records
 from app.data.repositories.directory_snapshots_repo import DirectorySnapshotsRepo
 from app.data.repositories.identity_sources_views_repo import IdentitySourcesViewsRepo
@@ -28,15 +27,12 @@ from app.schemas.identity_sources import (
     IdentitySourceUpdate,
 )
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, admin_or_internal
+from app.services.authorization import actor_ids, admin_or_internal
 
 router = APIRouter(prefix="/identity-sources", tags=["identity_sources"])
 logger = get_logger("core.identity_sources")
 
 
-def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
-    actor = actor_from_request(request)
-    return actor.identity_id, actor.display_name
 def _status_from_active(is_active: bool | None) -> str:
     return "active" if bool(is_active) else "disabled"
 
@@ -347,7 +343,7 @@ def create_identity_source(payload: IdentitySourceCreate, request: Request, db: 
 
     # The initial snapshot is started by the caller (UI wizard) through Governance.
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     created_auth_enabled = source_auth_enabled(src)
     created_auth_priority = source_auth_priority(src)
     log_activity(
@@ -409,7 +405,7 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
     identity_sources_sql.delete_identity_source_1(db, {"c": f"identity_source:{int(source_id)}"})
     db.commit()
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -590,7 +586,7 @@ def update_identity_source(
         "is_active": bool(src.is_active),
         "status": src.status,
     }
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",

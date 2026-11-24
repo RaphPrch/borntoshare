@@ -16,7 +16,6 @@ from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.data.models.identity_sources import IdentitySource
 from app.data.models.storage_endpoint import StorageEndpoint
-from app.data.models.storage_root import StorageRoot
 from app.schemas.storage_endpoint import (
     StorageEndpointCreate,
     StorageEndpointUpdate,
@@ -27,7 +26,7 @@ from app.data.repositories.storage_endpoints_views_repo import (
 from app.api._helpers import ui_action, ui_data, ui_list
 from app.core.sql import to_dicts
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request, admin_only, require_admin
+from app.services.authorization import actor_ids, actor_from_request, admin_only, require_admin
 from app.services.storage_guards import (
     endpoint_access_counts,
     endpoint_access_group_count,
@@ -59,11 +58,6 @@ class StorageEndpointProbeResultPayload(BaseModel):
     last_probe_message: str | None = Field(default=None, max_length=512)
     last_probe_job_id: int | None = None
     source_type: str | None = Field(default=None, max_length=80)
-
-
-def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
-    actor = actor_from_request(request)
-    return actor.identity_id, actor.display_name
 
 
 def _require_platform_admin(request: Request) -> None:
@@ -369,7 +363,7 @@ def save_dfs_snapshot(endpoint_id: int, payload: DfsSnapshotPayload, request: Re
     from app.services.dfs_links import store_snapshot
 
     links = store_snapshot(db, endpoint, namespace)
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
         action="storage_endpoint.dfs_read", outcome="success", target_type="storage_endpoint", target_id=int(endpoint.id),
@@ -655,7 +649,7 @@ def create_endpoint(
         )
         db.commit()
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -926,7 +920,7 @@ def update_endpoint(
     )
     before["zone_name"] = before_zone_ctx.get("name")
     after["zone_name"] = after_zone_ctx.get("name")
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -1385,7 +1379,7 @@ def record_storage_endpoint_probe_result(
         cascade_to_roots=True,
     )
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     zone_ctx = _resolve_zone_context(
         db,
         endpoint_id_value=int(endpoint.id),
@@ -1479,7 +1473,7 @@ def delete_endpoint(
     storage_endpoints_sql.delete_endpoint_1(db, {"c": f"storage_endpoint:{int(endpoint_id)}"})
     db.commit()
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",

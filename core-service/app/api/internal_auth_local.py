@@ -11,15 +11,10 @@ from app.data.repositories import local_credentials_repo
 from app.core.db import get_db
 from app.core.internal_auth import require_internal_token
 from app.services.activity_log import log_activity
-from app.services.authorization import actor_from_request
+from app.services.authorization import actor_ids
 
 
 router = APIRouter(prefix="/internal/auth", tags=["internal-auth"])
-
-
-def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
-    actor = actor_from_request(request)
-    return actor.identity_id, actor.display_name
 
 
 def _normalize_password(password: str) -> bytes:
@@ -113,7 +108,7 @@ def change_local_password(
     local_credentials_repo.set_password_hash(db, int(row.get("identity_id") or 0), _hash_b2s_password(payload.new_password), now,
                                              chosen_by_owner=bool(current_password))
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     target_id = int(row.get("identity_id") or 0)
     target_display = str(payload.username or "").strip() or None
     log_activity(

@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from fastapi import Depends, APIRouter, HTTPException, Query, Request, Response, status
+from fastapi.concurrency import run_in_threadpool
 
 from app.api import provisioning_internal
 from app.core.direct_call import call_route
@@ -485,7 +486,7 @@ async def list_admin_jobs(
     jobs = job_board.summarize_rows(items)
     # The measures of the 5S scanner live in the module: listed here too (unless a job type was asked)
     if not job_type and not identity_source_id and not storage_root_access_profile_id:
-        jobs += [job for job in job_board.fives_jobs(limit) if not active_only or job["status"] in ("QUEUED", "RUNNING")]
+        jobs += [job for job in await run_in_threadpool(job_board.fives_jobs, limit) if not active_only or job["status"] in ("QUEUED", "RUNNING")]
     return ui_list(jobs)
 
 

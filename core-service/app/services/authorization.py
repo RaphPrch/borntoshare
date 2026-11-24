@@ -37,6 +37,12 @@ def actor_from_request(request: Request) -> ActorContext:
     )
 
 
+def actor_ids(request: Request) -> tuple[int | None, str | None]:
+    """The caller's identity id and display name, as the activity log records them."""
+    actor = actor_from_request(request)
+    return actor.identity_id, actor.display_name
+
+
 def is_platform_administrator(actor: ActorContext) -> bool:
     return "platform_admin" in actor.roles or "admin" in actor.roles
 

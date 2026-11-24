@@ -13,6 +13,7 @@ from typing import Any
 
 from app.services.root_payload import merge_root_payload
 from sqlalchemy import bindparam, text
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger("core.scans")
@@ -189,7 +190,7 @@ async def request_measure(db: Session, storage_root_id: int, *, reason: str = "m
     from app.services import features, modules
     from app.services.probe_service import submit_probe_run
 
-    if features.enabled(db, "fives") and modules.request_scan(db, storage_root_id, reason=reason, by=by):
+    if features.enabled(db, "fives") and await run_in_threadpool(modules.request_scan, db, storage_root_id, reason=reason, by=by):
         mark_requested(db, storage_root_id, None)
         db.execute(text("UPDATE storage_root_scans SET method = 'module', progress_json = NULL WHERE storage_root_id = :id"), {"id": int(storage_root_id)})
         db.commit()

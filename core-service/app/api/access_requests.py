@@ -21,6 +21,7 @@ from app.core.internal_auth import require_internal
 from app.services import features
 from app.services.activity_log import log_activity
 from app.services.authorization import (
+    actor_ids,
     actor_from_request,
     can_review_request,
     filter_access_request_rows,
@@ -67,11 +68,6 @@ internal_router = APIRouter(
     prefix="/internal/access-requests",
     tags=["internal-access-requests"],
 )
-
-
-def _actor_from_headers(request: Request) -> tuple[int | None, str | None]:
-    actor = actor_from_request(request)
-    return actor.identity_id, actor.display_name
 
 
 def _resolve_implicit_governed_group(
@@ -1323,7 +1319,7 @@ def create_access_request(
         items=items,
     )
 
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     log_activity(
         db,
         actor_type="user" if actor_id is not None else "system",
@@ -1649,7 +1645,7 @@ def bulk_decision(
     requested_ids = [int(x) for x in list(payload.ids)]
     decision = str(payload.decision).lower().strip()
     actor = actor_from_request(request)
-    actor_id, actor_display = _actor_from_headers(request)
+    actor_id, actor_display = actor_ids(request)
     failed_ids: list[int] = []
     failed_reasons: dict[int, str] = {}
     failed_details: dict[int, dict[str, Any]] = {}
