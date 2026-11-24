@@ -159,7 +159,7 @@ checks_after_install() {
   app sh -c 'podman secret ls --format "{{.Name}}"' > "$RUN/config/podman-secrets.txt" || true
   cp "$RUN/repo/podman-compose.yml" "$RUN/config/"; [ "$SCEN" = hybrid ] && cp "$RUN/repo/podman-compose.hybrid.yml" "$RUN/config/"
   app sh -c 'cat secrets/.deploy.log 2>/dev/null' > "$RUN/config/deploy.log" || true
-  check "configuration : secrets podman créés" app sh -c 'podman secret ls --format "{{.Name}}" | sort | tr "\n" " "'
+  check "configuration : secrets podman créés" app sh -c 'names=$(podman secret ls --format "{{.Name}}" | sort | tr "\n" " "); echo "$names"; echo "$names" | grep -q b2s_db_core'
   check "images et versions en service" app sh -c "podman ps --format '{{.Names}} {{.Image}} {{.ImageID}}' | sort"
   check "healthchecks : services sains ($services)" app sh -c "for s in $services; do st=\$(podman inspect -f '{{.State.Health.Status}}' \$s 2>/dev/null || echo absent); echo \"\$s \$st\"; [ \"\$st\" = healthy ] || bad=1; done; [ -z \"\${bad:-}\" ]"
   check "connectivité : core → base et file Redis (/health)" app podman exec core-service python3 -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/health').read().decode())"
