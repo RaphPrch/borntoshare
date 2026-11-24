@@ -155,6 +155,8 @@
   }
   const toReview = (row: StorageRootRow): boolean => rowDot(row) !== null;
   const noGuardian = (row: StorageRootRow): boolean => String((row as any)?.open_alert_types ?? '').includes('missing_guardian');
+  // Guarded by one person only, with nobody to take over (no second guardian, no backup in force)
+  const noBackup = (row: StorageRootRow): boolean => Number((row as any)?.guardians_count ?? 0) > 0 && (row as any)?.backup_covered === false;
 
   function sumAlerts(items: StorageRootRow[]): Alerts {
     let count = 0;
@@ -334,7 +336,7 @@
   // Express search: « tag:Finance gardien:alice est:sans-gardien … » filter the rows, the rest of the text searches the tree
   let parsed = $derived(parseFolderQuery(query));
   let visibleRows = $derived(rows.filter((row) =>
-    (filter === 'all' || (filter === 'review' ? toReview(row) : filter === 'no-guardian' ? noGuardian(row) : pendingCount(row) > 0)) &&
+    (filter === 'all' || (filter === 'review' ? toReview(row) : filter === 'no-guardian' ? noGuardian(row) : filter === 'no-backup' ? noBackup(row) : pendingCount(row) > 0)) &&
     matchesFolderQuery(row, parsed.filters)
   ));
   let nodes = $derived((() => {
@@ -363,7 +365,8 @@
     { key: 'all', label: t('All'), count: rows.length },
     { key: 'review', label: t('To review'), count: rows.filter(toReview).length },
     ...($governanceEnabled ? [{ key: 'pending', label: t('Pending requests'), count: rows.filter((row) => pendingCount(row) > 0).length }] : []),
-    ...($governanceEnabled ? [{ key: 'no-guardian', label: t('Without guardian'), count: rows.filter(noGuardian).length }] : [])
+    ...($governanceEnabled ? [{ key: 'no-guardian', label: t('Without guardian'), count: rows.filter(noGuardian).length }] : []),
+    ...($governanceEnabled ? [{ key: 'no-backup', label: t('Without backup'), count: rows.filter(noBackup).length }] : [])
   ].filter((item) => item.key === 'all' || item.count > 0));
 </script>
 

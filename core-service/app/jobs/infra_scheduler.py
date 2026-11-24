@@ -92,6 +92,18 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             reminders = expiry_reminders(db)
             if reminders:
                 message = f"{message} · {reminders} rappel(s) envoyé(s)"
+            # Backup guardian periods that reached their last day: both people are told
+            from app.services.notifications import substitution_endings
+
+            ended = substitution_endings(db)
+            if ended:
+                message = f"{message} · {ended} suppléance(s) terminée(s)"
+            # Requests past their decision deadline: the guardians are reminded, the administrators told after the escalation delay
+            from app.services.request_deadlines import overdue_reminders
+
+            late = overdue_reminders(db)
+            if late["reminded"] or late["escalated"]:
+                message = f"{message} · {late['reminded']} relance(s) de gardien, {late['escalated']} demande(s) signalée(s) aux administrateurs"
             # The 1st of the month: the monthly report of the month before, once (Settings › Notifications)
             from app.services.monthly_report import maybe_send
 

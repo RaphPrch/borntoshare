@@ -31,7 +31,7 @@ from app.api.internal_identity_roles import router as internal_identity_roles_ro
 from app.api.internal_identities import router as internal_identities_router
 from app.api.provisioning_internal import router as provisioning_internal_router
 from app.api.internal_directory_snapshots import router as internal_directory_snapshots_router
-from .identity_list import router as identity_list_router
+from .identity_list import me_router as delegation_router, router as identity_list_router
 from app.api.extensions import router as extensions_router
 from app.api.policies import router as policies_router
 from app.api.quotas import router as quotas_router
@@ -87,3 +87,4 @@ router.include_router(internal_identities_router)
 router.include_router(provisioning_internal_router)
 router.include_router(internal_directory_snapshots_router)
 router.include_router(identity_list_router)
+router.include_router(delegation_router)

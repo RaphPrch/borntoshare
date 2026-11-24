@@ -3,7 +3,7 @@
 Same language as the search field of the Folders page (frontend lib/components/storage-roots/folder-query.ts):
 free text plus « key:value » filters, « - » to exclude, quotes for a value with spaces.
   tag: gardien: zone: serveur: dfs: partage: chemin: alerte: taille> taille< doublons> (bytes wasted) medias> (% of the size)
-  est: alerte injoignable sain sans-gardien sans-tag heritage-rompu demandes a-revalider vide non-mesure
+  est: alerte injoignable sain sans-gardien sans-suppleant sans-tag heritage-rompu demandes a-revalider vide non-mesure
        non-teste dfs sensible non-analyse mot-de-passe cle-ou-jeton donnees-personnelles bancaire fichiers-a-risque
        correction quota sans-quota quota-plein quota-demande
        donnees-froides encombre doublons tous
@@ -105,6 +105,8 @@ STATES: dict[str, Callable[[dict], bool]] = {
     "injoignable": lambda row: "unreachable" in str(row.get("effective_availability") or "") or row.get("last_probe_status") == "failed",
     "sain": lambda row: int(row.get("open_alerts_count") or 0) == 0 and row.get("last_probe_status") == "success",
     "sans-gardien": lambda row: int(row.get("guardians_count") or 0) == 0,
+    # One guardian and nobody to take over when they are away (no second guardian, no backup in force)
+    "sans-suppleant": lambda row: int(row.get("guardians_count") or 0) > 0 and not row.get("backup_covered"),
     "sans-tag": lambda row: not tag_names(row),
     "heritage-rompu": lambda row: row.get("inheritance_broken") is True,
     "demandes": lambda row: int(row.get("pending_validation_count") or 0) > 0,

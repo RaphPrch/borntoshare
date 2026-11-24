@@ -140,7 +140,7 @@
     if (lateTasks.length) list.push({ key: 'late', tone: 'warn', title: t('{count} scheduled task(s) late', { count: lateTasks.length }),
       detail: lateTasks.map((item) => `${TASKS[item.task]?.() ?? item.task} · ${timeAgo(item.last_run_at)}`).join(', '), action: t('See'), href: '/admin/advanced-settings/infrastructure' });
     if ($governanceEnabled && num(stats.pending_requests)) list.push({ key: 'requests', tone: 'warn', title: t('{count} request(s) to decide', { count: num(stats.pending_requests) }),
-      detail: num(stats.stale_pending_requests_count) ? t('{count} waiting for more than 3 days', { count: num(stats.stale_pending_requests_count) }) : t('at the guardians'), action: t('Decide'), href: '/access-requests' });
+      detail: num(stats.stale_pending_requests_count) ? t('{count} waiting for more than {days} days', { count: num(stats.stale_pending_requests_count), days: num(stats.decision_days) || 3 }) : t('at the guardians'), action: t('Decide'), href: num(stats.stale_pending_requests_count) ? '/access-requests?status=pending&overdue=1' : '/access-requests' });
     if (num(stats.open_alerts_count)) list.push({ key: 'alerts', tone: num(stats.critical_alerts_count) ? 'bad' : 'warn', title: t('{count} open alert(s)', { count: num(stats.open_alerts_count) }),
       detail: t('{count} critical or high', { count: num(stats.critical_alerts_count) }), action: t('See'), href: '/observability?tab=alerts&severity=critical_high' });
     if (num(stats.failed_jobs_24h_count)) list.push({ key: 'jobs', tone: 'warn', title: t('{count} failed job(s) in 24 h', { count: num(stats.failed_jobs_24h_count) }),

@@ -23,9 +23,9 @@
   let items: Notice[] = $state([]);
   let filter = $state<'all' | 'unread'>('all');
 
-  const ICON: Record<string, string> = { review: 'bi-clipboard-check', request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon', task: 'bi-check2-all' };
+  const ICON: Record<string, string> = { review: 'bi-clipboard-check', request: 'bi-inbox', decision: 'bi-check2-circle', expiry: 'bi-hourglass-split', alert: 'bi-exclamation-octagon', task: 'bi-check2-all', substitute: 'bi-person-check' };
   const kindLabel = (kind: string) =>
-    ({ review: t('Access review'), request: t('Request to decide'), decision: t('Decision'), expiry: t('End of access'), alert: t('Platform'), task: t('Task') })[kind] ?? kind;
+    ({ review: t('Access review'), request: t('Request to decide'), decision: t('Decision'), expiry: t('End of access'), alert: t('Platform'), task: t('Task'), substitute: t('Backup guardian') })[kind] ?? kind;
 
   async function load() {
     loading = true;
@@ -104,7 +104,7 @@
   let unread = $derived($live.unread);
   let shown = $derived(filter === 'unread' ? items.filter((n) => !n.read_at) : items);
   // Grouped by kind (what to decide first), newest first inside each
-  const ORDER = ['request', 'review', 'alert', 'expiry', 'decision', 'task'];
+  const ORDER = ['request', 'review', 'alert', 'expiry', 'decision', 'substitute', 'task'];
   let groups = $derived(Object.entries(shown.reduce((all: Record<string, Notice[]>, notice) => {
     (all[notice.kind] ??= []).push(notice);
     return all;

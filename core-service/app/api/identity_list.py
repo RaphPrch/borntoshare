@@ -957,10 +957,11 @@ def list_substitutes(identity_id: int, db: Session = Depends(get_db)):
     })
 
 
-@router.post("/{identity_id}/substitutes", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_or_internal)])
-def create_substitute(identity_id: int, request: Request, payload: dict[str, Any] = Body(...), db: Session = Depends(get_db)):
-    """During an absence, another person validates the requests of all the folders of this guardian."""
+def _create_substitution(db: Session, request: Request, identity_id: int, payload: dict[str, Any]) -> int:
+    """During an absence, another person validates the requests of all the folders of this guardian (both are told)."""
     from datetime import date, datetime, timedelta
+
+    from app.services import notifications
 
     def refuse(code: str, message: str, http: int = 422):
         raise HTTPException(status_code=http, detail={"code": code, "message": message})
@@ -995,28 +996,95 @@ def create_substitute(identity_id: int, request: Request, payload: dict[str, Any
     result = identity_list_sql.create_substitute_5(db, {"id": int(identity_id), "sub": substitute_id, "starts": starts_at, "ends": ends_at,
          "reason": (str(payload.get("reason") or "").strip()[:300] or None), "by": actor_display})
     db.commit()
+    substitution_id = int(result.lastrowid)
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
         action="identity.substitute_set", outcome="success", target_type="identity", target_id=int(identity_id),
-        context_json={"substitute_identity_id": substitute_id, "starts_on": start.isoformat(), "ends_on": end.isoformat(), "reason": payload.get("reason")},
+        context_json={"substitute_identity_id": substitute_id, "starts_on": start.isoformat(), "ends_on": end.isoformat(), "reason": payload.get("reason"),
+                      "substitution_id": substitution_id, "self_service": actor_id == int(identity_id)},
         correlation_id=request.headers.get("x-request-id") or None,
     )
-    return ui_data({"id": int(result.lastrowid)})
+    notifications.substitution_set(db, substitution_id)
+    return substitution_id
 
 
-@router.delete("/substitutes/{substitute_id}", dependencies=[Depends(admin_or_internal)])
-def revoke_substitute(substitute_id: int, request: Request, db: Session = Depends(get_db)):
+def _revoke_substitution(db: Session, request: Request, substitution_id: int, *, guardian_id: int | None = None) -> None:
+    """Ends a period now (revoked); `guardian_id`: only one of this guardian (self service)."""
+    from app.services import notifications
+
     actor_id, actor_display = actor_ids(request)
-    row = identity_list_sql.revoke_substitute_1(db, {"id": int(substitute_id)}).first()
-    if row is None:
+    row = identity_list_sql.revoke_substitute_1(db, {"id": int(substitution_id)}).first()
+    if row is None or (guardian_id is not None and int(row[0]) != int(guardian_id)):
         raise HTTPException(status_code=404, detail="Substitution not found")
-    identity_list_sql.revoke_substitute_2(db, {"id": int(substitute_id), "by": actor_display})
+    identity_list_sql.revoke_substitute_2(db, {"id": int(substitution_id), "by": actor_display})
     db.commit()
     log_activity(
         db, actor_type="user" if actor_id is not None else "system", actor_id=actor_id, actor_display=actor_display,
         action="identity.substitute_revoked", outcome="success", target_type="identity", target_id=int(row[0]),
-        context_json={"substitution_id": int(substitute_id)}, correlation_id=request.headers.get("x-request-id") or None,
+        context_json={"substitution_id": int(substitution_id)}, correlation_id=request.headers.get("x-request-id") or None,
     )
+    notifications.substitution_ended(db, int(substitution_id), early=True)
+
+
+@router.post("/{identity_id}/substitutes", status_code=status.HTTP_201_CREATED, dependencies=[Depends(admin_or_internal)])
+def create_substitute(identity_id: int, request: Request, payload: dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """An administrator sets the backup guardian of a guardian."""
+    return ui_data({"id": _create_substitution(db, request, int(identity_id), payload)})
+
+
+@router.delete("/substitutes/{substitute_id}", dependencies=[Depends(admin_or_internal)])
+def revoke_substitute(substitute_id: int, request: Request, db: Session = Depends(get_db)):
+    _revoke_substitution(db, request, int(substitute_id))
+    return ui_data({"revoked": int(substitute_id)})
+
+
+# ---- A guardian sets their own backup (dashboard): only theirs, never another guardian's ----
+
+me_router = APIRouter(prefix="/me", tags=["delegation"])
+
+
+def _signed_in_guardian(request: Request, db: Session) -> int:
+    from app.services.authorization import actor_from_request
+
+    actor = actor_from_request(request)
+    if actor.identity_id is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in first")
+    return int(actor.identity_id)
+
+
+@me_router.get("/substitutes")
+def list_my_substitutes(request: Request, db: Session = Depends(get_db)):
+    """The backups of the signed-in person (set, to come, history of the year), and the guardians they back up."""
+    me = _signed_in_guardian(request, db)
+    return ui_data({
+        "for_them": _substitute_rows(db, "gs.identity_id = :id", {"id": me}),
+        "by_them": _substitute_rows(db, "gs.substitute_identity_id = :id", {"id": me}),
+        "is_guardian": bool(identity_list_sql.create_substitute_2(db, {"id": me}).first()),
+    })
+
+
+@me_router.get("/substitutes/candidates")
+def list_my_substitute_candidates(request: Request, q: str = Query(min_length=2, max_length=100), db: Session = Depends(get_db)):
+    """People a guardian can choose as backup (active, not a group); only for a guardian."""
+    me = _signed_in_guardian(request, db)
+    if not identity_list_sql.create_substitute_2(db, {"id": me}).first():
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"code": "SUBSTITUTE_NOT_A_GUARDIAN", "message": "Vous ne gardez aucun dossier."})
+    needle = "%" + q.strip().replace("\\", "").replace("%", "").replace("_", "\\_") + "%"
+    rows = identity_list_sql.substitute_candidates(db, {"q": needle, "me": me}).mappings().all()
+    return ui_list([{"id": int(r["id"]), "name": r["name"], "username": r["username"], "email": r["email"]} for r in rows])
+
+
+@me_router.post("/substitutes", status_code=status.HTTP_201_CREATED)
+def create_my_substitute(request: Request, payload: dict[str, Any] = Body(...), db: Session = Depends(get_db)):
+    """A guardian sets their own backup (the same rules as an administrator: period, overlap, active person)."""
+    me = _signed_in_guardian(request, db)
+    return ui_data({"id": _create_substitution(db, request, me, payload)})
+
+
+@me_router.delete("/substitutes/{substitute_id}")
+def revoke_my_substitute(substitute_id: int, request: Request, db: Session = Depends(get_db)):
+    me = _signed_in_guardian(request, db)
+    _revoke_substitution(db, request, int(substitute_id), guardian_id=me)
     return ui_data({"revoked": int(substitute_id)})
 
 

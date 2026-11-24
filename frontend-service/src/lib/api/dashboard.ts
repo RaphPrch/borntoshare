@@ -22,6 +22,8 @@ export type DashboardRequest = {
 
 export type UserDashboardMePayload = {
   role: 'user' | 'guardian';
+  /** Days a guardian has to decide (Settings › Governance) */
+  decision_days?: number;
   mine: { pending: number; active: number; ending_30d: number; failed: number; refused_30d: number };
   my_requests: DashboardRequest[];
   my_ending: DashboardRequest[];

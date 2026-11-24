@@ -343,7 +343,10 @@ class StorageRootsViewsRepo(SQLViewRepo):
         in_clause = ", ".join(f":{key}" for key in bind_keys)
         rows = self._all(
             f"""
-            SELECT r.root_id, i.id AS identity_id, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.username
+            SELECT r.root_id, i.id AS identity_id, COALESCE(NULLIF(i.display_name, ''), i.username) AS name, i.username,
+              -- A backup guardian in force stands in for them now
+              EXISTS (SELECT 1 FROM guardian_substitutes gs WHERE gs.identity_id = i.id AND gs.revoked_at IS NULL
+                      AND gs.starts_at <= UTC_TIMESTAMP() AND gs.ends_at > UTC_TIMESTAMP()) AS has_backup
             FROM storage_root_roles r JOIN identities i ON i.id = r.identity_id
             WHERE LOWER(r.role) = 'guardian' AND r.root_id IN ({in_clause})
             """,
@@ -358,7 +361,8 @@ class StorageRootsViewsRepo(SQLViewRepo):
                 if value and str(value) not in entry:
                     entry.append(str(value))
             guardians.setdefault(root_id, []).append(
-                {"identity_id": int(row.get("identity_id") or 0), "login": row.get("username"), "name": row.get("name")}
+                {"identity_id": int(row.get("identity_id") or 0), "login": row.get("username"), "name": row.get("name"),
+                 "has_backup": bool(row.get("has_backup"))}
             )
         return names, guardians
 
@@ -605,6 +609,8 @@ class StorageRootsViewsRepo(SQLViewRepo):
             payload["guardians_count"] = int(guardian_counts_by_root_id.get(storage_root_id, 0))
             payload["guardian_names"] = guardian_names_by_root_id.get(storage_root_id, [])
             payload["guardians"] = guardians_by_root_id.get(storage_root_id, [])
+            # Covered: someone can decide when a guardian is away (a second guardian, or a backup in force)
+            payload["backup_covered"] = payload["guardians_count"] >= 2 or any(g["has_backup"] for g in payload["guardians"])
             # Files flagged by the last sensitivity scan; None when the folder was never scanned
             payload["sensitive_files"] = sensitive_by_root_id.get(storage_root_id)
             # Files per group (passwords, keys, personal data, bank data, risky files); None when never scanned

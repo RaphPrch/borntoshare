@@ -7,6 +7,7 @@
  */
 import { apiGetData, apiGetList, apiPostData, type FetchLike } from '$lib/api/client';
 import { getStorageRootPermissions, type PermissionPerson } from '$lib/api/storage-root-permissions';
+import { accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/mappers/access-requests.mapper';
 import { formatBytes, formatDate } from '$lib/utils/format';
 
 export type PilotTone = 'ok' | 'warn' | 'bad' | 'mut' | 'info';
@@ -50,8 +51,12 @@ const EXAMPLES: Array<{ text: string; fives?: true }> = [
   { text: 'Quotas au-delà de 85 %' },
   { text: 'Dossiers jamais mesurés' },
   { text: 'Dossiers sans gardien' },
+  { text: 'Dossiers sans suppléant' },
   { text: 'Les 10 plus gros dossiers' },
   { text: 'Dossiers du serveur FILER01' },
+  { text: 'Demandes en retard' },
+  { text: 'Accès qui expirent cette semaine' },
+  { text: 'Revues d’accès à traiter' },
   { text: 'Doublons à libérer', fives: true },
   { text: 'Données froides depuis plus d’un an', fives: true },
   { text: 'Dossiers avec des droits à revoir', fives: true },
@@ -127,6 +132,10 @@ export async function askPilot(fetchFn: FetchLike, question: string, options: { 
   const fives = await askFives(fetchFn, question, q, roots, base);
   if (fives) return fives;
 
+  // ---- access governance: requests past their deadline, accesses ending soon, reviews to handle ----
+  const governance = await askGovernance(fetchFn, q, base);
+  if (governance) return governance;
+
   // ---- people of a folder ----
   const wantsPeople = /utilisateur|personne|membre|qui (a|accede)|acces|droit/.test(q) && !/groupe/.test(q);
   const wantsGroups = /groupe/.test(q) && /dossier/.test(q);
@@ -189,6 +198,17 @@ export async function askPilot(fetchFn: FetchLike, question: string, options: { 
     const list = roots.filter((row) => row.content_size_bytes == null && !['done', 'running'].includes(String(row.measure_status ?? '')));
     return folderAnswer('est:non-mesure', `${list.length} dossier(s) n’ont jamais été mesurés : ni volume détaillé, ni 5S, ni doublons.`, 'inventaire', list,
       [['Zone', (row) => ({ text: String(row.zone_name ?? '—') })], ['État', () => ({ text: 'Jamais mesuré', tone: 'warn' })]], 'jamais_mesures.csv');
+  }
+  // One guardian and nobody to take over: the most exposed first (sensitive files, requests waiting, volume)
+  if (/sans (suppleant|releve|remplacant)|pas de (suppleant|remplacant)|couverture/.test(q)) {
+    const risk = (row: Root) => (num(row.password_files) + num(row.key_files) + num(row.sensitive_files) > 0 ? 1000 : 0) + num(row.pending_validation_count) * 10 + (size(row) > 0 ? 1 : 0);
+    const list = roots.filter((row) => num(row.guardians_count) > 0 && row.backup_covered === false)
+      .sort((a, b) => risk(b) - risk(a) || size(b) - size(a));
+    return folderAnswer('est:sans-suppleant', `${list.length} dossier(s) gardés par une seule personne, sans suppléant : en son absence, personne ne décide. Les plus sensibles d’abord.`, 'Storage Roots', list,
+      [['Gardien', (row) => ({ text: (row.guardians ?? []).map((guardian: Record<string, any>) => guardian.name).join(', ') || '—' })],
+       ['Sensibles', (row) => { const count = num(row.password_files) + num(row.key_files) + num(row.sensitive_files); return { text: count ? String(count) : '—', tone: count ? 'bad' : undefined }; }],
+       ['Demandes', (row) => ({ text: String(num(row.pending_validation_count) || '—') })],
+       ['Volume', (row) => ({ text: size(row) ? formatBytes(size(row)) : '—' })]], 'sans_suppleant.csv');
   }
   if (/gardien/.test(q)) {
     const list = roots.filter((row) => num(row.guardians_count) === 0);
@@ -454,6 +474,61 @@ async function planTagAction(fetchFn: FetchLike, q: string, roots: Root[], base:
     file: null, links: todo.slice(0, 5).map(rootLink) };
 }
 const table200 = (rows: Root[]) => rows.slice(0, 200);
+
+type Request = Record<string, any>;
+const day = (value: unknown) => {
+  const time = new Date(String(value ?? '')).getTime();
+  return Number.isFinite(time) && time > 0 ? new Date(time).toLocaleDateString('fr-FR') : '—';
+};
+const requestRoot = (row: Request) => ({ label: accessRequestTargetLabel(row), href: `/access-requests?focus=${accessRequestId(row)}` });
+const requestCode = (row: Request) => String(row.request_code ?? row.code ?? `REQ-${accessRequestId(row)}`);
+const requestLevel = (row: Request) => (/write|contribution|modif/.test(String(row.access_profile_name ?? row.permission ?? '').toLowerCase()) ? 'write' : 'read');
+
+/** Requests past their decision deadline, accesses that end soon, access reviews still open (as the API lets the person see them). */
+async function askGovernance(fetchFn: FetchLike, q: string, base: { question: string; ok: boolean; links: PilotAnswer['links'] }): Promise<PilotAnswer | null> {
+  const lateAsked = /demandes?/.test(q) && /retard|en attente depuis|delai|echeance|pas (encore )?decid/.test(q);
+  const endingAsked = /acces/.test(q) && /expir|se termin|fin d|prennent fin|arrivent a echeance/.test(q);
+  const reviewsAsked = /revues?/.test(q);
+  if (!lateAsked && !endingAsked && !reviewsAsked) return null;
+  const unavailable = (what: string): PilotAnswer => ({ ...base, ok: false, intent: what, source: '', columns: [], rows: [], file: null, links: [],
+    text: `Les ${what} ne sont pas lisibles : la gouvernance des accès n’est pas active sur cette installation, ou vous n’y avez pas accès.` });
+  if (reviewsAsked) {
+    const reviews = await apiGetData<Array<Record<string, any>>>(fetchFn, '/access-reviews').catch(() => null);
+    if (!reviews) return unavailable('revues d’accès');
+    const open = reviews.filter((review) => review.status === 'open');
+    return { ...base, intent: 'revues → ouvertes', source: 'Access Management › Revues',
+      text: open.length ? `${open.length} revue(s) d’accès ouverte(s), ${open.reduce((sum, review) => sum + Math.max(0, review.total - review.decided), 0)} accès encore à décider.` : 'Aucune revue d’accès ouverte.',
+      columns: ['Revue', 'À décider', 'Décidés', 'Dossiers', 'Échéance'],
+      rows: open.map((review) => [{ text: String(review.name) }, { text: String(Math.max(0, review.total - review.decided)), tone: review.total > review.decided ? 'warn' : 'ok' },
+        { text: `${review.decided} / ${review.total}` }, { text: String(review.folders) }, { text: day(review.due_at), tone: review.due_at && Date.parse(review.due_at) < Date.now() ? 'bad' : undefined }]),
+      file: open.length ? 'revues_ouvertes.csv' : null,
+      links: open.slice(0, 6).map((review) => ({ label: String(review.name), href: `/access-reviews/${review.id}` })) };
+  }
+  const requests = await apiGetList<Request>(fetchFn, '/access-requests').catch(() => null);
+  if (!requests) return unavailable('demandes d’accès');
+  if (lateAsked) {
+    const late = requests.filter((row) => String(row.status ?? '').toLowerCase() === 'pending' && row.overdue === true)
+      .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+    return { ...base, intent: 'demandes → en retard', source: 'Access Management › Demandes',
+      text: late.length ? `${late.length} demande(s) attendent une décision au-delà du délai : relancez leurs gardiens ou décidez.` : 'Aucune demande en retard : toutes ont été décidées dans le délai.',
+      columns: ['Demande', 'Dossier', 'Pour', 'Faite le', 'Échéance'],
+      rows: late.slice(0, 200).map((row) => [{ text: requestCode(row), mono: true }, { text: accessRequestTargetLabel(row) },
+        { text: accessRequestRequesterName(row) }, { text: day(row.created_at) }, { text: day(row.due_at), tone: 'bad' }]),
+      file: late.length ? 'demandes_en_retard.csv' : null, links: late.slice(0, 6).map(requestRoot) };
+  }
+  const horizon = /mois|30 jours/.test(q) ? 30 : 7;
+  const now = Date.now();
+  const ending = requests.filter((row) => {
+    const end = Date.parse(String(row.expires_at ?? ''));
+    return ['approved', 'applied', 'active'].includes(String(row.status ?? '').toLowerCase()) && end > now && end - now <= horizon * 86_400_000;
+  }).sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)));
+  return { ...base, intent: `accès → fin sous ${horizon} jours`, source: 'Access Management › Demandes',
+    text: ending.length ? `${ending.length} accès se terminent dans les ${horizon} prochains jours. Le titulaire peut demander un renouvellement depuis sa demande.` : `Aucun accès ne se termine dans les ${horizon} prochains jours.`,
+    columns: ['Pour', 'Dossier', 'Niveau', 'Fin le'],
+    rows: ending.slice(0, 200).map((row) => [{ text: accessRequestRequesterName(row) }, { text: accessRequestTargetLabel(row) },
+      { text: levelLabel(requestLevel(row)) }, { text: day(row.expires_at), tone: 'warn' }]),
+    file: ending.length ? `acces_fin_${horizon}_jours.csv` : null, links: ending.slice(0, 6).map(requestRoot) };
+}
 
 /** Applies a planned action; each folder is answered for (the API refuses non-administrators). */
 export async function applyPilotAction(fetchFn: FetchLike, action: PilotAction): Promise<{ done: number; failed: string[] }> {

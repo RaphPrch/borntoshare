@@ -90,6 +90,30 @@ def get_guardian_storage_root_ids(db: Session, actor: ActorContext) -> list[int]
     return out
 
 
+def replaced_guardians(db: Session, actor: ActorContext, storage_root_id: int) -> list[str]:
+    """The guardians of the folder this person acts for as their backup (empty when they guard it themselves)."""
+    if actor.identity_id is None:
+        return []
+    params = {"me": int(actor.identity_id), "root": int(storage_root_id)}
+    if db.execute(text("SELECT 1 FROM storage_root_roles WHERE root_id = :root AND identity_id = :me AND LOWER(role) = 'guardian' LIMIT 1"), params).first():
+        return []
+    rows = db.execute(
+        text(
+            """
+            SELECT DISTINCT COALESCE(NULLIF(g.display_name, ''), g.username) AS name
+            FROM storage_root_roles srr
+            JOIN guardian_substitutes gs ON gs.identity_id = srr.identity_id AND gs.substitute_identity_id = :me
+              AND gs.revoked_at IS NULL AND gs.starts_at <= UTC_TIMESTAMP() AND gs.ends_at > UTC_TIMESTAMP()
+            JOIN identities g ON g.id = srr.identity_id
+            WHERE srr.root_id = :root AND LOWER(srr.role) = 'guardian'
+            ORDER BY name
+            """
+        ),
+        params,
+    ).all()
+    return [str(row[0]) for row in rows if row[0]]
+
+
 def is_storage_root_guardian(db: Session, actor: ActorContext, storage_root_id: int) -> bool:
     wanted = int(storage_root_id or 0)
     if wanted <= 0:

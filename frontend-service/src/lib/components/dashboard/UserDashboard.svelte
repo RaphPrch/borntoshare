@@ -1,5 +1,6 @@
 <script lang="ts">
   import { governanceEnabled } from '$lib/utils/features';
+  import IdentitySubstitutes from '$lib/components/identity/IdentitySubstitutes.svelte';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { t } from '$lib/i18n';
   import { formatDate, formatLongDay } from '$lib/utils/format';
@@ -62,7 +63,7 @@
       <div class="v2-sh"><h2>{t('Folders you guard')}</h2></div>
       <div class="v2-stats">
         <a class="v2-stat" href="/access-requests?status=pending"><i class="bi bi-inbox is-warn" aria-hidden="true"></i><small>{t('Requests to decide')}</small><b class:ud__warn={guardian.to_decide > 0}>{guardian.to_decide}</b>
-          <span>{guardian.overdue ? t('{count} waiting for more than 3 days', { count: guardian.overdue }) : t('none overdue')}</span></a>
+          <span>{guardian.overdue ? t('{count} waiting for more than {days} days', { count: guardian.overdue, days: data.decision_days ?? 3 }) : t('none overdue')}</span></a>
         <a class="v2-stat" href="/access-requests?status=all"><i class="bi bi-exclamation-octagon is-bad" aria-hidden="true"></i><small>{t('In error')}</small><b class:ud__bad={guardian.failed > 0}>{guardian.failed}</b><span>{t('Requests the file server or the directory refused')}</span></a>
         <a class="v2-stat" href="/storage-roots?filter=review"><i class="bi bi-folder-check is-warn" aria-hidden="true"></i><small>{t('Folders to look at')}</small><b class:ud__warn={guardian.folders_with_alerts > 0}>{guardian.folders_with_alerts}</b>
           <span>{t('{count} folder(s) guarded', { count: guardian.folders })}</span></a>
@@ -72,6 +73,9 @@
           <span>{t('accepted · {refused} refused · {revoked} revoked', { refused: guardian.refused_30d ?? 0, revoked: guardian.revoked_30d ?? 0 })}</span></a>
       </div>
     {/if}
+
+    <!-- A guardian sets their own backup for an absence; a person who stands in for someone sees it here too -->
+    <div class="ud__backup"><IdentitySubstitutes self /></div>
 
     <div class="v2-sh"><h2>{t('My requests')}</h2></div>
     <div class="v2-stats">
@@ -141,4 +145,5 @@
   .ud h2 { margin: 0; font-size: 17px; font-weight: 600; }
   .ud__warn { color: var(--b2s-color-warning-strong); }
   .ud__bad { color: var(--b2s-color-danger-strong); }
+  .ud__backup:not(:empty) { margin: 18px 0 4px; }
 </style>

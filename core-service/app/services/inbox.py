@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
 
-KINDS = {"request", "decision", "expiry", "alert", "task"}
+KINDS = {"request", "decision", "expiry", "alert", "task", "review", "substitute"}
 SEVERITIES = {"info", "success", "warning", "danger"}
 
 

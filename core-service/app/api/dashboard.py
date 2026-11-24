@@ -16,6 +16,7 @@ from app.core.db import get_db
 from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo
 from app.data.repositories.dashboard_views_repo import DashboardViewsRepo
 from app.api._helpers import ui_data
+from app.services import request_deadlines
 from app.services.authorization import (
     actor_from_request,
     filter_access_request_rows,
@@ -65,9 +66,10 @@ def get_user_dashboard_me(
     """Dashboard of a user who is not an administrator; a guardian also gets the requests on their folders."""
     actor = actor_from_request(request)
     guardian_root_ids = set(get_guardian_storage_root_ids(db, actor)) if actor.identity_id is not None else set()
+    decision_days = request_deadlines.decision_days(db)
     rows = (
         filter_access_request_rows(
-            db, actor, AccessRequestsViewsRepo(db).list(status=None, my_action=False, overdue_only=False, high_impact=False, q=None)
+            db, actor, AccessRequestsViewsRepo(db).list(status=None, my_action=False, overdue_only=False, high_impact=False, q=None, decision_days=decision_days)
         )
         if actor.identity_id is not None
         else []
@@ -83,6 +85,7 @@ def get_user_dashboard_me(
 
     payload: dict = {
         "role": "guardian" if guardian_root_ids else "user",
+        "decision_days": decision_days,
         "mine": {
             "pending": sum(1 for row in mine if _status(row) == "pending"),
             "active": sum(1 for row in mine if _status(row) == "approved"),
@@ -123,7 +126,9 @@ def get_platform_overview(request: Request, db: Session = Depends(get_db)):
     """
 
     require_admin(actor_from_request(request))
-    payload = DashboardViewsRepo(db).get_platform_overview()
+    decision_days = request_deadlines.decision_days(db)
+    payload = DashboardViewsRepo(db).get_platform_overview(decision_days=decision_days)
+    payload["decision_days"] = decision_days
 
     return ui_data(payload)
 

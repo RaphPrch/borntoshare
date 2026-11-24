@@ -3,7 +3,7 @@ import { t } from '$lib/i18n';
 /**
  * Express search of the folders list: free text plus filters written « key:value ».
  *   tag:Finance  gardien:alice  zone:CORP  serveur:FILER01  dfs:brest  partage:RH  chemin:rh (a whole word of the path)
- *   est:alerte | injoignable | sain | sans-gardien | sans-tag | heritage-rompu | demandes | a-revalider | vide | non-mesure
+ *   est:alerte | injoignable | sain | sans-gardien | sans-suppleant | sans-tag | heritage-rompu | demandes | a-revalider | vide | non-mesure
  *   alerte:acl  taille>1Go  taille<10Mo
  * A leading « - » excludes (-tag:Archive); a value with spaces goes in quotes (tag:"Données RH").
  */
@@ -81,6 +81,8 @@ const STATES: Record<string, (row: Row) => boolean> = {
   injoignable: (row) => String(row?.effective_availability ?? '').includes('unreachable') || row?.last_probe_status === 'failed',
   sain: (row) => Number(row?.open_alerts_count ?? 0) === 0 && row?.last_probe_status === 'success',
   'sans-gardien': (row) => Number(row?.guardians_count ?? 0) === 0,
+  // One guardian and nobody to take over when they are away (no second guardian, no backup in force)
+  'sans-suppleant': (row) => Number(row?.guardians_count ?? 0) > 0 && row?.backup_covered === false,
   'sans-tag': (row) => tagNames(row).length === 0,
   'heritage-rompu': (row) => row?.inheritance_broken === true,
   demandes: (row) => Number(row?.pending_validation_count ?? 0) > 0,
@@ -172,6 +174,7 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['injoignable', t('unreachable')],
   ['sain', t('healthy')],
   ['sans-gardien', t('without guardian')],
+  ['sans-suppleant', t('without backup')],
   ['sans-tag', t('without tag')],
   ['heritage-rompu', t('inheritance broken')],
   ['demandes', t('with pending requests')],
@@ -274,6 +277,7 @@ export const folderQueryExamples = (): Suggestion[] => [
   { insert: 'est:quota-plein', label: t('Quota almost full'), hint: 'est:quota-plein', icon: 'bi-speedometer2' },
   { insert: 'est:donnees-froides', label: t('Mostly cold data'), hint: 'est:donnees-froides', icon: 'bi-snow' },
   { insert: 'est:sans-gardien', label: t('Without guardian'), hint: 'est:sans-gardien', icon: 'bi-person-x' },
+  { insert: 'est:sans-suppleant', label: t('Without backup'), hint: 'est:sans-suppleant', icon: 'bi-person-dash' },
   { insert: 'est:alerte', label: t('With open alerts'), hint: 'est:alerte', icon: 'bi-exclamation-triangle' },
   { insert: 'est:sans-tag', label: t('Without tag'), hint: 'est:sans-tag', icon: 'bi-tag' },
   { insert: 'est:heritage-rompu', label: t('Inheritance broken'), hint: 'est:heritage-rompu', icon: 'bi-scissors' },

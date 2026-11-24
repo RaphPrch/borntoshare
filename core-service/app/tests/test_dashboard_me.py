@@ -26,6 +26,7 @@ def _run(monkeypatch, guarded):
     monkeypatch.setattr(api, "get_guardian_storage_root_ids", lambda _db, _actor: guarded)
     monkeypatch.setattr(api, "filter_access_request_rows", lambda _db, _actor, rows: rows)
     monkeypatch.setattr(api, "AccessRequestsViewsRepo", lambda _db: SimpleNamespace(list=lambda **_k: _rows(now)))
+    monkeypatch.setattr(api.request_deadlines, "decision_days", lambda _db: 3)
     return api.get_user_dashboard_me(SimpleNamespace(), _Db())["data"]
 
 

@@ -1,18 +1,18 @@
-"""A pending request waiting longer than PENDING_OVERDUE_DAYS is overdue: in the list (flag and filter) and on the dashboard."""
+"""A pending request waiting longer than its decision deadline is overdue: in the list (flag and filter) and on the dashboard."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
 from app.data.repositories import access_requests_views_repo as repo
-from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo, PENDING_OVERDUE_DAYS, is_overdue
+from app.data.repositories.access_requests_views_repo import AccessRequestsViewsRepo, DEFAULT_DECISION_DAYS, due_at, is_overdue
 
 NOW = datetime(2026, 11, 24, 12, 0, 0)
 
 
 def test_only_a_pending_request_older_than_the_delay_is_overdue() -> None:
-    old = NOW - timedelta(days=PENDING_OVERDUE_DAYS, hours=1)
-    young = NOW - timedelta(days=PENDING_OVERDUE_DAYS - 1)
+    old = NOW - timedelta(days=DEFAULT_DECISION_DAYS, hours=1)
+    young = NOW - timedelta(days=DEFAULT_DECISION_DAYS - 1)
     assert is_overdue({"status": "pending", "created_at": old}, NOW) is True
     assert is_overdue({"status": "PENDING", "created_at": old.isoformat() + "Z"}, NOW) is True
     assert is_overdue({"status": "pending", "created_at": young}, NOW) is False
@@ -44,7 +44,7 @@ class _Db:
 
 def test_the_overdue_filter_keeps_the_overdue_requests(monkeypatch) -> None:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    rows = [{"request_id": 1, "status": "pending", "created_at": now - timedelta(days=PENDING_OVERDUE_DAYS + 2), "storage_root_name": "Finance"},
+    rows = [{"request_id": 1, "status": "pending", "created_at": now - timedelta(days=DEFAULT_DECISION_DAYS + 2), "storage_root_name": "Finance"},
             {"request_id": 2, "status": "pending", "created_at": now, "storage_root_name": "RH"}]
     # The enrichment after the query reads other tables: not under test here
     monkeypatch.setattr(AccessRequestsViewsRepo, "_fetch_requests_snapshot", lambda self, ids: {})
@@ -58,4 +58,13 @@ def test_the_overdue_filter_keeps_the_overdue_requests(monkeypatch) -> None:
     assert view.db.params["status"] == "pending"
     view.db = _Db(rows)
     assert [row["overdue"] for row in view.list()] == [True, False]
-    assert repo.PENDING_OVERDUE_DAYS == 3
+    assert repo.DEFAULT_DECISION_DAYS == 3
+
+
+def test_the_decision_deadline_follows_the_setting() -> None:
+    made = NOW - timedelta(days=4)
+    row = {"status": "pending", "created_at": made}
+    assert is_overdue(row, NOW, 3) is True
+    assert is_overdue(row, NOW, 7) is False
+    assert due_at(row, 7) == made + timedelta(days=7)
+    assert due_at({"status": "approved", "created_at": made}, 7) is None

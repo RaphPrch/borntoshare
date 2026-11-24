@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.data.repositories.access_requests_views_repo import PENDING_OVERDUE_DAYS
+from app.data.repositories.access_requests_views_repo import DEFAULT_DECISION_DAYS
 from app.data.repositories.sql_view_repo import SQLViewRepo
 
 
@@ -12,7 +12,7 @@ class DashboardViewsRepo(SQLViewRepo):
     def __init__(self, db: Session):
         super().__init__(db)
 
-    def get_platform_overview(self) -> dict:
+    def get_platform_overview(self, decision_days: int = DEFAULT_DECISION_DAYS) -> dict:
         payload = self._one_dict("SELECT * FROM v_dashboard_overview") or {}
         admins_row = self._one_dict(
             """
@@ -38,7 +38,7 @@ class DashboardViewsRepo(SQLViewRepo):
               (SELECT COUNT(*) FROM access_requests
                 WHERE status = 'pending' AND created_at < UTC_TIMESTAMP() - INTERVAL :overdue_days DAY) AS stale_pending_requests_count
             """,
-            {"overdue_days": PENDING_OVERDUE_DAYS},
+            {"overdue_days": int(decision_days)},
         ) or {}
         for key, value in attention.items():
             payload[key] = int(value or 0)

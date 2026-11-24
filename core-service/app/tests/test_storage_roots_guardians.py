@@ -14,14 +14,15 @@ def _repo(rows: list[dict]) -> StorageRootsViewsRepo:
 def test_each_guardian_comes_with_its_login_and_name() -> None:
     repo = _repo([
         {"root_id": 1, "identity_id": 7, "name": "Alice Martin", "username": "amartin"},
-        {"root_id": 1, "identity_id": 9, "name": "bdupont", "username": "bdupont"},
+        {"root_id": 1, "identity_id": 9, "name": "bdupont", "username": "bdupont", "has_backup": 1},
         {"root_id": 2, "identity_id": 7, "name": "Alice Martin", "username": "amartin"},
     ])
     names, guardians = repo._load_guardian_names([1, 2])
     assert names[1] == ["Alice Martin", "amartin", "bdupont"]
-    assert guardians[1] == [{"identity_id": 7, "login": "amartin", "name": "Alice Martin"},
-                            {"identity_id": 9, "login": "bdupont", "name": "bdupont"}]
-    assert guardians[2] == [{"identity_id": 7, "login": "amartin", "name": "Alice Martin"}]
+    # has_backup: a backup guardian stands in for them now (coverage of the folder)
+    assert guardians[1] == [{"identity_id": 7, "login": "amartin", "name": "Alice Martin", "has_backup": False},
+                            {"identity_id": 9, "login": "bdupont", "name": "bdupont", "has_backup": True}]
+    assert guardians[2] == [{"identity_id": 7, "login": "amartin", "name": "Alice Martin", "has_backup": False}]
 
 
 def test_no_folder_no_query() -> None:

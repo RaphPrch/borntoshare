@@ -26,6 +26,7 @@ def test_mine_keeps_only_the_requests_of_the_caller(monkeypatch) -> None:
             return list(rows)
 
     monkeypatch.setattr(router, "AccessRequestsViewsRepo", _FakeViewsRepo)
+    monkeypatch.setattr(router.request_deadlines, "decision_days", lambda _db: 3)
     monkeypatch.setattr(router, "actor_from_request", lambda _request: SimpleNamespace(identity_id=7))
     monkeypatch.setattr(router, "filter_access_request_rows", lambda _db, _actor, items: items)
 

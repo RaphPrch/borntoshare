@@ -203,9 +203,13 @@ export function renderActivity(ev: any): ActivityRender {
   const vars = varsFromEvent(ev);
 
   const title = tpl ? t(tpl.titleKey, vars) : humanizeAction(action);
-  const description = tpl
+  const base = tpl
     ? t(tpl.descriptionKey, vars)
     : (vars.target ? t('Activity recorded on {target}', { target: vars.target }) : t('Activity recorded'));
+  // A decision taken by a backup guardian says for whom
+  const meta = ev?.context_json ?? ev?.metadata_json ?? ev?.context ?? {};
+  const onBehalfOf = typeof meta?.on_behalf_of === 'string' && meta.on_behalf_of.trim() ? meta.on_behalf_of.trim() : null;
+  const description = onBehalfOf ? `${base} · ${t('as backup of {name}', { name: onBehalfOf })}` : base;
 
   const badgeKind = badgeFromEvent(ev, tpl);
   const badgeLabel = resolveBadgeLabel(badgeKind);

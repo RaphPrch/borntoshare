@@ -20,9 +20,11 @@ from app.data.repositories.storage_roots_views_repo import StorageRootsViewsRepo
 from app.core.internal_auth import require_internal
 from app.services import features
 from app.services.activity_log import log_activity
+from app.services import request_deadlines
 from app.services.authorization import (
     actor_ids,
     actor_from_request,
+    replaced_guardians,
     can_review_request,
     filter_access_request_rows,
     is_own_request,
@@ -881,6 +883,7 @@ def list_access_requests(
         overdue_only=bool(overdue),
         high_impact=bool(high_impact),
         q=q,
+        decision_days=request_deadlines.decision_days(db),
     )
     actor = actor_from_request(request)
     rows = filter_access_request_rows(db, actor, rows)
@@ -926,6 +929,7 @@ def access_requests_counts_by_status(
         overdue_only=bool(overdue),
         high_impact=bool(high_impact),
         q=q,
+        decision_days=request_deadlines.decision_days(db),
     )
     rows = filter_access_request_rows(db, actor_from_request(request), rows)
     payload: dict[str, int] = {
@@ -1703,6 +1707,9 @@ def bulk_decision(
                 db=db,
                 access_request_id=int(req_id),
             )
+            labels = _request_event_labels(db, int(req_id))
+            # Decided by a backup guardian: the guardians they act for are kept with the decision
+            replaced = replaced_guardians(db, actor, int(labels["storage_root_id"])) if labels.get("storage_root_id") else []
             log_activity(
                 db,
                 actor_type="user" if actor_id is not None else "system",
@@ -1716,7 +1723,8 @@ def bulk_decision(
                 context_json={
                     "decision": decision,
                     "comment": (str(payload.decision_comment or "").strip() or None),
-                    **_request_event_labels(db, int(req_id)),
+                    **labels,
+                    **({"on_behalf_of": ", ".join(replaced)} if replaced else {}),
                     # An administrator deciding on their own request is allowed, and visible afterwards
                     "own_request": is_own_request(db, actor, int(req_id)),
                     "executions_started": int(executions_started),

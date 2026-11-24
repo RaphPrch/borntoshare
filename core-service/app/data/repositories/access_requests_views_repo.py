@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, List, Optional
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from sqlalchemy import text, bindparam
 from sqlalchemy.exc import SQLAlchemyError
@@ -11,25 +11,36 @@ from app.core.sql import to_dicts
 from app.services.activity_bridge import list_activity_by_target
 from app.services.naming_policy import resolve_storage_root_group_name
 
-# A request waiting for its decision longer than this is overdue (the list filter and the dashboard count alike)
-PENDING_OVERDUE_DAYS = 3
+# Days a guardian has to decide a request (Settings › Governance › requests « decisionDays » overrides it)
+DEFAULT_DECISION_DAYS = 3
 
 
-def is_overdue(row: dict[str, Any], now: datetime | None = None) -> bool:
-    """Pending for more than PENDING_OVERDUE_DAYS days (created_at is stored in UTC, without time zone)."""
-    if str(row.get("status") or "").strip().lower() != "pending":
-        return False
+def _created_utc(row: dict[str, Any]) -> datetime | None:
+    """created_at of a row as a naive UTC datetime (it is stored in UTC, without time zone)."""
     created = row.get("created_at")
     if isinstance(created, str):
         try:
             created = datetime.fromisoformat(created.replace("Z", "+00:00"))
         except ValueError:
-            return False
+            return None
     if not isinstance(created, datetime):
-        return False
-    created = created.replace(tzinfo=None) if created.tzinfo is None else created.astimezone(timezone.utc).replace(tzinfo=None)
+        return None
+    return created.replace(tzinfo=None) if created.tzinfo is None else created.astimezone(timezone.utc).replace(tzinfo=None)
+
+
+def due_at(row: dict[str, Any], days: int = DEFAULT_DECISION_DAYS) -> datetime | None:
+    """When the decision of a pending request is due (None for a request already decided)."""
+    if str(row.get("status") or "").strip().lower() != "pending":
+        return None
+    created = _created_utc(row)
+    return created + timedelta(days=int(days)) if created else None
+
+
+def is_overdue(row: dict[str, Any], now: datetime | None = None, days: int = DEFAULT_DECISION_DAYS) -> bool:
+    """Pending past its due date."""
+    due = due_at(row, days)
     current = (now or datetime.now(timezone.utc)).replace(tzinfo=None)
-    return (current - created).total_seconds() > PENDING_OVERDUE_DAYS * 86400
+    return due is not None and current > due
 
 
 class AccessRequestsReadModelContractError(RuntimeError):
@@ -241,6 +252,7 @@ class AccessRequestsViewsRepo:
         overdue_only: bool = False,
         high_impact: bool = False,
         q: str | None = None,
+        decision_days: int = DEFAULT_DECISION_DAYS,
     ) -> List[dict]:
         """
         List access requests with V1++ fields.
@@ -272,13 +284,15 @@ class AccessRequestsViewsRepo:
         now = datetime.now(timezone.utc)
         for m in mappings:
             snap_cnt = m.get("impact_snapshot_users_count") or 0
-            overdue = is_overdue(dict(m), now)
+            overdue = is_overdue(dict(m), now, decision_days)
             if overdue_only and not overdue:
                 continue
             if high_impact and snap_cnt < 10:
                 continue
             row = dict(m)
             row["overdue"] = overdue
+            due = due_at(row, decision_days)
+            row["due_at"] = due.isoformat() + "Z" if due else None
             row["risk"] = self._risk(snap_cnt)
             rows.append(row)
 

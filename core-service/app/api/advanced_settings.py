@@ -42,6 +42,9 @@ DEFAULT_ADVANCED_SETTINGS: dict = {
         "allowPermanent": True,
         "maxDays": 365,
         "minReasonLength": 10,
+        # Days a guardian has to decide (then reminded daily), and after how many days the administrators are told (0: never)
+        "decisionDays": 3,
+        "escalationDays": 7,
     },
     # Accounts that open a folder to everyone, besides Everyone, Users and Domain users (exposure map, alerts)
     "exposure": {
@@ -157,6 +160,11 @@ def _validate_new_sections(db: Session, merged: dict, payload: dict) -> None:
         raise _invalid("REQUEST_POLICY_INVALID", "La durée maximale va de 1 à 3650 jours et couvre les durées proposées.")
     if not _is_int(requests.get("minReasonLength"), 1, 500):
         raise _invalid("REQUEST_POLICY_INVALID", "La longueur minimale du motif va de 1 à 500 caractères.")
+    if not _is_int(requests.get("decisionDays", 3), 1, 60):
+        raise _invalid("REQUEST_POLICY_INVALID", "Le délai de décision va de 1 à 60 jours.")
+    escalation = requests.get("escalationDays", 7)
+    if not _is_int(escalation, 0, 365) or (escalation and escalation < requests.get("decisionDays", 3)):
+        raise _invalid("REQUEST_POLICY_INVALID", "L'escalade aux administrateurs vient après le délai de décision (0 : jamais).")
     merged["requests"] = {**requests, "durations": durations[:6], "allowPermanent": bool(requests.get("allowPermanent"))}
 
     exposure = merged.get("exposure") or {}

@@ -1192,11 +1192,14 @@ def substitute_rows_1(db: Session, params: Any, *, where: Any) -> Any:
                     SELECT gs.id, gs.identity_id, gs.substitute_identity_id, gs.starts_at, gs.ends_at, gs.reason, gs.created_by,
                       COALESCE(NULLIF(g.display_name, ''), g.username) AS guardian_name,
                       COALESCE(NULLIF(s.display_name, ''), s.username) AS substitute_name, s.email AS substitute_email,
-                      CASE WHEN gs.starts_at > UTC_TIMESTAMP() THEN 'upcoming' WHEN gs.ends_at > UTC_TIMESTAMP() THEN 'active' ELSE 'past' END AS state
+                      gs.revoked_at, gs.revoked_by,
+                      CASE WHEN gs.revoked_at IS NOT NULL THEN 'revoked' WHEN gs.starts_at > UTC_TIMESTAMP() THEN 'upcoming'
+                        WHEN gs.ends_at > UTC_TIMESTAMP() THEN 'active' ELSE 'past' END AS state
                     FROM guardian_substitutes gs
                     JOIN identities g ON g.id = gs.identity_id JOIN identities s ON s.id = gs.substitute_identity_id
-                    WHERE gs.revoked_at IS NULL AND gs.ends_at > UTC_TIMESTAMP() - INTERVAL 30 DAY AND {where}
-                    ORDER BY gs.starts_at
+                    -- The history of the last year: ended, ended early (revoked), in force and to come
+                    WHERE gs.ends_at > UTC_TIMESTAMP() - INTERVAL 365 DAY AND {where}
+                    ORDER BY gs.starts_at DESC
                     """
                 ),
         params,
@@ -1207,5 +1210,53 @@ def guarded_folders_count(db: Session, params: Any) -> Any:
     """SELECT COUNT(*) FROM storage_root_roles WHERE identity_id = :id AND guardian"""
     return db.execute(
         text("SELECT COUNT(*) FROM storage_root_roles WHERE identity_id = :id AND LOWER(role) = 'guardian'"),
+        params,
+    )
+
+
+def substitution_row(db: Session, params: Any) -> Any:
+    """One backup guardian period with both people (names and e-mails), for its notices"""
+    return db.execute(
+        text(
+            """
+            SELECT gs.id, gs.identity_id, gs.substitute_identity_id, gs.starts_at, gs.ends_at, gs.reason, gs.revoked_at, gs.revoked_by,
+              COALESCE(NULLIF(g.display_name, ''), g.username) AS guardian_name, g.email AS guardian_email,
+              COALESCE(NULLIF(s.display_name, ''), s.username) AS substitute_name, s.email AS substitute_email,
+              (SELECT COUNT(DISTINCT r.root_id) FROM storage_root_roles r WHERE r.identity_id = gs.identity_id AND LOWER(r.role) = 'guardian') AS folders
+            FROM guardian_substitutes gs
+            JOIN identities g ON g.id = gs.identity_id JOIN identities s ON s.id = gs.substitute_identity_id
+            WHERE gs.id = :id
+            """
+        ),
+        params,
+    )
+
+
+def substitutions_ended_since(db: Session, params: Any) -> Any:
+    """Backup guardian periods that reached their last day since :since (not ended early)"""
+    return db.execute(
+        text(
+            """
+            SELECT id FROM guardian_substitutes
+            WHERE revoked_at IS NULL AND ends_at <= UTC_TIMESTAMP() AND ends_at > :since
+            """
+        ),
+        params,
+    )
+
+
+def substitute_candidates(db: Session, params: Any) -> Any:
+    """Active people (no group) whose name, login or e-mail matches :q, the guardian himself excepted"""
+    return db.execute(
+        text(
+            """
+            SELECT id, COALESCE(NULLIF(display_name, ''), username) AS name, username, email
+            FROM identities
+            WHERE is_active = 1 AND COALESCE(type, 'user') <> 'group' AND id <> :me
+              AND (display_name LIKE :q OR username LIKE :q OR email LIKE :q)
+            ORDER BY name
+            LIMIT 20
+            """
+        ),
         params,
     )

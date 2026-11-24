@@ -3,7 +3,7 @@ import { applySuggestion, folderSuggestions, matchesFolderQuery, parseFolderQuer
 
 const rows = [
   { storage_root_id: 1, storage_root_name: 'Finance', root_path: '\\\\172.22.98.56\\PiloteB2S\\Finance', zone_name: 'CORP', storage_endpoint_name: 'FILER01',
-    tags: [{ label: 'Données RH' }], guardian_names: ['Alice Martin', 'alice.martin'], guardians_count: 1, open_alerts_count: 0,
+    tags: [{ label: 'Données RH' }], guardian_names: ['Alice Martin', 'alice.martin'], guardians_count: 1, backup_covered: false, open_alerts_count: 0,
     last_probe_status: 'success', content_size_bytes: 2 * 1024 ** 3, sensitive_files: 2, dfs_path: '\\\\corp.local\\brest\\Corporate\\Finance' },
   { storage_root_id: 2, storage_root_name: 'Archives', root_path: '\\\\172.22.98.56\\Archives', zone_name: 'MAISON', storage_endpoint_name: 'FILER01',
     tags: [], guardian_names: [], guardians_count: 0, open_alerts_count: 3, open_alert_types: 'missing_guardian,acl_profile_missing',
@@ -25,6 +25,8 @@ const ids = (query: string) => rows.filter((row) => matchesFolderQuery(row, pars
     assert.deepEqual(ids('g:martin zone:corp'), [1]);
     assert.deepEqual(ids('dfs:brest'), [1]);
     assert.deepEqual(ids('est:sans-gardien'), [2]);
+    // One guardian, nobody to take over; a folder without guardian is « sans-gardien », not this
+    assert.deepEqual(ids('est:sans-suppleant'), [1]);
     assert.deepEqual(ids('est:heritage-rompu'), [2]);
     assert.deepEqual(ids('est:injoignable'), [2]);
     assert.deepEqual(ids('-est:alerte'), [1]);

@@ -10,7 +10,7 @@
   
   interface Props {
     /** Advanced settings › Governance: the durations offered to a new request, the longest access, the reason. */
-    requests?: { durations?: number[]; allowPermanent?: boolean; maxDays?: number; minReasonLength?: number };
+    requests?: { durations?: number[]; allowPermanent?: boolean; maxDays?: number; minReasonLength?: number; decisionDays?: number; escalationDays?: number };
   }
 
   let { requests = {} }: Props = $props();
@@ -24,9 +24,14 @@
   let maxDays = $state(requests.maxDays ?? 365);
   // svelte-ignore state_referenced_locally (an initial value, read once as before)
   let minReasonLength = $state(requests.minReasonLength ?? 10);
+  // Decision deadline: the guardians are reminded daily past it; the administrators are told after the escalation (0: never)
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let decisionDays = $state(requests.decisionDays ?? 3);
+  // svelte-ignore state_referenced_locally (an initial value, read once as before)
+  let escalationDays = $state(requests.escalationDays ?? 7);
   let newDuration = $state('');
   let saving = $state(false);
-  const snap = () => JSON.stringify([durations, allowPermanent, Number(maxDays), Number(minReasonLength)]);
+  const snap = () => JSON.stringify([durations, allowPermanent, Number(maxDays), Number(minReasonLength), Number(decisionDays), Number(escalationDays)]);
   let savedSnap = snap();
   guardUnsaved(() => snap() !== savedSnap);
 
@@ -39,12 +44,17 @@
     ? t('Offer at least one duration.')
     : durations.some((days) => days > maxDays)
       ? t('A duration offered goes beyond the longest access.')
-      : null);
+      : !(Number(decisionDays) >= 1 && Number(decisionDays) <= 60)
+        ? t('The decision deadline goes from 1 to 60 days.')
+        : Number(escalationDays) !== 0 && Number(escalationDays) < Number(decisionDays)
+          ? t('The escalation comes after the decision deadline (0: never).')
+          : null);
 
   async function save() {
     saving = true;
     try {
-      await saveAdvancedSections(fetch, { requests: { durations, allowPermanent, maxDays: Number(maxDays), minReasonLength: Number(minReasonLength) } });
+      await saveAdvancedSections(fetch, { requests: { durations, allowPermanent, maxDays: Number(maxDays), minReasonLength: Number(minReasonLength),
+        decisionDays: Number(decisionDays), escalationDays: Number(escalationDays) } });
       savedSnap = snap();
       toast.success(t('Request policy saved.'));
     } catch (e) {
@@ -72,6 +82,14 @@
     </SettingRow>
     <SettingRow label={t('Shortest reason (characters)')}>
       <input class="b2s-input" type="number" min="1" max="500" bind:value={minReasonLength} />
+    </SettingRow>
+    <SettingRow label={t('Decision deadline (days)')}>
+      <input class="b2s-input" type="number" min="1" max="60" bind:value={decisionDays} />
+      <small class="adv-hint">{t('Past it, the request is overdue and its guardians are reminded once a day.')}</small>
+    </SettingRow>
+    <SettingRow label={t('Tell the administrators after (days)')}>
+      <input class="b2s-input" type="number" min="0" max="365" bind:value={escalationDays} />
+      <small class="adv-hint">{t('A request still without decision is told to the administrators once a day; 0: never.')}</small>
     </SettingRow>
   </div>
   {#if error}<small class="rp__error">{error}</small>{/if}

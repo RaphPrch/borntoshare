@@ -56,6 +56,8 @@
   let showBrowser = $state(false);
   let duration = $state('30');
   let customDate = $state('');
+  // ?renew=<code> (« Renew » on an access ending or expired): the same folder and level, a guardian decides again
+  const renewOf = String($page.url.searchParams.get('renew') ?? '').trim().slice(0, 40) || null;
   let justification = $state('');
   let submitting = $state(false);
   // A request being written (a reason typed, or folders chosen and the next step reached) asks before it is left
@@ -238,7 +240,8 @@
             storage_root_id: row.root.id,
             permissions: [row.level],
             expires_at: endDate ? endDate.toISOString() : null,
-            justification: justification.trim(),
+            // A renewal says which request it continues (the reason itself is still written by the person)
+            justification: renewOf ? `${t('Renewal of {code}: ', { code: renewOf })}${justification.trim()}` : justification.trim(),
             ...(principal ? { requested_principal: principalPayload(principal) } : {})
           } as any);
           created += 1;
@@ -390,6 +393,10 @@
       <p class="nr__lead">{t('Everything on one page: your request takes shape on the right as you fill it in.')}</p>
     </div>
   </header>
+
+  {#if renewOf}
+    <InlineAlert tone="info">{t('Renewal of {code}: the same folder and level are ready. Say why you still need it; a guardian decides again.', { code: renewOf })}</InlineAlert>
+  {/if}
 
   {#if loading}
     <section class="nr__panel"><LoadingState skeleton="rows" rows={6}>{t('Loading…')}</LoadingState></section>

@@ -27,7 +27,14 @@ const fetchFn = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const data = url.includes('/bulk-tags') ? { updated: sent.root_ids, failed: [] } : { ok: true };
     return new Response(JSON.stringify({ data }), { status: 200, headers: { 'content-type': 'application/json' } });
   }
-  const body = /\/tags(\?|$)/.test(url) ? { data: tags }
+  const day = 86_400_000;
+  const body = url.includes('/access-reviews') ? { data: [{ id: 3, name: 'Revue T4', status: 'open', total: 10, decided: 4, folders: 2, due_at: '2020-01-01T00:00:00Z' }, { id: 2, name: 'Revue T3', status: 'closed', total: 5, decided: 5, folders: 1 }] }
+    : url.includes('/access-requests') ? { data: [
+        { request_id: 41, request_code: 'AR-41', status: 'pending', overdue: true, created_at: '2026-01-01T00:00:00Z', due_at: '2026-01-04T00:00:00Z', storage_root_name: 'Finance', requested_for_display: 'Jean Dupont', permission: 'READ' },
+        { request_id: 42, request_code: 'AR-42', status: 'pending', overdue: false, storage_root_name: 'TEST', requested_for_display: 'Ana Lee' },
+        { request_id: 43, request_code: 'AR-43', status: 'approved', expires_at: new Date(Date.now() + 3 * day).toISOString(), storage_root_name: 'Finance', requested_for_display: 'Claire Martin', access_profile_name: 'write' },
+        { request_id: 44, request_code: 'AR-44', status: 'approved', expires_at: new Date(Date.now() + 20 * day).toISOString(), storage_root_name: 'TEST', requested_for_display: 'Bob' }] }
+    : /\/tags(\?|$)/.test(url) ? { data: tags }
     : url.includes('/permissions') ? { data: permissions }
     : url.includes('/modules/fives/files/search') ? { data: { files: [{ storage_root_id: 1, folder_name: 'Finance', path: 'Finance\\Bilan.pdf', size: 2e8, modified: null, owner: 'CORP\\jane' }], total: 1, bytes: 2e8 }, search: url }
     : url.includes('/rights-review') ? { data: { folders: [{ path: 'Finance\\RH', codes: ['ORPHAN_SID', 'EXPLICIT_ENTRY'] }, { path: 'Finance\\Paie', codes: ['INHERITANCE_BROKEN'] }] } }
@@ -129,3 +136,20 @@ assert.equal((await askPilot(fetchFn, 'Fichiers sensibles ouverts à tous', off)
 assert.ok((await askPilot(fetchFn, 'Retire le tag Archive des dossiers du serveur FILER', off)).action, 'a tag named Archive is not a 5S question');
 assert.ok(!pilotExamples(false).includes('Doublons à libérer') && pilotExamples(true).includes('Doublons à libérer'));
 console.log('raphael: ok');
+
+// Access governance: requests past their deadline, accesses that end soon, open reviews
+{
+  const late = await askPilot(fetchFn, 'Demandes en retard');
+  assert.equal(late.intent, 'demandes → en retard');
+  assert.deepEqual(late.rows.map((row) => row[0].text), ['AR-41']);
+  assert.equal(late.rows[0][4].tone, 'bad');
+  const week = await askPilot(fetchFn, 'Accès qui expirent cette semaine');
+  assert.deepEqual(week.rows.map((row) => row[0].text), ['Claire Martin']);
+  assert.equal(week.rows[0][2].text, 'Modification');
+  const month = await askPilot(fetchFn, 'Accès qui expirent ce mois');
+  assert.equal(month.rows.length, 2);
+  const reviews = await askPilot(fetchFn, 'Revues d’accès à traiter');
+  assert.deepEqual(reviews.rows.map((row) => row[0].text), ['Revue T4']);
+  assert.equal(reviews.rows[0][1].text, '6');
+  assert.ok(pilotExamples(false).includes('Demandes en retard'));
+}

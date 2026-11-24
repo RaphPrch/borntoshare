@@ -75,7 +75,8 @@
   const PAGE = 50;
   let shown = $state(PAGE);
   // Two more views of the counters: accesses ending within 30 days, requests refused in the last 30 days
-  let extra = $state<'none' | 'ending' | 'refused'>('none');
+  // ?overdue=1 (the daily reminder of the guardians): the requests past their decision deadline
+  let extra = $state<'none' | 'ending' | 'refused' | 'overdue' | 'expired'>($page.url.searchParams.get('overdue') === '1' ? 'overdue' : 'none');
   // The level, the search and the extra filter back to « all » (the tab stays)
   function clearFilters() {
     accessFilter = 'all';
@@ -193,9 +194,29 @@
   const decidedMs = (row: any): number => new Date(String(row?.decided_at ?? row?.revoked_at ?? row?.updated_at ?? '')).getTime() || 0;
   const endingSoon = (row: any): boolean => isApplied(row) && expiresMs(row) > now && expiresMs(row) - now <= 30 * DAY;
   const refusedRecently = (row: any): boolean => statusOf(row) === 'rejected' && now - decidedMs(row) <= 30 * DAY;
+  const overdue = (row: any): boolean => isPending(row) && row?.overdue === true;
+  const expiredRecently = (row: any): boolean => statusOf(row) === 'expired' && now - (expiresMs(row) || decidedMs(row)) <= 30 * DAY;
+  // Renewal: a new request for the same folder, level and person, decided again by the guardians (same circuit)
+  const renewable = (row: any): boolean =>
+    Boolean(row?.own_request) && storageRootIdFromRow(row) !== null && !row?.storage_root_deleted && (endingSoon(row) || statusOf(row) === 'expired');
+  function renewHref(row: any): string {
+    const params = new URLSearchParams({ root: String(storageRootIdFromRow(row)), permission: accessKind(row) === 'write' ? 'write' : 'read', renew: requestCode(row) });
+    const principal = row?.requested_principal_json;
+    // For someone else: the renewal is for that person again
+    if (principal?.dn && Number(row?.requester_identity_id ?? 0) === Number(me?.id ?? -1) && principal.username !== me?.username) {
+      params.set('principal_dn', String(principal.dn));
+      if (principal.username) params.set('principal_username', String(principal.username));
+      if (principal.display_name) params.set('principal_name', String(principal.display_name));
+      if (principal.identity_source_id) params.set('principal_source', String(principal.identity_source_id));
+    }
+    return `/access-requests/new?${params.toString()}`;
+  }
+  const dueMs = (row: any): number => new Date(String(row?.due_at ?? '')).getTime() || 0;
   function pickCounter(key: string): void {
     if (key === 'ending') { extra = 'ending'; selectSegment('applied'); }
     else if (key === 'refused') { extra = 'refused'; selectSegment('closed'); }
+    else if (key === 'overdue') { extra = 'overdue'; selectSegment('pending'); }
+    else if (key === 'expired') { extra = 'expired'; selectSegment('closed'); }
     else { extra = 'none'; selectSegment(key as Segment); }
   }
 
@@ -604,15 +625,17 @@
   let appliedRows = $derived(requests.filter(isApplied));
   let counters = $derived([
     { key: 'pending', label: t('To review'), count: pendingRows.length, tone: pendingRows.length ? 'warn' : '' },
+    { key: 'overdue', label: t('Overdue'), count: requests.filter(overdue).length, tone: requests.some(overdue) ? 'bad' : '' },
     { key: 'applied', label: t('In force'), count: appliedRows.length, tone: '' },
     { key: 'ending', label: t('Ending within 30 days'), count: requests.filter(endingSoon).length, tone: '' },
     { key: 'refused', label: t('Refused · 30 d'), count: requests.filter(refusedRecently).length, tone: '' },
+    { key: 'expired', label: t('Expired · 30 d'), count: requests.filter(expiredRecently).length, tone: '' },
     { key: 'all', label: t('All'), count: requests.length, tone: '' }
   ]);
   let activeCounter = $derived(extra !== 'none' ? extra : segment === 'closed' ? 'all' : segment);
   let visibleRequests = $derived(requests
     .filter((row) => segment === 'all' || segmentOf(row) === segment)
-    .filter((row) => extra === 'none' || (extra === 'ending' ? endingSoon(row) : refusedRecently(row)))
+    .filter((row) => extra === 'none' || (extra === 'ending' ? endingSoon(row) : extra === 'overdue' ? overdue(row) : extra === 'expired' ? expiredRecently(row) : refusedRecently(row)))
     .filter((row) => accessFilter === 'all' || accessKind(row) === accessFilter)
     .filter((row) => {
       const q = norm(searchText);
@@ -714,7 +737,7 @@
   <div class="ar-counters" role="group" aria-label={t('Request status')}>
     {#each counters as counter (counter.key)}
       <button type="button" class:on={activeCounter === counter.key} aria-pressed={activeCounter === counter.key} onclick={() => pickCounter(counter.key)}>
-        <span>{counter.label}</span><b class:warn={counter.tone === 'warn'} use:pulseOnIncrease={counter.count}>{counter.count}</b>
+        <span>{counter.label}</span><b class:warn={counter.tone === 'warn'} class:bad={counter.tone === 'bad'} use:pulseOnIncrease={counter.count}>{counter.count}</b>
       </button>
     {/each}
   </div>
@@ -838,7 +861,13 @@
                   </td>
                   {/if}
                   {#if show('decision')}
-                  <td class="ar-nowrap"><small class="ar-dim">{decidedMs(request) && !isPending(request) ? formatDate(new Date(decidedMs(request)).toISOString()) : '—'}</small></td>
+                  <td class="ar-nowrap">
+                    {#if isPending(request) && dueMs(request)}
+                      <!-- Pending: the decision deadline (Settings › Governance), in red once past -->
+                      {#if overdue(request)}<small class="ar-late">{t('Overdue by {days} d', { days: Math.max(1, Math.floor((now - dueMs(request)) / DAY)) })}</small>
+                      {:else}<small class="ar-dim" title={t('Decision expected before this date')}>{t('before {date}', { date: formatDate(new Date(dueMs(request)).toISOString()) })}</small>{/if}
+                    {:else}<small class="ar-dim">{decidedMs(request) && !isPending(request) ? formatDate(new Date(decidedMs(request)).toISOString()) : '—'}</small>{/if}
+                  </td>
                   {/if}
                 {/if}
               </tr>
@@ -1047,6 +1076,11 @@
     {/if}
   </p>
   <div class="ar-foot-actions">
+    {#if renewable(selectedRequest)}
+      <a class="b2s-btn b2s-btn-primary" href={renewHref(selectedRequest)} title={t('A new request for the same folder and level: a guardian decides again.')}>
+        <i class="bi bi-arrow-clockwise" aria-hidden="true"></i>{t('Renew')}
+      </a>
+    {/if}
     {#if statusOf(selectedRequest) === 'rejected' && selectedRequest?.own_request && storageRootIdFromRow(selectedRequest) !== null && !selectedRequest?.storage_root_deleted}
       <a class="b2s-btn b2s-btn-secondary" href={`/access-requests/new?root=${storageRootIdFromRow(selectedRequest)}`}>
         <i class="bi bi-arrow-repeat" aria-hidden="true"></i>{t('Ask again')}
@@ -1558,6 +1592,7 @@
   .ar-counters span { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .ar-counters b { font-size: 22px; font-weight: 600; line-height: 1.2; }
   .ar-counters b.warn { color: var(--b2s-color-warning-strong); }
+  .ar-counters b.bad { color: var(--b2s-color-danger-strong); }
   .ar-end { min-width: 90px; }
   .ar-bar { display: block; height: 4px; margin-top: 4px; overflow: hidden; border-radius: 99px; background: var(--b2s-color-border-soft); }
   .ar-bar span { display: block; height: 4px; background: var(--b2s-color-info); }

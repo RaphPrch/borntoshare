@@ -342,6 +342,12 @@ def admin_alert(db: Session, key: str, title: str, lines: list[str], path: str, 
         logger.warning("NOTIFICATION_ADMIN_ALERT_FAILED", exc_info=True)
 
 
+def _renew_path(row: dict[str, Any]) -> str:
+    level = "write" if str(row.get("permission") or "").upper().startswith("W") else "read"
+    code = row.get("code") or f"REQ-{row['id']}"
+    return f"/access-requests/new?root={int(row['root_id'])}&permission={level}&renew={code}"
+
+
 def expiry_reminders(db: Session) -> int:
     """Accesses that end within the reminder days, told once to their holder. Returns how many were queued."""
     config = settings(db)
@@ -354,7 +360,7 @@ def expiry_reminders(db: Session) -> int:
         text(
             """
             SELECT ar.id, ar.code, ari.expires_at, ari.permission, COALESCE(ar.decided_at, ar.created_at) AS since,
-                   req.email, ar.requester_identity_id, sr.name AS root_name, sr.root_path
+                   req.email, ar.requester_identity_id, sr.id AS root_id, sr.name AS root_name, sr.root_path
             FROM access_requests ar
             JOIN access_request_items ari ON ari.access_request_id = ar.id
             JOIN identities req ON req.id = ar.requester_identity_id
@@ -378,7 +384,7 @@ def expiry_reminders(db: Session) -> int:
         verb, _meaning = _level(row["permission"])
         inbox.push(db, [row["requester_identity_id"]], f"request:{row['id']}:expiry", kind="expiry", severity="warning",
                    title=f"Votre accès à « {row['root_name']} » se termine le {row['expires_at']:%d/%m/%Y}",
-                   body="Vos droits seront retirés automatiquement ce jour-là. Besoin de plus de temps ? Faites une nouvelle demande.",
+                   body="Vos droits seront retirés automatiquement ce jour-là. Besoin de plus de temps ? Renouvelez-le depuis la demande.",
                    link=f"/access-requests?focus={row['id']}")
         if not mail_on or not row.get("email"):
             continue
@@ -397,7 +403,8 @@ def expiry_reminders(db: Session) -> int:
                                   (used / total) if total > 0 else None,
                                   f"{int(used // 86400)} jours sur {int(total // 86400)} utilisés" if total > 0 else "")],
             buttons=[b for b in ([mt.button("Voir mon accès", url)] if url else [])]
-            + ([mt.button("Faire une nouvelle demande", _url(config, "/access-requests/new"), primary=False)] if url else []),
+            # Renewal: the same folder and level, prefilled; a guardian decides again
+            + ([mt.button("Renouveler l'accès", _url(config, _renew_path(row)), primary=False)] if url else []),
             footer="Vous recevez ce rappel une seule fois avant la fin de votre accès. Rien à faire si vous n'en avez plus besoin.",
             badge=row.get("code") or f"REQ-{row['id']}",
         )
@@ -411,3 +418,99 @@ def expiry_reminders(db: Session) -> int:
             html,
         )
     return queued
+
+
+# ---- Backup guardians: both people are told when a period is set, ends early, or reaches its last day ----
+
+def _substitution(db: Session, substitution_id: int) -> dict[str, Any] | None:
+    from app.data.repositories import identity_list_sql
+
+    row = identity_list_sql.substitution_row(db, {"id": int(substitution_id)}).mappings().first()
+    return dict(row) if row else None
+
+
+def _last_day(ends_at: Any) -> str:
+    # The right ends at 00:00 the day after the last day
+    from datetime import timedelta
+
+    return f"{ends_at - timedelta(seconds=1):%d/%m/%Y}" if ends_at else ""
+
+
+def _substitution_mail(db: Session, key: str, row: dict[str, Any], *, subject: str, title: str, intro: str) -> None:
+    config = settings(db)
+    if not config.get("enabled") or not row.get("substitute_email"):
+        return
+    from app.services import mail_templates as mt
+
+    url = _url(config, "/access-requests?status=pending")
+    html = mt.layout(
+        preheader=title, eyebrow="Suppléance", title=title, intro=intro,
+        blocks=[mt.details([
+            ("Gardien", mt.e(row["guardian_name"])),
+            ("Période", f"du {row['starts_at']:%d/%m/%Y} au {_last_day(row['ends_at'])}"),
+            ("Dossiers", str(int(row.get("folders") or 0))),
+        ])] + ([mt.quote("Motif", row["reason"])] if row.get("reason") else []),
+        buttons=[mt.button("Voir les demandes", url)] if url else [],
+        footer=f"Vous recevez ce mail parce que vous suppléez {row['guardian_name']}.",
+    )
+    queue(key, [row["substitute_email"]], subject, f"{title}\n\n{intro}" + _link(config, "/access-requests?status=pending"), html)
+
+
+def substitution_set(db: Session, substitution_id: int) -> None:
+    """A backup guardian period is set: the backup learns what they validate and until when; the guardian sees it."""
+    try:
+        from app.services import inbox
+
+        row = _substitution(db, substitution_id)
+        if not row:
+            return
+        period = f"du {row['starts_at']:%d/%m/%Y} au {_last_day(row['ends_at'])}"
+        key = f"substitute:{row['id']}:set"
+        inbox.push(db, [row["substitute_identity_id"]], key, kind="substitute", severity="info",
+                   title=f"Vous suppléez {row['guardian_name']} {period}",
+                   body=f"Vous validez les demandes de ses {int(row.get('folders') or 0)} dossier(s) pendant cette période.",
+                   link="/access-requests?status=pending")
+        inbox.push(db, [row["identity_id"]], key, kind="substitute", severity="info",
+                   title=f"{row['substitute_name']} vous supplée {period}",
+                   body="Pendant cette période, les demandes de vos dossiers lui parviennent aussi.", link="/dashboard")
+        _substitution_mail(db, key, row, subject=f"[BornToShare] Vous suppléez {row['guardian_name']} {period}",
+                           title=f"Vous suppléez {row['guardian_name']} {period}",
+                           intro="Pendant cette période, les demandes d'accès de ses dossiers vous parviennent et votre décision suffit. "
+                                 "La suppléance s'arrête d'elle-même le dernier jour.")
+    except Exception:
+        logger.warning("NOTIFICATION_SUBSTITUTE_SET_FAILED", exc_info=True)
+
+
+def substitution_ended(db: Session, substitution_id: int, *, early: bool) -> None:
+    """The period ended (early, by a person; or on its last day): both are told, once."""
+    try:
+        from app.services import inbox
+
+        row = _substitution(db, substitution_id)
+        if not row:
+            return
+        key = f"substitute:{row['id']}:ended"
+        how = f"arrêtée par {row['revoked_by']}" if early and row.get("revoked_by") else ("arrêtée avant son terme" if early else "terminée")
+        inbox.push(db, [row["substitute_identity_id"]], key, kind="substitute", severity="info",
+                   title=f"Suppléance de {row['guardian_name']} {how}",
+                   body="Les demandes de ses dossiers ne vous parviennent plus.", link="/dashboard")
+        inbox.push(db, [row["identity_id"]], key, kind="substitute", severity="info",
+                   title=f"Suppléance par {row['substitute_name']} {how}",
+                   body="Les demandes de vos dossiers ne parviennent plus qu'à vous et aux autres gardiens.", link="/dashboard")
+        _substitution_mail(db, key, row, subject=f"[BornToShare] Suppléance de {row['guardian_name']} {how}",
+                           title=f"Suppléance de {row['guardian_name']} {how}",
+                           intro="Les demandes d'accès de ses dossiers ne vous parviennent plus.")
+    except Exception:
+        logger.warning("NOTIFICATION_SUBSTITUTE_ENDED_FAILED", exc_info=True)
+
+
+def substitution_endings(db: Session) -> int:
+    """Periods that reached their last day in the last two days (run daily): told once each. Returns how many."""
+    from datetime import datetime as _dt, timedelta
+
+    from app.data.repositories import identity_list_sql
+
+    ids = [int(row[0]) for row in identity_list_sql.substitutions_ended_since(db, {"since": _dt.utcnow() - timedelta(days=2)})]
+    for substitution_id in ids:
+        substitution_ended(db, substitution_id, early=False)
+    return len(ids)
