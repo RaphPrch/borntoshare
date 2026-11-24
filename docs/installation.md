@@ -172,6 +172,20 @@ signale alors « mot de passe introuvable » pour chaque objet touché, et il fa
 Restauration : recharger les deux dumps dans une base vide (`gzip -dc … | mariadb …`), remettre le même
 `.env` (même clé), puis `make up`. Détails dans [infrastructure.md](infrastructure.md).
 
+## 5 bis. Désinstaller
+
+```bash
+make uninstall                       # dit ce qui serait retiré, sans rien toucher
+CONFIRM=yes make uninstall           # retire BornToShare de ce serveur
+CONFIRM=yes PURGE=1 make uninstall   # et aussi les secrets, les données de Redis, les images, les comptes système
+```
+
+Retirés : les services (conteneurs ou unités systemd `b2s-*`), le code (`/opt/borntoshare/app`), l'interface web
+(service `b2s-web`, vhost `borntoshare.conf`, `/opt/borntoshare/web`, sur ce serveur ou sur l'annexe par SSH) et
+les règles de pare-feu ouvertes à l'annexe. **Jamais les bases** : la commande affiche le SQL pour les supprimer.
+Sans `PURGE=1`, les secrets restent, dont `b2s_master_key` : sans elle, les mots de passe chiffrés dans la base ne
+sont plus lisibles. `make deploy` (ou `make wizard`) réinstalle ensuite sur les mêmes bases.
+
 ## 6. Vérifier
 
 ```bash

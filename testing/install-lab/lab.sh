@@ -346,7 +346,32 @@ checks_native() {
     for i in $(seq 1 40); do curl -sf -o /dev/null http://127.0.0.1:8102/health && echo "core sain après $((i*3)) s" && exit 0; sleep 3; done; systemctl status b2s-core --no-pager -n 0 | head -6; journalctl -u b2s-core --no-pager -n 12 -o cat; exit 1'
   check "natif : réinstallation (make deploy)" app bash -c 'make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -6 /tmp/deploy.out; exit $rc'
   check "natif : point de retour (.previous) après réinstallation" app sh -c 'ls -d /opt/borntoshare/app/*.previous'
-  check "natif : désinstallation documentée (make uninstall)" app sh -c 'make -n uninstall'
+  checks_uninstall
+}
+
+# ---- uninstall, then reinstall on the same databases (every mode) ----
+checks_uninstall() {
+  local gone kept
+  check "désinstallation : make uninstall sans CONFIRM ne retire rien" app sh -c 'make uninstall > /tmp/u.out 2>&1; rc=$?; tail -4 /tmp/u.out; grep -q "Rien n.a été retiré" /tmp/u.out && [ $rc = 0 ]'
+  check "désinstallation : CONFIRM=yes make uninstall" app sh -c 'CONFIRM=yes make uninstall > /tmp/u.out 2>&1; rc=$?; tail -6 /tmp/u.out; exit $rc'
+  case "$TOPO" in
+    native) gone='! systemctl list-unit-files "b2s-*" --no-legend | grep -q . && [ ! -d /opt/borntoshare/app ] && [ ! -f /etc/httpd/conf.d/borntoshare.conf ] && echo "unités, code et vhost retirés"'
+            kept='ls /etc/borntoshare/secrets | tr "\n" " "' ;;
+    *) gone='! podman ps -a --format "{{.Names}}" | grep -Eq "^(core-service|auth-service|capsule-runner|frontend-service|redis)$" && echo "conteneurs retirés"'
+       kept='podman secret ls --format "{{.Name}}" | grep b2s_ | tr "\n" " "' ;;
+  esac
+  check "désinstallation : services retirés de lab-app" app sh -c "$gone"
+  check "désinstallation : secrets conservés (sans PURGE)" app sh -c "$kept | grep b2s_master_key"
+  if [ "$TOPO" = hybrid ]; then
+    check "désinstallation : interface retirée de l'annexe (SSH)" web sh -c '! systemctl list-unit-files b2s-web.service --no-legend | grep -q . && [ ! -f /etc/httpd/conf.d/borntoshare.conf ] && [ ! -d /opt/borntoshare/web ] && echo "b2s-web, vhost et /opt/borntoshare/web retirés"'
+  fi
+  check "désinstallation : bases conservées" podman exec "$P-db" sh -c 'MYSQL_PWD="$(cat /run/lab/root.pw)" mariadb -N -e "SELECT CONCAT(\"administrateurs : \", COUNT(*)) FROM borntoshare.identities WHERE username = \"admin\""'
+  check "réinstallation après désinstallation : make deploy" app bash -c 'FORCE=1 make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -4 /tmp/deploy.out; exit $rc'
+  case "$TOPO" in
+    containers) check "réinstallation : interface de nouveau servie" app sh -c 'for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:3000/login && echo "http://lab-app:3000/login 200" && exit 0; sleep 3; done; exit 1' ;;
+    hybrid) check "réinstallation : interface de nouveau servie par l'annexe" web sh -c 'curl -sk -o /dev/null -w "https://lab-web/login %{http_code}\n" https://lab-web/login | grep " 200"' ;;
+    native) check "réinstallation : interface de nouveau servie" app sh -c 'curl -sk -o /dev/null -w "https://lab-app/login %{http_code}\n" https://lab-app/login | grep " 200"' ;;
+  esac
 }
 
 down() {
@@ -379,7 +404,7 @@ run_scenario() {
     checks_native
   else
     checks_after_install
-    if [ "$SCEN" = faults ]; then checks_faults; else checks_resilience; fi
+    if [ "$SCEN" = faults ]; then checks_faults; else checks_resilience; checks_uninstall; fi
   fi
   echo "$((SECONDS - t0))" > "$RUN/duration"
   say "$SCEN : nettoyage"
