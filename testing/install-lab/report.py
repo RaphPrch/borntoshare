@@ -19,7 +19,8 @@ def load(run: Path) -> dict:
     steps = json.loads((run / "steps.json").read_text()) if (run / "steps.json").exists() else []
     read = lambda name: (run / name).read_text().strip() if (run / name).exists() else "—"  # noqa: E731
     return {"run": run.name, "scenario": run.name.split("-", 2)[-1], "steps": steps, "commit": read("commit"),
-            "duration": read("duration"), "config": sorted(p.name for p in (run / "config").glob("*")) if (run / "config").exists() else []}
+            "duration": read("duration"), "config": sorted(p.name for p in (run / "config").glob("*")) if (run / "config").exists() else [],
+            "screens": sorted(p.name for p in (run / "screens").glob("*.png")) if (run / "screens").exists() else []}
 
 
 def run_report(info: dict) -> str:
@@ -38,6 +39,8 @@ def run_report(info: dict) -> str:
         lines.append(f"| {'✅' if s['ok'] else '❌'} | {s['step']} | {s['seconds']:.0f} s | {detail} |")
     if info["config"]:
         lines += ["", "**Fichiers de configuration conservés** (secrets masqués) : " + ", ".join(f"`config/{c}`" for c in info["config"])]
+    if info["screens"]:
+        lines += ["", "**Captures du wizard** : " + ", ".join(f"`screens/{c}`" for c in info["screens"])]
     failed = [s for s in info["steps"] if not s["ok"]]
     if failed:
         lines += ["", "## Échecs", ""] + [f"- **{s['step']}** : {s['detail']}" for s in failed]

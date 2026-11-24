@@ -8,6 +8,7 @@
 #   testing/install-lab/lab.sh run hybrid
 #   testing/install-lab/lab.sh down <scenario>     removes what a scenario created (after an interruption)
 #   testing/install-lab/lab.sh report              summary of the runs (Markdown)
+#   B2S_LAB_DRIVE=api …                             the wizard by its API instead of its screens
 #
 # Scenarios
 #   containers  lab-db (MariaDB) + lab-app (every service and the interface in Podman)
@@ -141,8 +142,10 @@ plan_json() {
       network: {auth_port: 8101, core_port: 8102, fives_port: 8105, web_host: "lab-web", web_ip: $ip, api_host: "lab-app",
                 push: "ssh", ssh_user: "labdeploy", ssh_key: "/root/.ssh/lab_ed25519"}}')
   fi
-  jq -n --arg root "$(cat "$RUN/db-root.pw")" --arg admin "$(cat "$RUN/admin.pw")" --argjson deploy "$deploy" --arg scen "$SCEN" '{
-    scenario: $scen, wizard_url: "http://lab-app:8080",
+  # B2S_LAB_DRIVE: « screens » (default) plays the wizard by its screens in a browser, « api » calls its API
+  jq -n --arg root "$(cat "$RUN/db-root.pw")" --arg admin "$(cat "$RUN/admin.pw")" --argjson deploy "$deploy" --arg scen "$SCEN" \
+     --arg drive "${B2S_LAB_DRIVE:-screens}" '{
+    scenario: $scen, drive: $drive, wizard_url: "http://lab-app:8080",
     app_url: (if $scen == "containers" then "http://lab-app:3000" else "https://lab-web" end),
     plan: {server: {host: "lab-db", port: 3306, user: "root", password: $root},
            app: {db_name: "borntoshare", logging_db_name: "borntoshare_logs", user: "b2s_app", migrate_user: "b2s_migrate"},
