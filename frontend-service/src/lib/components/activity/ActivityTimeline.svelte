@@ -3,6 +3,7 @@
 
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { t } from '$lib/i18n';
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { formatDate, formatDateTime, formatTime, initials } from '$lib/utils/format';
   import { formatActivityItem } from '$lib/activity/format';
   import { activitySummary, categoryOf, changedValues, eventTime, groupByDay, dayKey, type ActivityCategory } from '$lib/activity/timeline';
@@ -104,18 +105,12 @@
       {:else}
       <div class="at__tools">
         <label class="at__search"><i class="bi bi-search" aria-hidden="true"></i><input type="search" bind:value={query} placeholder={t('Search the activity…')} aria-label={t('Search the activity…')} /></label>
-        <div class="at__seg" role="group" aria-label={t('Filter by type')}>
-          <button type="button" class:on={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')}<span>{counts.all}</span></button>
-          {#each Object.entries(CATEGORY) as [key, category] (key)}
-            {#if counts[key] > 0}
-              <button type="button" class:on={filter === key} onclick={() => (filter = key as Filter)}>{category.label()}<span>{counts[key]}</span></button>
-            {/if}
-          {/each}
-        </div>
-        <div class="at__seg at__period" role="group" aria-label={t('Period')}>
-          {#each [['1', t('24 h')], ['7', t('7 d')], ['30', t('30 d')], ['all', t('All')]] as [key, label] (key)}
-            <button type="button" class:on={period === key} onclick={() => (period = key as Period)}>{label}</button>
-          {/each}
+        <SegmentedFilter ariaLabel={t('Filter by type')} value={filter} onChange={(key) => (filter = key as Filter)}
+          options={[{ key: 'all', label: t('All'), count: counts.all },
+            ...Object.entries(CATEGORY).filter(([key]) => counts[key] > 0).map(([key, category]) => ({ key, label: category.label(), count: counts[key] }))]} />
+        <div class="at__period">
+          <SegmentedFilter ariaLabel={t('Period')} value={period} onChange={(key) => (period = key as Period)}
+            options={[{ key: '1', label: t('24 h') }, { key: '7', label: t('7 d') }, { key: '30', label: t('30 d') }, { key: 'all', label: t('All') }]} />
         </div>
       </div>
       {/if}
@@ -190,10 +185,6 @@
   .at__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .at__search { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 160px; max-width: 240px; height: 34px; padding: 0 10px; border: 1px solid var(--b2s-color-border-mid, var(--b2s-color-border)); border-radius: var(--b2s-radius-md); }
   .at__search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: var(--b2s-fs-sm); }
-  .at__seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .at__seg button { padding: 4px 10px; border: 0; border-radius: var(--b2s-radius-sm); background: none; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); white-space: nowrap; cursor: pointer; }
-  .at__seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; }
-  .at__seg span { margin-left: 5px; opacity: 0.7; }
   .at__period { margin-left: auto; }
   .at__day { margin: 8px 0 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
   .at__list { position: relative; margin: 0; padding: 0; list-style: none; }

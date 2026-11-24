@@ -2,6 +2,7 @@
   import { untrack } from 'svelte';
 
   import { t } from '$lib/i18n';
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { timeAgo } from '$lib/utils/format';
   import { previewRootGroups } from '$lib/api/naming-policies';
   import type { ZoneSummary } from '$lib/components/zones/zone-summary';
@@ -91,11 +92,7 @@
       {#if servers.length}
         <div class="zo__tools">
           <input class="b2s-input" type="search" aria-label={t('Filter the servers')} placeholder={t('Filter the servers…')} bind:value={query} />
-          <div class="zo__seg" role="group" aria-label={t('Filter by state')}>
-            {#each segments as segment (segment.key)}
-              <button type="button" class:on={filter === segment.key} aria-pressed={filter === segment.key} onclick={() => (filter = segment.key)}>{segment.label}<span>{segment.count}</span></button>
-            {/each}
-          </div>
+          <SegmentedFilter ariaLabel={t('Filter by state')} options={segments} value={filter} onChange={(key) => (filter = key as Filter)} />
         </div>
         {#each visible as server (server.id)}
           {@const state = server.dfs ? { label: () => t('Namespace'), tone: 'r' } : STATE[server.state]}
@@ -153,10 +150,6 @@
   .zo__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .zo__tools { display: flex; gap: 8px; align-items: center; }
   .zo__tools .b2s-input { flex: 1; max-width: 260px; }
-  .zo__seg { display: flex; gap: 2px; padding: 3px; border-radius: var(--b2s-radius-md); background: var(--b2s-color-neutral-soft); }
-  .zo__seg button { padding: 4px 10px; border: 0; border-radius: var(--b2s-radius-sm); background: none; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); white-space: nowrap; cursor: pointer; }
-  .zo__seg button.on { background: var(--b2s-color-surface); color: var(--b2s-color-text); font-weight: 600; }
-  .zo__seg span { margin-left: 5px; opacity: 0.7; }
   .zo__srv { display: grid; grid-template-columns: 22px minmax(0, 1.1fr) minmax(0, 1fr) auto; gap: 12px; align-items: center; width: 100%; padding: 12px 14px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-md); background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
   .zo__srv:hover { background: var(--b2s-color-surface-soft); }
   .zo__srv > i { color: var(--b2s-color-text-muted); }

@@ -3,6 +3,7 @@
   import { onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { apiGetData, apiPostData } from '$lib/api/client';
   import { formatBytes, formatDateTime } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
@@ -152,11 +153,8 @@
       <div class="v2-stat"><i class="bi bi-recycle" aria-hidden="true"></i><small>{t('To free once applied')}</small><b class="dd__ok-figure">{formatBytes(freed)}</b></div>
     </section>
     <div class="dd__tools">
-      <div class="dd__seg" role="radiogroup" aria-label={t('Show')}>
-        <button type="button" class:is-on={filter === 'todo'} onclick={() => (filter = 'todo')}>{t('To decide')}</button>
-        <button type="button" class:is-on={filter === 'done'} onclick={() => (filter = 'done')}>{t('Decided')}</button>
-        <button type="button" class:is-on={filter === 'all'} onclick={() => (filter = 'all')}>{t('All')}</button>
-      </div>
+      <SegmentedFilter ariaLabel={t('Show')} value={filter} onChange={(key) => (filter = key as typeof filter)}
+        options={[{ key: 'todo', label: t('To decide') }, { key: 'done', label: t('Decided') }, { key: 'all', label: t('All') }]} />
       <input class="b2s-input" placeholder={t('Filter by name or path…')} bind:value={query} aria-label={t('Filter by name or path')} />
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!decided.length} onclick={exportDecisions}><i class="bi bi-download" aria-hidden="true"></i>{t('Export the decisions')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary dd__apply" disabled={!toMove.length || applying} onclick={() => (confirming = true)}>
@@ -231,9 +229,6 @@
   .dd__head p { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .dd__tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .dd__tools .b2s-input { width: 280px; }
-  .dd__seg { display: inline-flex; padding: 2px; border: 1px solid var(--b2s-color-border); border-radius: 999px; background: var(--b2s-color-surface, #fff); }
-  .dd__seg button { padding: 4px 12px; border: 0; border-radius: 999px; background: none; cursor: pointer; font-size: var(--b2s-fs-sm); }
-  .dd__seg button.is-on { background: var(--b2s-topbar-bg, var(--b2s-accent)); color: #fff; }
   .dd__group { border: 1px solid var(--b2s-color-border); border-radius: 12px; background: var(--b2s-color-surface, #fff); overflow: hidden; }
   .dd__group.is-done { border-color: var(--b2s-color-success-border); }
   .dd__group > header { display: flex; justify-content: space-between; gap: 12px; align-items: center; padding: 10px 14px; background: var(--b2s-color-surface-muted); }

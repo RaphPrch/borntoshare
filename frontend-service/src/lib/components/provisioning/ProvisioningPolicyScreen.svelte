@@ -9,6 +9,7 @@
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { t } from '$lib/i18n';
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
   import { previewRootGroups, type RootGroupsPreviewItem } from '$lib/api/naming-policies';
   import type { ProvisioningPolicyScreenProps } from './provisioning-policy.types';
 
@@ -245,10 +246,8 @@
     <div class="pp__tools">
       <input class="b2s-input" type="search" aria-label={t('Filter the folders')} placeholder={t('Filter the folders…')}
         bind:value={query} oninput={() => (shown = PAGE)} />
-      <div class="pp__seg" role="group" aria-label={t('Filter by state')}>
-        <button type="button" class:on={!driftOnly} aria-pressed={!driftOnly} onclick={() => setDriftOnly(false)}>{t('All')}{#if !driftOnly}<span>{total}</span>{/if}</button>
-        <button type="button" class:on={driftOnly} aria-pressed={driftOnly} onclick={() => setDriftOnly(true)}>{t('Gaps')}<span>{driftTotal}</span></button>
-      </div>
+      <SegmentedFilter ariaLabel={t('Filter by state')} value={driftOnly ? 'gaps' : 'all'} onChange={(key) => setDriftOnly(key === 'gaps')}
+        options={[{ key: 'all', label: t('All'), count: driftOnly ? null : total }, { key: 'gaps', label: t('Gaps'), count: driftTotal }]} />
     </div>
 
     {#if listError}
@@ -458,36 +457,6 @@
   .pp__tools .b2s-input {
     flex: 1;
     min-width: 0;
-  }
-
-  .pp__seg {
-    display: flex;
-    gap: 2px;
-    padding: 3px;
-    border-radius: var(--b2s-radius-md);
-    background: var(--b2s-color-surface-muted);
-  }
-
-  .pp__seg button {
-    border: 0;
-    background: none;
-    border-radius: var(--b2s-radius-sm);
-    padding: 4px 10px;
-    font-size: var(--b2s-fs-sm);
-    color: var(--b2s-color-text-muted);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .pp__seg button.on {
-    background: var(--b2s-color-surface);
-    color: var(--b2s-color-text);
-    font-weight: 600;
-  }
-
-  .pp__seg span {
-    margin-left: 5px;
-    opacity: 0.7;
   }
 
   .pp__list {
