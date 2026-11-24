@@ -9,6 +9,7 @@
 #   testing/install-lab/lab.sh down <scenario>     removes what a scenario created (after an interruption)
 #   testing/install-lab/lab.sh report              summary of the runs (Markdown)
 #   B2S_LAB_DRIVE=api …                             the wizard by its API instead of its screens
+#   B2S_LAB_SKIP_BUILD=1 …                          the :latest product images as they are (no build from the code)
 #
 # Scenarios
 #   containers  lab-db (MariaDB) + lab-app (every service and the interface in Podman)
@@ -34,6 +35,13 @@ images() {
   podman image exists localhost/b2s-lab-app-host || podman build -q -t localhost/b2s-lab-app-host -f "$LAB/Containerfile.app-host" "$LAB"
   podman image exists localhost/b2s-lab-web-host || podman build -q -t localhost/b2s-lab-web-host -f "$LAB/Containerfile.web-host" "$LAB"
   podman image exists localhost/b2s-lab-native-host || podman build -q -t localhost/b2s-lab-native-host -f "$LAB/Containerfile.native-host" "$LAB"
+  # The product images are built from this working copy first (B2S_LAB_SKIP_BUILD=1: the :latest images as they are),
+  # otherwise an old image would be tested with new scripts
+  if [ "${B2S_LAB_SKIP_BUILD:-0}" != 1 ]; then
+    say "construction des images produit depuis le code"
+    (cd "$REPO" && podman-compose -f podman-compose.yml build core-service auth-service capsule-runner frontend-service >/dev/null &&
+      podman-compose --profile wizard -f podman-compose.yml build wizard-ui >/dev/null)
+  fi
   # The product images under test, saved once per set of image ids (the archive is reloaded in each simulated host)
   local ids
   ids=$(podman image inspect --format '{{.Id}}' "${PRODUCT_IMAGES[@]}" | sha256sum | cut -c1-16)
