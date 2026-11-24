@@ -11,6 +11,7 @@
   import { toggleSetValue } from '$lib/utils/selection';
   import { normalizeTagsCatalog, tagColor, tagId, tagLabel, type UiTag } from '$lib/utils/tags';
   import { toast } from '$lib/stores/toast';
+  import { reportUiError } from '$lib/errors/report';
   import type { StorageRootTagLike } from '$lib/utils/storage-roots';
 
   
@@ -99,8 +100,8 @@
       await onSaved(tags);
       onClose();
       toast.success(t('Tags updated'));
-    } catch {
-      toast.error(t('Unable to save tag changes'));
+    } catch (error) {
+      reportUiError(error, t('Unable to save tag changes'), 'storage-root.tags-save');
     } finally {
       saving = false;
     }

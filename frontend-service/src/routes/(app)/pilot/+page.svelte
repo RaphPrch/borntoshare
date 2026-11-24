@@ -61,7 +61,7 @@
     applied = { ...applied, [index]: 'busy' };
     const result = await applyPilotAction(fetch, answer.action);
     applied = { ...applied, [index]: result };
-    if (result.failed.length) toast.error(t('{done} folder(s) changed, {failed} refused: {reason}', { done: result.done, failed: result.failed.length, reason: result.failed[0] }));
+    if (result.failed.length) toast[result.done > 0 ? 'warning' : 'error'](t('{done} folder(s) changed, {failed} refused: {reason}', { done: result.done, failed: result.failed.length, reason: result.failed[0] }));
     else toast.success(t('{count} folder(s) changed.', { count: result.done }));
   }
 

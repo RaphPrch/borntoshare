@@ -623,8 +623,7 @@
       });
       toast.success(t('Provisioning policy saved.'));
     } catch (e) {
-      policyError = e?.message ?? t('Unable to save policy');
-      toast.error(policyError);
+      policyError = reportUiError(e, t('Unable to save policy'), 'zone.policy-save');
     } finally {
       policySaving = false;
     }
@@ -782,8 +781,8 @@
       toast.success(t('Endpoint attached to this zone.'));
       showEndpointAttachChoice = false;
       await invalidateAll();
-    } catch (e: any) {
-      toast.error(String(e?.message ?? t('Unable to attach endpoint.')));
+    } catch (e) {
+      reportUiError(e, t('Unable to attach endpoint.'), 'zone.attach-endpoint');
     } finally {
       attachEndpointBusyId = null;
     }

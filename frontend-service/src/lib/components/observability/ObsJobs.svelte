@@ -181,7 +181,7 @@
       const result = await flushAdminJobs(fetch, list.map((job) => Number(job.id)));
       const done = result?.flushed?.length ?? 0;
       if (done) toast.success(t('{count} stuck job(s) flushed', { count: done }));
-      if (result?.failed?.length) toast.error(t('{count} job(s) could not be flushed: {message}', { count: result.failed.length, message: result.failed[0].message }));
+      if (result?.failed?.length) toast[done ? 'warning' : 'error'](t('{count} job(s) could not be flushed: {message}', { count: result.failed.length, message: result.failed[0].message }));
       if (!done && !result?.failed?.length) toast.info(t('Nothing to flush: the jobs moved on in the meantime.'));
       await refresh(true);
     } catch (error: unknown) {

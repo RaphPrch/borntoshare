@@ -357,8 +357,7 @@
       toast.success(t('Namespace read again.'));
       void invalidateAll();
     } catch (e) {
-      dfsError = e instanceof Error ? e.message : t('Unable to read this namespace.');
-      toast.error(dfsError);
+      dfsError = reportUiError(e, t('Unable to read this namespace.'), 'dfs.read-again');
     } finally {
       dfsReading = false;
     }
@@ -531,8 +530,7 @@
       toast.success(t('Endpoint provisioning policy updated.'));
       await invalidateAll();
     } catch (e) {
-      endpointProvisioningError = String((e as any)?.message ?? t('Unable to save endpoint provisioning policy.'));
-      toast.error(endpointProvisioningError);
+      endpointProvisioningError = reportUiError(e, t('Unable to save endpoint provisioning policy.'), 'storage-endpoint.policy-save');
     } finally {
       endpointProvisioningBusy = false;
     }
@@ -884,8 +882,8 @@
       await invalidateAll();
       // The worker reads them in the background: the to-do is read again once it had time to answer
       for (const delay of [20000, 60000]) setTimeout(() => void invalidateAll(), delay);
-    } catch (e: any) {
-      toast.error(String(e?.message ?? t('The action failed.')));
+    } catch (e) {
+      reportUiError(e, t('The action failed.'), 'storage-endpoint.bulk-check');
     } finally {
       rereadBusy = false;
     }

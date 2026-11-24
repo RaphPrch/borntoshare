@@ -206,7 +206,7 @@
     busy = true;
     try {
       const result = await apiPostData<{ revoked: number; manual: number; failed: number }>(fetch, `/access-reviews/${reviewId}/apply`, {});
-      toast.success(t('{revoked} access(es) removed, {manual} to remove by hand, {failed} failed.', { revoked: result?.revoked ?? 0, manual: result?.manual ?? 0, failed: result?.failed ?? 0 }));
+      toast[result?.failed || result?.manual ? 'warning' : 'success'](t('{revoked} access(es) removed, {manual} to remove by hand, {failed} failed.', { revoked: result?.revoked ?? 0, manual: result?.manual ?? 0, failed: result?.failed ?? 0 }));
       await load();
     } catch (failure) {
       reportUiError(failure, t('Unable to apply the removals.'), 'access-reviews.apply');

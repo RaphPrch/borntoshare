@@ -241,12 +241,12 @@
       const untouched = stoppedAt >= 0 ? ids.slice(stoppedAt + 1) : [];
       const done = ids.length - failed.length - untouched.length;
       if (stoppedAt >= 0) toast.error(t('Active Directory does not answer: {done} done, {left} left to process.', { done, left: failed.length + untouched.length }));
-      else if (failed.length > 0) toast.error(t('{ok} done, {failed} failed: open each failed request to see why.', { ok: done, failed: failed.length }));
+      else if (failed.length > 0) toast[done > 0 ? 'warning' : 'error'](t('{ok} done, {failed} failed: open each failed request to see why.', { ok: done, failed: failed.length }));
       else toast.success(t('{count} requests processed.', { count: ids.length }));
       checkedIds = new SvelteSet([...failed, ...untouched]);
       await invalidateAll();
-    } catch {
-      toast.error(bulkDecisionAsked === 'approve' ? t('Approval failed.') : t('Rejection failed.'));
+    } catch (error) {
+      reportUiError(error, bulkDecisionAsked === 'approve' ? t('Approval failed.') : t('Rejection failed.'), 'access-request.bulk-decision');
       await invalidateAll();
     } finally {
       bulkRunning = false;
@@ -415,8 +415,8 @@
       }
       closeDetail();
       await invalidateAll();
-    } catch {
-      toast.error({ approve: t('Approval failed.'), reject: t('Rejection failed.'), revoke: t('Revocation failed.') }[decision]);
+    } catch (error) {
+      reportUiError(error, { approve: t('Approval failed.'), reject: t('Rejection failed.'), revoke: t('Revocation failed.') }[decision], `access-request.${decision}`);
     } finally {
       followLog(id, false);
       decisionRunning = null;
@@ -523,8 +523,8 @@
     try {
       await adoptAccessGroup(fetch, profileId, groupDn);
       await runDecision('approve');
-    } catch {
-      toast.error(t('The group could not be adopted.'));
+    } catch (error) {
+      reportUiError(error, t('The group could not be adopted.'), 'access-request.adopt-group');
     } finally {
       adopting = false;
     }
