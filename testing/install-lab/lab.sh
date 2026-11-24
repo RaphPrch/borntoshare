@@ -244,7 +244,13 @@ faults_before_install() {
 }
 
 redeploy() { app bash -c 'FORCE=1 make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -25 /tmp/deploy.out; exit $rc'; }
-core_health() { app podman exec core-service python3 -c "import urllib.request;print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=10).read().decode())"; }
+# The /health of the core; its answer is printed even when it is a 503 (it names the check that fails)
+core_health() { app podman exec core-service python3 -c "
+import urllib.request, urllib.error
+try:
+    print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=10).read().decode())
+except urllib.error.HTTPError as e:
+    print(e.code, e.read().decode()); raise SystemExit(1)"; }
 
 checks_faults() {
   # Database stopped during a deployment, then back
@@ -265,9 +271,10 @@ checks_faults() {
     app podman exec core-service python3 -c "import urllib.request;urllib.request.urlopen('http://capsule-runner:8080/health', timeout=5)"
   check "reprise : make deploy relance le worker" redeploy
 
-  # Missing image (a wrong version, an image not loaded): nothing to pull in a closed network
+  # Missing image on a server without Internet access: the deployment builds it, and its base image cannot be pulled
+  # (no offline installation: nothing ships the images)
   app podman untag localhost/b2s-core-service:latest localhost/b2s-core-service:latest
-  expect_failure "panne : image du core absente" "b2s-core-service" redeploy
+  expect_failure "panne : image absente, serveur sans accès au registre" "registry|pull|no such host" redeploy
   app podman load -q -i /lab/images.tar >/dev/null
   check "reprise : image rechargée, make deploy" redeploy
 
