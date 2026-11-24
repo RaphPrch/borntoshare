@@ -12,6 +12,7 @@ TOPOLOGY = {
     "containers": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis, interface : Podman)",
     "hybrid": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis : Podman ; ports ouverts à l'annexe) · "
               "lab-web (annexe : systemd, httpd + mod_ssl, Node.js 22, interface poussée par SSH)",
+    "faults": "topologie hybride ; une panne à la fois après l'installation : message explicite attendu, puis reprise par make deploy",
 }
 
 
