@@ -29,24 +29,25 @@ Voir [docs/structure.md](docs/structure.md) (dossiers de `src/lib`) et [docs/ui-
 Pas de menu latéral : la barre du haut (`AppHeader`) porte le bouton ☰, qui ouvre le menu en quatre sections
 (`src/lib/components/layout/nav.ts`, chaque entrée avec ses pages et les pages récentes), la recherche ⌘K, les tâches en
 cours, la cloche et le compte. Dessous, la barre de contexte (`ContextBar`) donne le fil d'Ariane et les onglets de
-l'entrée ; en bas, les tâches récentes (`RecentTasks`, administrateurs). Les pages prennent toute la largeur ; leurs
+l'entrée. Les pages prennent toute la largeur ; leurs
 panneaux collants partent de `--b2s-shell-top`.
 Les noms du menu sont des noms de produit, en anglais dans les deux langues.
 
 | Section | Entrée | Pages |
 |---|---|---|
-| Workspace | Dashboard (`/dashboard`) | Journal du jour : titre, « À la une », fil du jour, carte des dossiers, question à Pilot |
-| | Pilot (`/pilot`, administrateurs et gardiens) | questions en français sur les dossiers (« exporte-moi tous les utilisateurs du dossier TEST »), réponses en liste, export CSV, copie, historique |
+| Workspace | Dashboard (`/dashboard`) | Journal du jour : chiffres clés (volume mesuré, fichiers, score 5S, demandes à décider), « À la une » (ce qui demande une action), fil du jour ; vue simplifiée pour les utilisateurs |
+| | Raphaël (`/pilot`, administrateurs et gardiens) | questions en français sur les dossiers (« exporte-moi tous les utilisateurs du dossier TEST »), réponses en liste, export CSV, copie, historique |
 | Governance | Storage Roots (`/storage-roots`) | liste (filtres, tri, actions groupées, aperçu latéral), fiche du dossier en onglets : vue d'ensemble, permissions, stockage · 5S, sensibilité, quota, activité |
 | | Access Management (`/access-requests`) | onglets Demandes, Exposition (`/exposure`) et Revues (`/access-reviews` : campagnes de revue des accès) |
 | | Governance Jobs (`/observability`) | vue d'ensemble, alertes, événements, jobs, santé |
-| | Policies (`/admin/policies`, administrateurs) | automatismes de gouvernance : tags, alertes, scans sur une règle |
+| | Policies (`/policies`, administrateurs) | automatismes de gouvernance : tags, alertes, scans sur une règle |
 | Storage Intelligence | Explorer (`/five-s/explore`) | recherche de fichiers dans tous les dossiers, puis la fiche d'un dossier en onglets : Contenu, Atelier 5S, Doublons, Droits à revoir, Rapport (module 5S, voir [docs/module-5s.md](../docs/module-5s.md)) |
 | | Inventory (`/five-s/scanner`) | onglets Scans, Dossiers (état de chaque mesure : complète, partielle, échantillonnée), Quarantaine (copies et archives de tous les dossiers, restauration), Réglages |
 | | Analytics (`/five-s`) | score 5S des dossiers et « Quoi faire d'abord » |
 | | Insights & Recommendations (`/reports`) | rapports |
-| Administration | Storage Endpoints (`/admin/storage-endpoints`) | onglets Serveurs (serveurs de fichiers, espaces DFS) et Zones |
-| | Identity & Users (`/admin/identity`) | onglets Identités, Administrateurs, Annuaires |
+| Administration | Storage Endpoints (`/admin/storage-endpoints`) | serveurs de fichiers et espaces DFS |
+| | Zones (`/admin/zones`) | zones (OU de provisionnement, serveurs rattachés) |
+| | Identity & Users (`/admin/identity`) | onglets Identités, Annuaires |
 | | Settings (`/admin/advanced-settings`) | onglets Réglages, en quatre groupes : Général (nommage, gouvernance), Sécurité (sessions, journalisation), Réseau et infrastructure (réseau et DNS, infrastructure, workers), Intégrations et licence (licence et modules, notifications, extensions) ; et Tags |
 
 Les listes ont un menu au clic droit (dossiers, jobs, exposition, tags, politiques, identités). `/setup` sert au

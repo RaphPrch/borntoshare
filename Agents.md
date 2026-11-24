@@ -38,13 +38,7 @@ Frontend:
 - Page heads use the classes of `lib/styles/v2.css` (`v2-head`, `v2-stats`, `v2-list`…), entity consoles `EntityHeader`; in-page tabs are `Tabs` (drawn as `v2-tabs`, like the menu sections). Pages use `padding: var(--b2s-page-padding)`.
 - Lists offer a right-click menu (`ContextMenu`) with the row's actions, also reachable by a visible button.
 - Typography and radius only from `lib/styles/tokens.css`: system font (`--b2s-font-sans`, `--b2s-font-mono` for paths, DNs and IDs only), sizes `--b2s-fs-xs|sm|md|lg|xl|2xl|page-title|console-title`, radius `--b2s-radius-sm|md|lg|pill`.
-- Keep the BornToShare theme:
-  - Background: #F5F7FB
-  - Primary actions: navy #111B3F (same as the topbar); links and focus: blue #2563EB
-  - Success: #2EB88A
-  - Border: #E5EAF3
-  - Text: #0f172a
-  - Topbar: deep blue gradient
+- Keep the BornToShare theme (« teal / petrol », defined once in `lib/styles/tokens.css`): pick a color by its role token, never a raw value; the roles are listed in `frontend-service/docs/ui-conventions.md` (Colors). No dark theme.
 
 Gateway (frontend BFF):
 - There is no separate gateway service: the SvelteKit server is the only public API entrypoint.
