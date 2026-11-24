@@ -3,7 +3,7 @@
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
   import { apiGetData, apiPostData } from '$lib/api/client';
-  import { formatDate, formatDateTime } from '$lib/utils/format';
+  import { formatDate, formatDateTime, initials } from '$lib/utils/format';
   import { csvFilename, downloadCsv } from '$lib/utils/csv';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
@@ -126,7 +126,6 @@
     ...(!item.username ? [{ label: t('Account unknown in the directory'), tone: 'bad' as const }] : [])
   ];
   const hint = (item: Item) => (!item.revocable && !item.decision ? t('Not granted by BornToShare: a removal is done by hand') : '');
-  const initials = (item: Item) => String(item.display_name || item.username || '?').split(/\s+/).map((word) => word[0]).join('').slice(0, 2).toUpperCase();
   const OUTCOME = (): Record<string, string> => ({ revoked: t('Removed'), manual: t('To remove by hand'), failed: t('Removal failed') });
 
   // ---- keyboard: ↑ ↓ choose a person, G keep, R remove, → ← next / previous folder, Z undo ----
@@ -305,7 +304,7 @@
             {#each people as item (item.id)}
               <article id={`rv-${item.id}`} class="rv__card rv__person" class:is-keep={item.decision === 'keep'} class:is-revoke={item.decision === 'revoke'} class:is-cursor={cursor === item.id}
                 oncontextmenu={(event) => { event.preventDefault(); menu = { item, at: menuPositionFor(event) }; }}>
-                <span class="rv__avatar" aria-hidden="true">{initials(item)}</span>
+                <span class="rv__avatar" aria-hidden="true">{initials(item.display_name || item.username, '?')}</span>
                 <div class="rv__who">
                   <span class="rv__name"><b>{item.display_name ?? item.username ?? '—'}</b><small>{item.username ?? t('account unknown')}</small></span>
                   <span class="rv__chips">

@@ -2,7 +2,7 @@
   import { governanceEnabled } from '$lib/utils/features';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import { t } from '$lib/i18n';
-  import { formatDate } from '$lib/utils/format';
+  import { formatDate, formatLongDay } from '$lib/utils/format';
   import { getRequestStatusMeta, requestToneVariant } from '$lib/utils/access-request-status';
   import type { DashboardRequest, UserDashboardMePayload } from '$lib/api/dashboard';
   import ThreadOfTheDay from './ThreadOfTheDay.svelte';
@@ -27,7 +27,7 @@
     Boolean(event.root_id) || String(event.target_type ?? '') === 'storage_root' || /^job\.|acl_|ad_group|ad_access/.test(String(event.action ?? ''));
   let thread = $derived(activities.filter(guardian ? aboutFolderOrTask : aboutRequest));
 
-  const todayText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayText = formatLongDay();
   const today = todayText.charAt(0).toUpperCase() + todayText.slice(1);
   const href = (row: DashboardRequest, status = 'all') => `/access-requests?status=${status}&request=${row.request_id}`;
   const access = (row: DashboardRequest) =>

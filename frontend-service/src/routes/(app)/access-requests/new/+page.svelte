@@ -8,6 +8,7 @@
   import { goto } from '$app/navigation';
   import { page } from '$app/stores';
   import { t } from '$lib/i18n';
+  import { formatDate } from '$lib/utils/format';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import IdentityBrowserModal from '$lib/components/identity/IdentityBrowserModal.svelte';
@@ -216,7 +217,7 @@
     forOther = value;
     for (const id of cart.keys()) void check(id);
   }
-  const dayLabel = (date: Date | null) => (date ? date.toLocaleDateString() : t('no end'));
+  const dayLabel = (date: Date | null) => (date ? formatDate(date) : t('no end'));
   const REASONS = [() => t('Monthly closing'), () => t('Replacing a colleague'), () => t('Audit in progress'), () => t('New project')];
   function useReason(label: string) {
     const current = justification.trim();
@@ -376,7 +377,7 @@
       ? t('Permanent')
       : 'days' in parsed.duration
         ? t('{count} days', { count: parsed.duration.days })
-        : t('until {date}', { date: new Date(`${parsed.duration.date}T12:00:00`).toLocaleDateString() }));
+        : t('until {date}', { date: formatDate(new Date(`${parsed.duration.date}T12:00:00`)) }));
 </script>
 
 <svelte:head><title>{t('New access request')} · BornToShare</title></svelte:head>

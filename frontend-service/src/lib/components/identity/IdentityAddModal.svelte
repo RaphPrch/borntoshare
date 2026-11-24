@@ -1,6 +1,7 @@
 <script lang="ts">
 
   import { untrack } from 'svelte';
+  import { initials } from '$lib/utils/format';
   import { apiGetList } from '$lib/api/client';
   import { createIdentity, type CreateIdentityPayload } from '$lib/api/identity';
   import { listIdentitySources } from '$lib/api/identity-sources';
@@ -95,7 +96,6 @@
     const at = query.trim() ? text.toLowerCase().indexOf(query.trim().toLowerCase()) : -1;
     return at < 0 ? { pre: text, hit: '', post: '' } : { pre: text.slice(0, at), hit: text.slice(at, at + query.trim().length), post: text.slice(at + query.trim().length) };
   }
-  const initials = (text: string) => text.split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
 
 
   async function save() {

@@ -3,7 +3,7 @@
 
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import { t } from '$lib/i18n';
-  import { formatDate, formatDateTime, initials } from '$lib/utils/format';
+  import { formatDate, formatDateTime, formatTime, initials } from '$lib/utils/format';
   import { formatActivityItem } from '$lib/activity/format';
   import { activitySummary, categoryOf, changedValues, eventTime, groupByDay, dayKey, type ActivityCategory } from '$lib/activity/timeline';
 
@@ -77,7 +77,7 @@
   const yesterday = dayKey(Date.now() - 86_400_000);
   const dayLabel = (key: string, ms: number | null) =>
     key === today ? t('Today') : key === yesterday ? t('Yesterday') : ms ? formatDate(new Date(ms).toISOString()) : t('Unknown date');
-  const hour = (ms: number | null) => (ms ? new Date(ms).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '');
+  const hour = (ms: number | null) => (ms ? formatTime(ms) : '');
 
   let detail = $derived(selected ? rows.find((row) => row.entry === selected) ?? null : null);
   let changes = $derived(detail ? changedValues(detail.entry) : []);

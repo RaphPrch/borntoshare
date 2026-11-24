@@ -1,7 +1,7 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
   import { formatActivityItem } from '$lib/activity/format';
-  import { timeAgo } from '$lib/utils/format';
+  import { formatTime, timeAgo } from '$lib/utils/format';
 
   /**
    * « Thread of the day » of a dashboard: the latest events already chosen for the profile (administrator: the
@@ -21,7 +21,7 @@
   const clock = (value: unknown) => {
     const date = new Date(String(value ?? ''));
     if (Number.isNaN(date.getTime())) return '—';
-    return date.toDateString() === new Date().toDateString() ? date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : timeAgo(value as string);
+    return date.toDateString() === new Date().toDateString() ? formatTime(date) : timeAgo(value as string);
   };
   const who = (event: Record<string, any>) =>
     String(event.actor_display_name ?? event.actor_display ?? (event.actor_type === 'system' ? t('System') : event.actor_id ?? '—'));

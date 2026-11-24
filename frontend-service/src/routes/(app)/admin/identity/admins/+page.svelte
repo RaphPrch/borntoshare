@@ -1,5 +1,6 @@
 <script lang="ts">
   import { invalidateAll } from '$app/navigation';
+  import { initials } from '$lib/utils/format';
   import { updateIdentity, type PlatformAdmins } from '$lib/api/identity';
   import { reportUiError } from '$lib/errors';
   import { toast } from '$lib/stores/toast';
@@ -20,7 +21,6 @@
   let meId = $derived(Number(data.user?.id ?? 0));
 
   type Path = { key: string; initials: string; name: string; sub: string; kind: 'local' | 'ad' | 'group'; off: boolean; href: string | null };
-  const initials = (text: string) => text.split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || '?';
   let paths = $derived([
     ...admins.direct.map((person): Path => ({
       key: `u${person.id}`, initials: initials(person.name), name: person.name,

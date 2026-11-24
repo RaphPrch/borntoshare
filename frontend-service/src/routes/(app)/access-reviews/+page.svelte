@@ -2,7 +2,7 @@
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
-  import { t } from '$lib/i18n';
+  import { intlLocale, t } from '$lib/i18n';
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
   import { formatDate } from '$lib/utils/format';
   import { reportUiError } from '$lib/errors';
@@ -85,7 +85,7 @@
   // ---- opening a review (administrators) ----
   let opening = $state(false);
   let creating = $state(false);
-  let name = $state(`Revue des accès ${new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })}`);
+  let name = $state(`${t('Access review')} ${new Date().toLocaleDateString(intlLocale(), { month: 'long', year: 'numeric' })}`);
   let dueIn = $state<number>(21);
   let due = $state(new Date(Date.now() + 21 * 86400000).toISOString().slice(0, 10));
   let scope = $state<'all' | 'some'>('all');

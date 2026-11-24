@@ -4,6 +4,12 @@ import type { AccessLevel, PermissionVia } from '$lib/api/storage-root-permissio
 export const levelLabel = (level: AccessLevel | null | undefined): string =>
   level === 'write' ? t('Modify') : level === 'read' ? t('Read') : t('No access');
 
+/** An NTFS right as the 5S scanner reads it: R, W or F, « ! » first when it is a denial */
+export function ntfsLevelLabel(value: string): string {
+  const levels: Record<string, string> = { R: t('Read'), W: t('Modify'), F: t('Full control') };
+  return (value.startsWith('!') ? `${t('Denied')} · ` : '') + (levels[value.replace('!', '')] ?? value);
+}
+
 /** Time left of an access: days, share of its whole duration, and « soon » under 25 % or 7 days */
 export function expiryProgress(start: string | null, end: string) {
   const endMs = new Date(end).getTime();

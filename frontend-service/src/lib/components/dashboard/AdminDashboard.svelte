@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { formatBytes, initials, timeAgo } from '$lib/utils/format';
+  import { formatBytes, formatLongDay, initials, timeAgo } from '$lib/utils/format';
   import { t } from '$lib/i18n';
   import { page } from '$app/stores';
   import ThreadOfTheDay from './ThreadOfTheDay.svelte';
@@ -89,7 +89,7 @@
 
   let name = $derived(String(($page.data as any)?.me?.display_name || ($page.data as any)?.me?.username || '').trim());
   // ---- Journal: the day told in one headline and one paragraph, from the figures below ----
-  const todayText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' });
+  const todayText = formatLongDay();
   const today = todayText.charAt(0).toUpperCase() + todayText.slice(1);
   let lede = $derived([
     t('{count} folder(s) on {servers} server(s)', { count: num(stats.storage_roots) || roots.length, servers: num(stats.storage_endpoints) || endpoints.length }),

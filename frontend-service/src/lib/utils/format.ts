@@ -36,6 +36,17 @@ export function formatDate(value: unknown, { empty = '—' }: { empty?: string }
   return date ? date.toLocaleDateString(intlLocale(), DATE_OPTIONS) : raw;
 }
 
+/** hh:mm in the language of the interface. Empty or unparsable input -> `empty`. */
+export function formatTime(value: unknown, { empty = '' }: { empty?: string } = {}): string {
+  const date = value instanceof Date ? value : typeof value === 'number' ? new Date(value) : toValidDate(value);
+  return date && !Number.isNaN(date.getTime()) ? date.toLocaleTimeString(intlLocale(), TIME_OPTIONS) : empty;
+}
+
+/** Day and month in words, in the language of the interface: « mardi 24 novembre » (heads of the dashboards). */
+export function formatLongDay(value: Date = new Date()): string {
+  return value.toLocaleDateString(intlLocale(), { weekday: 'long', day: 'numeric', month: 'long' });
+}
+
 /** Two-letter initials: "Jane Doe" -> "JD", "john.doe" -> "JD", "System" -> "SY". */
 export function initials(value?: string | null, fallback = '??'): string {
   const raw = String(value ?? '').trim();

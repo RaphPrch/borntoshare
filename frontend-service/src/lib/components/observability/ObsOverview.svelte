@@ -1,6 +1,6 @@
 <script lang="ts">
   import { t } from '$lib/i18n';
-  import { formatDateTime, timeAgo, timeUntil } from '$lib/utils/format';
+  import { formatDateTime, formatTime, timeAgo, timeUntil } from '$lib/utils/format';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import { formatActivityItem } from '$lib/activity/format';
   import { CATEGORIES } from '$lib/utils/infrastructure';
@@ -84,10 +84,7 @@
 
   let events = $derived(data.events.slice(0, 7).map(eventRow));
 
-  const hourOf = (iso: string) => {
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? '' : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-  };
+  const hourOf = (iso: string) => formatTime(iso);
   const reasonLabel = (code: string): string =>
     ({
       ACCOUNT_NOT_AUTHORIZED: t('account not authorized'),

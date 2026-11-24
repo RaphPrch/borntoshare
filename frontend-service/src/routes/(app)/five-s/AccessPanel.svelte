@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
+  import { ntfsLevelLabel } from '$lib/components/storage-roots/permissions/permissions-format';
   import { t } from '$lib/i18n';
   import { apiGetData } from '$lib/api/client';
   import { formatDate } from '$lib/utils/format';
@@ -16,8 +17,6 @@
   }
 
   let { rootId, path }: Props = $props();
-  const LEVEL = (): Record<string, string> => ({ R: t('Read'), W: t('Modify'), F: t('Full control') });
-  const levelLabel = (value: string) => (value.startsWith('!') ? `${t('Denied')} · ` : '') + (LEVEL()[value.replace('!', '')] ?? value);
 
   // ---- who reaches the folder chosen and why (Permission Intelligence: resolved by the core with its directory) ----
   type Via = { kind: 'group' | 'direct'; group?: string; account?: string; nested?: boolean; rights: string; deny: boolean; inherited: boolean };
@@ -80,8 +79,8 @@
   {#if access.drift?.added.length || access.drift?.removed.length}
     <div class="ap__drift">
       <small>{t('Compared with its parent folder')}</small>
-      {#each access.drift.added as entry (entry.who + entry.level)}<span class="is-add">+ {entry.who} · {levelLabel(entry.level)}</span>{/each}
-      {#each access.drift.removed as entry (entry.who + entry.level)}<span class="is-del">− {entry.who} · {levelLabel(entry.level)}</span>{/each}
+      {#each access.drift.added as entry (entry.who + entry.level)}<span class="is-add">+ {entry.who} · {ntfsLevelLabel(entry.level)}</span>{/each}
+      {#each access.drift.removed as entry (entry.who + entry.level)}<span class="is-del">− {entry.who} · {ntfsLevelLabel(entry.level)}</span>{/each}
     </div>
   {/if}
   <ul class="ap__princ">

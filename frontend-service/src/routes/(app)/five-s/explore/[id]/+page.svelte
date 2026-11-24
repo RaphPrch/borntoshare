@@ -1,6 +1,7 @@
 <script lang="ts">
 
   import TagPill from '$lib/components/tags/TagPill.svelte';
+  import { ntfsLevelLabel } from '$lib/components/storage-roots/permissions/permissions-format';
   import FolderHeader from '../../FolderHeader.svelte';
   import AccessPanel from '../../AccessPanel.svelte';
   import FileSearch from '../../FileSearch.svelte';
@@ -485,8 +486,6 @@
     return group.decision?.keep_path ?? ranked[0]?.path ?? '';
   }
   let chain = $derived(trail.map((folder) => ({ name: folder.name || rootName, broken: folder.inheritance_broken === true })));
-  const LEVEL = (): Record<string, string> => ({ F: t('Full control'), W: t('Modify'), R: t('Read') });
-  const levelLabel = (value: string) => (value.startsWith('!') ? `${t('Denied')} · ` : '') + (LEVEL()[value.replace('!', '')] ?? value);
 
   const exportLevel = () =>
     downloadCsv(csvFilename(`5s-${rootName}`), [
@@ -733,7 +732,7 @@
                 {#each selected.acl as ace (ace.who + ace.level)}
                   <li class:is-own={!ace.inherited} class:is-orphan={ace.orphan}>
                     <span><b>{ace.who}</b><small>{ace.orphan ? `${t('account deleted from the directory (orphan SID)')} · ` : ''}{ace.inherited ? t('inherited') : t('set on this folder')}</small></span>
-                    <em class={`is-${ace.level.replace('!', 'deny-')}`}>{levelLabel(ace.level)}</em>
+                    <em class={`is-${ace.level.replace('!', 'deny-')}`}>{ntfsLevelLabel(ace.level)}</em>
                   </li>
                 {/each}
               </ul>

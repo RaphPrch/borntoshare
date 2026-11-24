@@ -15,7 +15,7 @@
   import Tabs from '$lib/components/ui/Tabs.svelte';
   import { t } from '$lib/i18n';
   import type { IdentitySourceCardVM } from '$lib/mappers/identity-sources.mapper';
-  import { timeAgo } from '$lib/utils/format';
+  import { timeAgo, initials } from '$lib/utils/format';
 
   
   interface Props {
@@ -117,7 +117,6 @@
     }, inventoryQuery ? 300 : 0);
   }
   const isModify = (name: string) => /_RW$/i.test(String(name));
-  const initials = (value: string) => String(value || '?').split(/[ .\-_]/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('');
 
   let raw = $derived((card?.raw ?? {}) as Record<string, any>);
   $effect.pre(() => {
