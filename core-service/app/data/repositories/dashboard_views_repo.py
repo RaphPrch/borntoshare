@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.data.repositories.access_requests_views_repo import PENDING_OVERDUE_DAYS
 from app.data.repositories.sql_view_repo import SQLViewRepo
 
 
@@ -35,8 +36,9 @@ class DashboardViewsRepo(SQLViewRepo):
               (SELECT COUNT(*) FROM provisioning_jobs
                 WHERE status = 'FAILED' AND COALESCE(finished_at, updated_at) >= NOW() - INTERVAL 1 DAY) AS failed_jobs_24h_count,
               (SELECT COUNT(*) FROM access_requests
-                WHERE status = 'pending' AND created_at < NOW() - INTERVAL 3 DAY) AS stale_pending_requests_count
-            """
+                WHERE status = 'pending' AND created_at < UTC_TIMESTAMP() - INTERVAL :overdue_days DAY) AS stale_pending_requests_count
+            """,
+            {"overdue_days": PENDING_OVERDUE_DAYS},
         ) or {}
         for key, value in attention.items():
             payload[key] = int(value or 0)

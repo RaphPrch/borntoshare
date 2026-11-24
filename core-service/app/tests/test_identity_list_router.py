@@ -26,6 +26,10 @@ class _FakeResult:
     def first(self):
         return self._rows[0] if self._rows else None
 
+    def scalar(self):
+        row = self.first()
+        return next(iter(row.values()), None) if isinstance(row, dict) else row
+
 
 class _FakeDB:
     def __init__(self, executions):

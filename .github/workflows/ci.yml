@@ -19,7 +19,8 @@ jobs:
           python-version: "3.14"
       # Same version and rules as « make lint » (ruff.toml)
       - run: pip install ruff==0.13.0
-      - run: ruff check --no-cache core-service auth-service capsule-runner fives-service fives-scanner wizard-ui
+      # The 5S module (fives-service, fives-scanner) lives in its private repository and is checked there
+      - run: ruff check --no-cache core-service auth-service capsule-runner wizard-ui
 
   python:
     name: tests ${{ matrix.service }}
@@ -34,12 +35,6 @@ jobs:
             workdir: capsule-runner
           - service: core-service
             workdir: core-service
-          # The 5S module (its own container and databases)
-          - service: fives-service
-            workdir: fives-service
-          # Its scanner (the tests find the WinRM code of capsule-runner in the repository)
-          - service: fives-scanner
-            workdir: fives-scanner
           # From wizard-ui: the tests import backend.app.main
           - service: wizard-ui
             workdir: wizard-ui
@@ -84,3 +79,43 @@ jobs:
           done
       - name: Type check
         run: npm run check -- --threshold error
+
+  secrets:
+    name: secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    # Reported, not blocking yet, like the dependency audit below
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  audit:
+    name: dependencies (pip-audit, npm audit)
+    runs-on: ubuntu-latest
+    # Reported, not blocking yet: the known advisories are triaged first, then this job becomes required
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - run: pip install pip-audit
+      - name: Python services
+        run: |
+          status=0
+          for service in auth-service core-service capsule-runner wizard-ui; do
+            echo "::group::$service"
+            pip-audit -r "$service/requirements.txt" || status=1
+            echo "::endgroup::"
+          done
+          exit $status
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26"
+      - name: Frontend
+        working-directory: frontend-service
+        run: npm audit --omit=dev --audit-level=high

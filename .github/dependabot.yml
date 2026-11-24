@@ -1,0 +1,22 @@
+# Weekly update proposals for the dependencies of the public services and of the CI itself.
+# The 5S module (fives-service, fives-scanner) has its own private repository.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /core-service
+    schedule: { interval: weekly }
+  - package-ecosystem: pip
+    directory: /auth-service
+    schedule: { interval: weekly }
+  - package-ecosystem: pip
+    directory: /capsule-runner
+    schedule: { interval: weekly }
+  - package-ecosystem: pip
+    directory: /wizard-ui
+    schedule: { interval: weekly }
+  - package-ecosystem: npm
+    directory: /frontend-service
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

@@ -3,7 +3,6 @@ from __future__ import annotations
 from fastapi import APIRouter
 
 # Core
-from app.api.internal import router as internal_router
 from app.api.zones import router as zones_router
 from app.api.tags import router as tags_router
 from app.api.storage_endpoints import router as storage_endpoints_router
@@ -48,7 +47,6 @@ from app.api.internal_fives import router as internal_fives_router
 router = APIRouter()
 
 # Core
-router.include_router(internal_router)
 router.include_router(zones_router)
 router.include_router(tags_router)
 router.include_router(storage_endpoints_router)

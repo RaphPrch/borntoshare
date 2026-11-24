@@ -11,6 +11,26 @@ from app.core.sql import to_dicts
 from app.services.activity_bridge import list_activity_by_target
 from app.services.naming_policy import resolve_storage_root_group_name
 
+# A request waiting for its decision longer than this is overdue (the list filter and the dashboard count alike)
+PENDING_OVERDUE_DAYS = 3
+
+
+def is_overdue(row: dict[str, Any], now: datetime | None = None) -> bool:
+    """Pending for more than PENDING_OVERDUE_DAYS days (created_at is stored in UTC, without time zone)."""
+    if str(row.get("status") or "").strip().lower() != "pending":
+        return False
+    created = row.get("created_at")
+    if isinstance(created, str):
+        try:
+            created = datetime.fromisoformat(created.replace("Z", "+00:00"))
+        except ValueError:
+            return False
+    if not isinstance(created, datetime):
+        return False
+    created = created.replace(tzinfo=None) if created.tzinfo is None else created.astimezone(timezone.utc).replace(tzinfo=None)
+    current = (now or datetime.now(timezone.utc)).replace(tzinfo=None)
+    return (current - created).total_seconds() > PENDING_OVERDUE_DAYS * 86400
+
 
 class AccessRequestsReadModelContractError(RuntimeError):
     """Raised when mandatory read-model SQL objects are unavailable at runtime."""
@@ -237,6 +257,9 @@ class AccessRequestsViewsRepo:
             ORDER BY created_at DESC
             LIMIT 200
         """
+        # Only a pending request is overdue: filter in SQL so the 200-row limit keeps them all
+        if overdue_only and not status:
+            status = "pending"
         params: dict[str, Any] = {
             "status": status,
             "request_id": int(request_id) if request_id is not None else None,
@@ -246,14 +269,16 @@ class AccessRequestsViewsRepo:
         rows = []
         mappings = self.db.execute(text(sql), params).mappings()
 
+        now = datetime.now(timezone.utc)
         for m in mappings:
             snap_cnt = m.get("impact_snapshot_users_count") or 0
-            if overdue_only:
+            overdue = is_overdue(dict(m), now)
+            if overdue_only and not overdue:
                 continue
             if high_impact and snap_cnt < 10:
                 continue
             row = dict(m)
-            row["overdue"] = False
+            row["overdue"] = overdue
             row["risk"] = self._risk(snap_cnt)
             rows.append(row)
 
