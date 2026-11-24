@@ -97,7 +97,9 @@ up() {
   chmod 0700 "$RUN"
   echo "$RUN" > "$CACHE/current-$SCEN"
   say "$SCEN : hôtes simulés ($SUBNET$([ "$TOPO" = native ] && echo ", lab-app avec accès Internet" || echo ", sans accès Internet")) — $RUN"
-  podman network create --internal --subnet "$SUBNET" "$NET" >/dev/null
+  # Closed network, except for native: it installs its Python packages and builds its interface (PyPI, npm), as a real
+  # server does (an internal network has no DNS for outside names, even with a second network)
+  podman network create $([ "$TOPO" = native ] || echo --internal) --subnet "$SUBNET" "$NET" >/dev/null
   # Test values made for this run only
   (umask 077; secret 24 > "$RUN/db-root.pw"; secret 20 > "$RUN/admin.pw")
 
@@ -119,7 +121,7 @@ up() {
 
   if [ "$TOPO" = native ]; then
     # Native: systemd, the Python and Redis of the distribution; the second network gives it PyPI and npm (as a real server)
-    podman run -d --name "$P-app" --hostname lab-app --network "$NET:ip=$IP_APP,alias=lab-app" --network podman \
+    podman run -d --name "$P-app" --hostname lab-app --network "$NET:ip=$IP_APP,alias=lab-app" \
       -v "$RUN/repo:/srv/borntoshare:z" localhost/b2s-lab-native-host >/dev/null
     for _ in $(seq 1 30); do app systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded' && break; sleep 2; done
     app sh -c 'install -d -m 0755 /etc/pki/lab && openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj /CN=lab-app \
@@ -331,9 +333,10 @@ checks_native() {
   app sh -c 'sed -E "s/^([A-Z_]*(TOKEN|KEY|PASSWORD|SECRET)[A-Z_]*)=.*/\1=***masqué***/" .env' > "$RUN/config/env.masked" || true
   app sh -c 'cat secrets/.deploy.log 2>/dev/null' > "$RUN/config/deploy.log" || true
   app sh -c 'cat /etc/systemd/system/b2s-core.service 2>/dev/null' > "$RUN/config/b2s-core.service" || true
-  check "natif : unités systemd actives" app sh -c 'systemctl --no-pager --plain list-units "b2s-*" --all | grep -E "^b2s-"; ! systemctl --no-pager --plain list-units "b2s-*" --all | grep -E "^b2s-" | grep -vq " active running"'
+  check "natif : unités systemd actives" app sh -c 'systemctl --no-pager --plain list-units "b2s-*" --all | grep -E "^b2s-" > /tmp/units || true; cat /tmp/units;
+    [ -s /tmp/units ] && ! grep -vq " active running" /tmp/units'
   check "natif : borntoshare.target et démarrage au boot" app sh -c 'systemctl is-active borntoshare.target && systemctl is-enabled borntoshare.target'
-  check "natif : compte b2s et secrets 0400" app sh -c 'id b2s && stat -c "%a %U %n" /etc/borntoshare/secrets/* | head -6; ! stat -c "%a" /etc/borntoshare/secrets/* | grep -qv "^400$"'
+  check "natif : compte b2s et secrets 0400" app sh -ec 'id b2s; stat -c "%a %U %n" /etc/borntoshare/secrets/* | head -6; ! stat -c "%a" /etc/borntoshare/secrets/* | grep -qv "^400$"'
   check "natif : santé auth et core (127.0.0.1)" app sh -c 'curl -sf http://127.0.0.1:8101/health && echo && curl -sf http://127.0.0.1:8102/health'
   check "natif : journaux dans journald" app sh -c 'journalctl -u b2s-core --no-pager -n 3 -o cat | tail -3; [ "$(journalctl -u b2s-core --no-pager -o cat | wc -l)" -gt 0 ]'
   check "natif : interface publiée par httpd (https://lab-app)" app sh -c 'systemctl is-active httpd b2s-web && curl -sk -o /dev/null -w "%{http_code}\n" https://lab-app/login | grep 200'
