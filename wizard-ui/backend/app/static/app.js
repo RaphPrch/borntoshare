@@ -176,6 +176,7 @@ function prereqs() {
     add("Python 3.12 ou plus", "un environnement par service, dans /opt/borntoshare", h.python || `absent (${h.python_any || "aucun"})`, h.python ? "ok" : "bad");
     add("Redis", "file des travaux et sessions (redis-server)", h.redis || "absent : dnf install redis", h.redis ? "ok" : "bad");
     add("Client MariaDB", "paquets SQL, sauvegardes", h.mariadb_client || "absent : dnf install mariadb", h.mariadb_client ? "ok" : "bad");
+    add("npm", "construit l’interface sur ce serveur", h.npm || "absent : dnf module install nodejs:22", h.npm ? "ok" : "bad");
     add("Droits root", "le déploiement crée le compte b2s, les unités, /etc/borntoshare", h.sudo === "root" ? "root" : h.sudo === "nopasswd" ? "sudo" : "lancer sudo make deploy", sudo ? "ok" : "warn");
   }
   if (state.mode !== "containers" && !annex()) {
