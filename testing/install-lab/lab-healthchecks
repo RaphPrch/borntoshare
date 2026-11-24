@@ -1,0 +1,9 @@
+#!/bin/bash
+# Install lab only: on a real host, systemd timers run the healthchecks of the containers; a simulated host has no
+# systemd, so this loop plays their part (every 10 s), otherwise every container stays « starting ».
+while true; do
+  for id in $(podman ps -q --filter health=starting --filter health=healthy --filter health=unhealthy 2>/dev/null); do
+    podman healthcheck run "$id" >/dev/null 2>&1 || true
+  done
+  sleep 10
+done

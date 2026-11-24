@@ -7,4 +7,8 @@ RUN dnf -y install podman-compose make git jq python3 openssh-clients findutils 
 # inside the lab. This wrapper drops « build » and « --build » and runs the real podman-compose otherwise.
 COPY podman-compose-lab /usr/local/bin/podman-compose
 RUN chmod 0755 /usr/local/bin/podman-compose
+# No systemd in a simulated host: this loop runs the healthchecks of the containers as its timers would
+COPY lab-healthchecks /usr/local/bin/lab-healthchecks
+RUN chmod 0755 /usr/local/bin/lab-healthchecks
+CMD ["/usr/local/bin/lab-healthchecks"]
 WORKDIR /srv/borntoshare

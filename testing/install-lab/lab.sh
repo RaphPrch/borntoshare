@@ -113,7 +113,7 @@ up() {
 
   podman run -d --privileged --name "$P-app" --hostname lab-app --network "$NET:ip=$IP_APP,alias=lab-app" \
     -v "$RUN/repo:/srv/borntoshare:z" -v "$RUN/storage:/var/lib/containers:z" \
-    -v "$CACHE/product-images.tar:/lab/images.tar:ro,z" localhost/b2s-lab-app-host sleep infinity >/dev/null
+    -v "$CACHE/product-images.tar:/lab/images.tar:ro,z" localhost/b2s-lab-app-host >/dev/null
   check "hôte lab-app : images produit chargées (sans registre)" app podman load -q -i /lab/images.tar
 
   if [ "$SCEN" = hybrid ]; then
