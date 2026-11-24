@@ -4516,7 +4516,6 @@
   "{name} switched on.": "{name} activé.",
   "Unable to change the features.": "Impossible de modifier les fonctionnalités.",
   "The 5S module is not active": "Le module 5S n'est pas actif",
-  "Open Features": "Ouvrir Fonctionnalités",
   "This is not a BornToShare license key": "Ce n'est pas une clé de licence BornToShare",
   "This key was not issued for BornToShare (signature refused)": "Cette clé n'a pas été émise pour BornToShare (signature refusée)",
   "This key opens no feature of this version of BornToShare": "Cette clé n'ouvre aucune fonctionnalité de cette version de BornToShare",
@@ -4581,7 +4580,6 @@
   "The license opens the module, but its containers (fives-service, fives-scanner) do not run yet: its databases are not installed on this server.": "La licence ouvre le module, mais ses conteneurs (fives-service, fives-scanner) ne tournent pas encore : ses bases ne sont pas installées sur ce serveur.",
   "Run the installation wizard again (make wizard on the server) and paste the license key at its step « Licence et modules »: it creates the two databases of the module and its own account, then deploys by itself. Nothing is deleted. Come back here afterwards.": "Relancez le wizard d'installation (make wizard sur le serveur) et collez la clé de licence à son étape « Licence et modules » : il crée les deux bases du module et son propre compte, puis déploie de lui-même. Rien n'est effacé. Revenez ici ensuite.",
   "Switched on · not installed on this server": "Activé · non installé sur ce serveur",
-  "It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.": "Il s'ouvre par une clé de licence et s'active dans Réglages avancés › Fonctionnalités ; ses bases s'installent par le wizard d'installation.",
   "{count} folder(s) attached: remove them from BornToShare first": "{count} dossier(s) rattaché(s) : retirez-les d'abord de BornToShare",
   "See all the activity in Monitoring": "Voir toute l'activité dans Suivi",
   "Last {count} events": "Les {count} derniers événements",
@@ -5219,7 +5217,6 @@
   "Select the page": "Sélectionner la page",
   "Tags of its sub-folders, set by the policies": "Tags de ses sous-dossiers, posés par les politiques",
   "Tags…": "Tags…",
-  "The 5S module is not active.": "Le module 5S n'est pas actif.",
   "The inventoried content of the folders, and what the 5S knows about it. Choose a folder in the tree; right click: its actions.": "Le contenu inventorié des dossiers, et ce que le 5S en sait. Choisissez un dossier dans l'arbre ; clic droit : ses actions.",
   "To handle first": "À traiter d'abord",
   "Volume · quota": "Volume · quota",
@@ -5815,5 +5812,11 @@
   "A temporary password: the person chooses their own at the next sign-in. Give it to them by a separate channel.": "Un mot de passe temporaire : la personne choisit le sien à sa prochaine connexion. Transmettez-le-lui par un autre canal.",
   "Confirm the password": "Confirmer le mot de passe",
   "Unable to load the members of this group.": "Impossible de lire les membres de ce groupe.",
-  "Part of the platform could not be read: this front page may be incomplete.": "Une partie de la plateforme n'a pas pu être lue : cette une peut être incomplète."
+  "Part of the platform could not be read: this front page may be incomplete.": "Une partie de la plateforme n'a pas pu être lue : cette une peut être incomplète.",
+  "No valid license opens it: add a license key, or renew the one that expired.": "Aucune licence valide ne l'ouvre : ajoutez une clé de licence, ou renouvelez celle qui a expiré.",
+  "It is licensed but switched off.": "Il est sous licence mais désactivé.",
+  "It is switched on but does not answer: check that its container runs and that its databases were installed.": "Il est activé mais ne répond pas : vérifiez que son conteneur tourne et que ses bases ont été installées.",
+  "An administrator opens it with a license key and switches it on.": "Un administrateur l'ouvre avec une clé de licence et l'active.",
+  "Ask an administrator of BornToShare to switch it on.": "Demandez à un administrateur de BornToShare de l'activer.",
+  "Open the modules and licenses": "Ouvrir les modules et licences"
 }

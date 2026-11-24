@@ -1,7 +1,6 @@
 <script lang="ts">
   import Sparkline from '$lib/components/ui/Sparkline.svelte';
   import { recall, remember } from '$lib/utils/remember';
-  import { fivesEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
   import { apiGetData } from '$lib/api/client';
@@ -42,7 +41,6 @@
   let data = $state<FiveS | null>(null);
   let error = $state('');
   // The 5S is an optional module: switched off, the page says where to turn it on
-  let disabled = $state(false);
   let pillarSort = $state(recall('five-s', { pillarSort: 'score' }).pillarSort as Pillar | 'score');
   $effect.pre(() => {
     remember('five-s', { pillarSort });
@@ -57,8 +55,7 @@
   let trends = $state<Record<string, number[]>>({});
   onMount(() => {
     void apiGetData<Record<string, number[]>>(fetch, '/modules/fives/sparklines').then((data) => (trends = data ?? {})).catch(() => null);
-    if ($fivesEnabled) void load();
-    else disabled = true;
+    void load();
   });
   async function load() {
     error = '';
@@ -67,9 +64,7 @@
       const first = data?.folders?.[0]?.zone;
       if (first) open = { [`z:${first}`]: true };
     } catch (failure) {
-      const code = (failure as { code?: string; status?: number })?.code;
-      if (code === 'FEATURE_DISABLED' || (failure as { status?: number })?.status === 403) disabled = true;
-      else error = failure instanceof Error ? failure.message : t('Unable to load the 5S.');
+      error = failure instanceof Error ? failure.message : t('Unable to load the 5S.');
     }
   }
 
@@ -158,16 +153,7 @@
     </div>
   </div>
 
-  {#if disabled}
-    <div class="fs__off">
-      <i class="bi bi-key" aria-hidden="true"></i>
-      <div>
-        <b>{t('The 5S module is not active')}</b>
-        <p>{t('It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.')}</p>
-        <a class="b2s-btn b2s-btn-secondary b2s-btn-sm" href="/admin/advanced-settings/features">{t('Open Features')}</a>
-      </div>
-    </div>
-  {:else if error}
+  {#if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else if !data}
     <LoadingState block skeleton="detail" />
@@ -336,7 +322,4 @@
   .fs__muted { margin: 0; color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-sm); }
   .fs__ok { display: flex; gap: 8px; align-items: center; margin: 0; color: var(--b2s-color-success-strong); font-size: var(--b2s-fs-sm); }
   .fs__more { align-self: center; }
-  .fs__off { display: flex; gap: 16px; align-items: flex-start; padding: 24px; border: 1px dashed var(--b2s-color-border-strong); border-radius: var(--b2s-radius-lg); }
-  .fs__off > i { font-size: 28px; color: var(--b2s-color-info-strong); }
-  .fs__off p { margin: 4px 0 12px; color: var(--b2s-color-text-muted); }
 </style>

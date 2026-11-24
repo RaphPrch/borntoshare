@@ -5,6 +5,7 @@
   import { apiGetData } from '$lib/api/client';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import FivesOffNotice from '$lib/components/settings/FivesOffNotice.svelte';
   import { t } from '$lib/i18n';
   import { formatBytes, formatDate, formatDateTime } from '$lib/utils/format';
 
@@ -51,12 +52,17 @@
     return /retard|plein|non demandée/.test(text) ? 'bad' : /surveiller|en cours/.test(text) ? 'warn' : /ok|corrigée/.test(text) ? 'ok' : '';
   };
   let kind = $derived($page.params.kind);
+  // A report of the 5S module while the module is not usable: said, and the module is not called
+  let fivesOff = $derived(($page.data as { fivesOff?: { reason: string } | null }).fivesOff ?? null);
   let key = $derived(`${kind}:${zoneId}`);
   $effect.pre(() => {
-    if (kind && key !== loadedFor) untrack(load);
+    if (kind && !fivesOff && key !== loadedFor) untrack(load);
   });
 </script>
 
+{#if fivesOff}
+  <FivesOffNotice reason={fivesOff.reason} />
+{:else}
 <section class="b2s-page b2s-page--admin rv">
   <nav class="rv__crumbs no-print"><a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/reports"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the reports')}</a></nav>
   {#if error}
@@ -128,6 +134,7 @@
     {/each}
   {/if}
 </section>
+{/if}
 
 <style>
   .rv { display: flex; flex-direction: column; gap: 20px; padding: var(--b2s-page-padding, 24px 28px); }

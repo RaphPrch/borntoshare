@@ -1,7 +1,6 @@
 <script lang="ts">
   import MeasureCompleteness, { type Completeness, COMPLETENESS_LABEL } from '$lib/components/storage-roots/MeasureCompleteness.svelte';
   import QuarantineList, { type Move } from '../QuarantineList.svelte';
-  import { fivesEnabled } from '$lib/utils/features';
   import { onDestroy, onMount, untrack } from 'svelte';
   import { page } from '$app/stores';
   import { goto } from '$app/navigation';
@@ -68,7 +67,7 @@
   }
   $effect.pre(() => {
     void [quarantineRoot, quarantineKind];
-    if (tab === 'quarantine' && $fivesEnabled) untrack(() => void loadQuarantine());
+    if (tab === 'quarantine') untrack(() => void loadQuarantine());
   });
   let quarantineRows = $derived((quarantine?.moves ?? []).filter((move) => quarantineStatus === 'all'
     || (quarantineStatus === 'pending' ? move.status.endsWith('pending') : quarantineStatus === 'failed' ? move.status.endsWith('failed') : move.status === quarantineStatus)));
@@ -91,8 +90,6 @@
   const loadStates = async () => (states = (await apiGetData<typeof states>(fetch, '/modules/fives/measures/states').catch(() => null)) ?? states);
 
   onMount(() => {
-    // Not active (no license, switched off, or not installed): the explanation, no call to the module
-    if (!$fivesEnabled) return;
     void load();
     void loadRoots();
     void loadStates();
@@ -227,9 +224,7 @@
     {/if}
   </div>
 
-  {#if !$fivesEnabled}
-    <InlineAlert tone="info">{t('The 5S module is not active')} : {t('It is opened by a license key and switched on by an administrator in Advanced settings › Features; its databases are installed by the installation wizard.')}</InlineAlert>
-  {:else if error}
+  {#if error}
     <InlineAlert tone="error">{error}</InlineAlert>
   {:else if !data}
     <LoadingState block skeleton="rows" rows={5} />

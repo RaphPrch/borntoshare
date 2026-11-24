@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   
 
   import { flip } from 'svelte/animate';
@@ -208,7 +208,7 @@
         <div class="gv__head"><span class="gv__label"><i class="bi bi-folder2" aria-hidden="true"></i>{t('Tagged sub-folders')}</span></div>
         <div class="ov__subtags">
           {#each subTags.slice(0, subTagsAll ? subTags.length : 4) as row (row.path)}
-            <span class="ov__subtag"><a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>
+            <span class="ov__subtag">{#if $fivesEnabled}<a class="ov__plain" href={`/five-s/explore/${rootId}`} title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</a>{:else}<span class="ov__plain" title={row.path}><i class="bi bi-folder" aria-hidden="true"></i>{inner(row.path)}</span>{/if}
               {#each row.tags as tag (tag.id)}<TagPill small label={tag.name} color={tag.color ?? null} policy={tag.policy ?? null} automatic={Boolean(tag.automatic)} />{/each}</span>
           {/each}
           {#if subTags.length > 4 && !subTagsAll}<button type="button" class="b2s-link-btn" onclick={() => (subTagsAll = true)}>{t('Show the {count} others', { count: subTags.length - 4 })}</button>{/if}

@@ -30,6 +30,22 @@ code WinRM de `capsule-runner`.
 Bases : `b2s_fives` (résultats, décisions, quarantaine, historique des scores) et `b2s_fives_inventory`
 (empreintes), avec le compte SQL `b2s_fives` (lecture et écriture, jamais le schéma).
 
+## Module utilisable ou non
+
+Le module est utilisable quand trois conditions sont réunies : une licence valide qui l'ouvre, l'interrupteur
+« activé » (Réglages › Licence et modules) et son conteneur qui répond avec ses bases (`/health`, vérifié au plus
+toutes les 30 s). Sinon, partout dans l'application :
+
+- la section **Storage Intelligence** disparaît du menu, et les pages 5S disparaissent de la recherche ⌘K ;
+- les pages `/five-s/*` et les rapports `fives-*` affichent « Le module 5S n'est pas actif », sans appeler le
+  module. L'administrateur y voit la raison (pas de licence valide, désactivé, ne répond pas) et un lien vers les
+  réglages ;
+- dans les autres écrans, les entrées 5S sont masquées : onglets « Stockage · 5S » et « Sensibilité » d'un dossier,
+  « Explorer le contenu », recherche de secrets (unitaire et groupée), liens vers l'Explorer ;
+- côté serveur, le module refuse ses propres routes (`FEATURE_DISABLED`). Le core refuse la recherche de secrets et
+  l'exclusion d'un fichier sensible (403). Les politiques n'envoient plus de recherche de secrets. La mesure d'un
+  dossier passe par le worker du core.
+
 ## Écrans
 
 | Menu Storage Intelligence | Contenu |

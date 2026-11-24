@@ -1,6 +1,5 @@
 <script lang="ts">
   import { onMount, type Snippet } from 'svelte';
-  import { fivesEnabled } from '$lib/utils/features';
   import { t } from '$lib/i18n';
   import ParkTree from './explore/ParkTree.svelte';
   import { loadPark, park } from './explore/explore-state.svelte';
@@ -12,11 +11,6 @@
   let { children }: { children: Snippet } = $props();
 
   onMount(() => {
-    if (!$fivesEnabled) {
-      park.loading = false;
-      park.error = t('The 5S module is not active.');
-      return;
-    }
     void loadPark(fetch, t('Unable to load the 5S.'));
   });
 </script>

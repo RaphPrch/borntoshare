@@ -1480,7 +1480,10 @@ class SensitivityScanPayload(BaseModel):
 @router.post("/sensitivity-scan", dependencies=[Depends(admin_only)])
 async def scan_sensitivity(payload: SensitivityScanPayload, request: Request, db: Session = Depends(get_db)):
     """Ask the worker to look for passwords, keys and vaults stored in these folders (read only, in the background)."""
-    from app.services import sensitivity
+    from app.services import features, sensitivity
+
+    # The sensitivity scan comes with the 5S module: refused while it is not usable (no license, off, not answering)
+    features.require(db, "fives")
     from app.services.probe_service import submit_probe_run
 
     queued: list[int] = []
@@ -1560,7 +1563,9 @@ class SensitivityIgnorePayload(BaseModel):
 @router.post("/{root_id}/sensitivity/ignore", dependencies=[Depends(admin_only)])
 def ignore_sensitive_file(root_id: int, payload: SensitivityIgnorePayload, request: Request, db: Session = Depends(get_db)):
     """A file found by the sensitivity scan is a false positive (or no longer): it stops counting, here and in policies."""
-    from app.services import sensitivity
+    from app.services import features, sensitivity
+
+    features.require(db, "fives")
     from app.services.policies import run_all
 
     actor = actor_from_request(request)

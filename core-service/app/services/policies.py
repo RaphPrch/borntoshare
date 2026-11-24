@@ -293,9 +293,17 @@ async def dispatch_jobs(db: Session, jobs: list[dict[str, Any]]) -> dict[str, in
 
     from app.services import scans
 
+    from fastapi.concurrency import run_in_threadpool
+
+    from app.services import features
+
     done = {"check": 0, "measure": 0, "sensitivity": 0, "failed": 0}
     failed: set[tuple[int, int]] = set()
+    # The sensitivity scan comes with the 5S module: not sent while the module is not usable
+    fives_on = await run_in_threadpool(features.enabled, db, "fives") if any(job["kind"] == "sensitivity" for job in jobs) else False
     for job in jobs:
+        if job["kind"] == "sensitivity" and not fives_on:
+            continue
         root_id = int(job["storage_root_id"])
         key = (int(job.get("policy_id") or 0), root_id)
         try:

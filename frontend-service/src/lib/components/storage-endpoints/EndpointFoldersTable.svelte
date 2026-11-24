@@ -3,6 +3,7 @@
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { copyText } from '$lib/utils/clipboard';
   import { toast } from '$lib/stores/toast';
+  import { fivesEnabled } from '$lib/utils/features';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
@@ -40,7 +41,8 @@
   const folderItems = (): ContextMenuItem[] => [
     { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
     { key: 'rights', label: t('Who has access'), icon: 'bi-people' },
-    { key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap' },
+    // The content of a folder is read by the 5S module
+    ...($fivesEnabled ? [{ key: 'explore', label: t('Explore the content'), icon: 'bi-columns-gap' }] : []),
     { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
   ];
   async function pickFolder(key: string) {

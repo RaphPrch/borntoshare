@@ -8,7 +8,7 @@
 
 <script lang="ts">
   import { SvelteSet } from 'svelte/reactivity';
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   
 
   import { page as pageStore } from '$app/stores';
@@ -512,7 +512,7 @@
       {#if $governanceEnabled}<button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('guardians')}>{t('Add guardians')}</button>{/if}
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('tags')}>{t('Add tags')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('check')}>{t('Read the ACLs')}</button>
-      <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>
+      {#if $fivesEnabled}<button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('sensitivity')}>{t('Scan for secrets')}</button>{/if}
       <button type="button" class="b2s-btn b2s-btn-sm" onclick={() => openAction('measure')}>{t('Measure')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-primary" onclick={exportCsv}>{t('Export')}</button>
       <button type="button" class="b2s-btn b2s-btn-sm tb__clear" onclick={() => (checked = new SvelteSet())}>{t('Clear the selection')}</button>
