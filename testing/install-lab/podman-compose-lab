@@ -1,0 +1,11 @@
+#!/bin/bash
+# Install lab only: the images come preloaded (the versions under test), nothing is built in a simulated host.
+args=()
+for arg in "$@"; do
+  case "$arg" in
+    build) echo "[lab] podman-compose build skipped (preloaded images)"; exit 0 ;;
+    --build) ;;
+    *) args+=("$arg") ;;
+  esac
+done
+exec /usr/bin/podman-compose "${args[@]}"

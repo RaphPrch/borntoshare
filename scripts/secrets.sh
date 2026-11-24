@@ -18,7 +18,8 @@ if [ -d secrets ]; then
   for file in secrets/b2s_*; do
     [ -f "$file" ] || continue
     name="$(basename "$file")"
-    put "$name" < "$file"
+    # Through a pipe: podman 5.6 (RHEL/AlmaLinux 9) refuses « - » when stdin is a redirected file
+    cat "$file" | put "$name"
     shred -u "$file" 2>/dev/null || rm -f "$file"
     echo "secret $name: imported from secrets/"
   done
