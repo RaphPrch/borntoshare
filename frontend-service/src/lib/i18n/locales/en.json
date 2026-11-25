@@ -1871,5 +1871,11 @@
   "{count} refused.": "{count} refused.",
   "Put the tag « {tag} » on {count} folder(s)?": "Put the tag « {tag} » on {count} folder(s)?",
   "Take the tag « {tag} » off {count} folder(s)?": "Take the tag « {tag} » off {count} folder(s)?",
-  "Only an administrator can apply this change.": "Only an administrator can apply this change."
+  "Only an administrator can apply this change.": "Only an administrator can apply this change.",
+  "access_explorer": {
+    "mode_user": "User",
+    "mode_group": "Group",
+    "mode_folder": "Folder",
+    "mode_root": "Storage Root"
+  }
 }

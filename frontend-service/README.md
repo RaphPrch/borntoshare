@@ -36,15 +36,18 @@ Les noms du menu sont des noms de produit, en anglais dans les deux langues.
 | Section | Entrée | Pages |
 |---|---|---|
 | Workspace | Dashboard (`/dashboard`) | Journal du jour : chiffres clés (volume mesuré, fichiers, score 5S, demandes à décider), « À la une » (ce qui demande une action), fil du jour ; vue simplifiée pour les utilisateurs |
-| | Raphaël (`/pilot`, administrateurs et gardiens) | questions en français sur les dossiers (« exporte-moi tous les utilisateurs du dossier TEST »), réponses en liste, export CSV, copie, historique |
+| | Assistant (`/assistant`, ex-`/pilot` redirigé ; administrateurs et gardiens) | questions en français sur les dossiers (« exporte-moi tous les utilisateurs du dossier TEST »), réponses en liste, export CSV, copie, historique |
+| | My Tasks (`/tasks`) | ce qui attend la personne connectée : demandes à décider, revues, alertes, recommandations, ses demandes à suivre |
 | Governance | Storage Roots (`/storage-roots`) | liste (filtres, tri, actions groupées, aperçu latéral), fiche du dossier en onglets : vue d'ensemble, permissions, stockage · 5S, sensibilité, quota, activité |
-| | Access Management (`/access-requests`) | onglets Demandes, Exposition (`/exposure`) et Revues (`/access-reviews` : campagnes de revue des accès) |
+| | Access Management (`/access-requests`) | onglets Demandes et Revues (`/access-reviews` : campagnes de revue des accès) |
+| | Access Explorer (`/access-explorer`, administrateurs et gardiens, gouvernance) | qui accède à quoi et pourquoi : recherche par utilisateur, groupe, chemin ou dossier géré ; groupes directs et imbriqués, dossiers accessibles, origine de chaque droit (compte, groupe, groupe imbriqué, toute l'entreprise, héritage), explication et chemin d'autorisation, limites du calcul (droits NTFS seulement, partage SMB non lu) ; carte d'exposition (`/exposure`) |
 | | Governance Jobs (`/observability`) | vue d'ensemble, alertes, événements, jobs, santé |
 | | Policies (`/policies`, administrateurs) | automatismes de gouvernance : tags, alertes, scans sur une règle |
 | Storage Intelligence | Explorer (`/five-s/explore`) | recherche de fichiers dans tous les dossiers, puis la fiche d'un dossier en onglets : Contenu, Atelier 5S, Doublons, Droits à revoir, Rapport (module 5S, voir [docs/module-5s.md](../docs/module-5s.md)) |
 | | Inventory (`/five-s/scanner`) | onglets Scans, Dossiers (état de chaque mesure : complète, partielle, échantillonnée), Quarantaine (copies et archives de tous les dossiers, restauration), Réglages |
 | | Analytics (`/five-s`) | score 5S des dossiers et « Quoi faire d'abord » |
-| | Insights & Recommendations (`/reports`) | rapports |
+| | Insights & Recommendations (`/reports`) | recommandations et rapports |
+| | Evidence Center (`/evidence`, administrateurs) | pack de preuves d'audit, rapports à imprimer, exports des campagnes de revue |
 | Administration | Storage Endpoints (`/admin/storage-endpoints`) | serveurs de fichiers et espaces DFS |
 | | Zones (`/admin/zones`) | zones (OU de provisionnement, serveurs rattachés) |
 | | Identity & Users (`/admin/identity`) | onglets Identités, Annuaires |

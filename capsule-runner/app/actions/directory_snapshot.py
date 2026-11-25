@@ -6,6 +6,14 @@ from typing import Any
 from app.shared import ldap_client, ldap_dialect
 
 
+
+def _account_enabled(uac: Any) -> bool:
+    """userAccountControl → enabled (ACCOUNTDISABLE = 0x2). Unreadable: enabled, as before (never a false « disabled »)."""
+    try:
+        return (int(str(uac).strip()) & 2) == 0
+    except (TypeError, ValueError):
+        return True
+
 def _as_int(value: Any, default: int) -> int:
     try:
         return int(value)
@@ -140,6 +148,8 @@ def collect_directory_snapshot(params: dict[str, Any]):
             "distinguishedName", "cn", "displayName", dialect.login_attr, dialect.upn_attr, "mail",
             dialect.id_attr, dialect.sid_attr, dialect.changed_attr, dialect.usn_attr,
             "primaryGroupID" if is_ad else None,
+            # Account state (bit 2 = disabled): Active Directory only, an LDAP directory has no common equivalent
+            "userAccountControl" if is_ad else None,
         )
         group_attrs = dialect.attrs(
             "distinguishedName", "cn", dialect.group_login_attr, "description",
@@ -202,7 +212,7 @@ def collect_directory_snapshot(params: dict[str, Any]):
                     "display_name": _safe_text(_row_attr(entry, "displayName") or _row_attr(entry, "cn"), 190),
                     "email": _safe_text(_row_attr(entry, "mail"), 255),
                     "source": _safe_text("capsule_snapshot", 64),
-                    "is_active": True,
+                    "is_active": _account_enabled(_row_attr(entry, "userAccountControl")) if is_ad else True,
                 }
             )
 
@@ -317,6 +327,8 @@ def collect_directory_snapshot(params: dict[str, Any]):
             "users": users,
             "groups": groups,
             "memberships": memberships,
+            # is_active of the users is the real account state (disabled in AD), not « present in the reading »
+            "account_state_read": bool(is_ad),
         }
         return True, "Directory snapshot collected", {
             "snapshot_id": snapshot_id,

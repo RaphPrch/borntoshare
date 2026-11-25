@@ -53,7 +53,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
             tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },
               ...(ctx.staff ? [{ href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
         // Who reaches what: the map of the folders by how widely their last ACL read opens them
-        ...(governance && ctx.staff ? [{ href: '/exposure', label: 'Access Explorer', icon: 'bi-diagram-3' }] : []),
+        ...(governance && ctx.staff ? [{ href: '/access-explorer', label: 'Access Explorer', icon: 'bi-diagram-3', also: ['/exposure'] }] : []),
         // Administrators: the platform (health, alerts, jobs) and, as a tab, what a manager sees; managers: their own view
         ...(ctx.admin
           ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.critical, danger: true,

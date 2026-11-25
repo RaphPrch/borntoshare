@@ -4,7 +4,7 @@ Deux vues répondent à la même question, « qui peut lire quoi » :
 
 - la **sensibilité** d'un dossier : les fichiers qui contiennent des secrets ou des données personnelles, et qui
   peut les ouvrir ;
-- la **carte d'exposition** (Governance › Access Explorer, `/exposure`) : jusqu'où chaque dossier gouverné est ouvert, d'après la dernière lecture
+- la **carte d'exposition** (Governance › Access Explorer › Exposure map, `/exposure`) : jusqu'où chaque dossier gouverné est ouvert, d'après la dernière lecture
   de ses droits sur le serveur.
 
 ## Scan de sensibilité
