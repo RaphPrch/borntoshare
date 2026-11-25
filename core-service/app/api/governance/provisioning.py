@@ -540,8 +540,9 @@ async def get_admin_job(job_id: int):
         **summary,
         "payload": job_board.redact(job_board.envelope(row)),
         "result": job_board.redact(job_board._load(row.get("result_json"))),
-        "metrics": job_board._load(row.get("metrics_json")),
-        "error": job_board._load(row.get("error_json")),
+        # Exported as a diagnostic: every part goes through the same masking
+        "metrics": job_board.redact(job_board._load(row.get("metrics_json"))),
+        "error": job_board.redact(job_board._load(row.get("error_json"))),
         "retried_by": later,
     })
 

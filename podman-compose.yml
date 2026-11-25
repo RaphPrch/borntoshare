@@ -123,6 +123,8 @@ services:
     build: ./capsule-runner
     environment:
       <<: *common-env
+      # Its name in Governance Jobs (the host name of a container is its id)
+      B2S_WORKER_NAME: capsule-runner
       CAPSULE_BROKER_URL: redis://redis:6379/2
       REDIS_PASSWORD_FILE: /run/secrets/b2s_redis
       RUNNER_MAX_SCOPE: ${RUNNER_MAX_SCOPE:-write}

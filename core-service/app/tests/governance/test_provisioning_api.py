@@ -232,3 +232,14 @@ def test_watchdog_closes_only_the_jobs_abandoned_by_their_worker(monkeypatch) ->
     assert [path for path, _ in post_calls] == ["/api/internal/provisioning/jobs/201/fail"]
     assert post_calls[0][1]["error_code"] == "JOB_ABANDONED"
     assert "time limit of 600 s" in post_calls[0][1]["error_message"]
+
+
+def test_the_worker_named_at_start_survives_the_metrics_of_its_result() -> None:
+    from types import SimpleNamespace as _NS
+
+    from app.api import provisioning_internal
+
+    row = _NS(metrics_json={"requested_by": "alice", "worker": "capsule-runner · pid 7"})
+    kept = provisioning_internal._keep_requester(row, {"retries": 1})
+    assert kept == {"retries": 1, "requested_by": "alice", "worker": "capsule-runner · pid 7"}
+    assert provisioning_internal._keep_requester(_NS(metrics_json={}), {"retries": 1}) == {"retries": 1}

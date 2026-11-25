@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+import os
+import socket
 from typing import Any, Optional
 
 import httpx
@@ -66,6 +68,8 @@ def run_job(job_id: int, *, retries: int = 0, max_retries: int = 5) -> None:
             f"/api/internal/provisioning/jobs/{numeric_job_id}/start",
             {
                 "correlation_id": correlation_id or f"job_{numeric_job_id}",
+                # Which worker took it (Governance Jobs): its name (B2S_WORKER_NAME, else the host name) and process
+                "worker": f"{os.getenv('B2S_WORKER_NAME') or socket.gethostname()} · pid {os.getpid()}"[:120],
             },
         )
 

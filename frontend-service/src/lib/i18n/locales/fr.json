@@ -5891,5 +5891,10 @@
   "Running the diagnostic…": "Diagnostic en cours…",
   "Configuration, databases, job queue, disk, workers, directories, file servers and modules, checked now, with what to do for each problem.": "Configuration, bases, file des jobs, disque, workers, annuaires, serveurs de fichiers et modules, contrôlés maintenant, avec la marche à suivre pour chaque problème.",
   "Checked item": "Contrôle",
-  "Last error {ago}: {message}": "Dernière erreur {ago} : {message}"
+  "Last error {ago}: {message}": "Dernière erreur {ago} : {message}",
+  "Worker": "Worker",
+  "not reported": "non indiqué",
+  "not taken yet": "pas encore pris",
+  "Export the diagnostic": "Exporter le diagnostic",
+  "Everything shown here, secrets hidden, for a support request": "Tout ce qui est affiché ici, secrets masqués, pour une demande de support"
 }

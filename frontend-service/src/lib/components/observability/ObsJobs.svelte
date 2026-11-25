@@ -103,6 +103,20 @@
     detailId = null;
     detail = null;
   }
+  /** The job as the drawer shows it (parameters with their secrets already hidden by the core), as JSON */
+  function exportDiagnostic(job: typeof detail) {
+    if (!job) return;
+    const body = JSON.stringify({ exported_at: new Date().toISOString(), job }, null, 2);
+    const url = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `borntoshare-job-${job.id}-diagnostic.json`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
 
   async function retry(job: Job) {
     busy = true;
@@ -529,6 +543,7 @@
           <dt>{t('Origin')}</dt><dd>{jobOriginLabel(detail.origin)}</dd>
           <dt>{t('Requested by')}</dt><dd>{detail.requested_by ?? t('the platform (schedule, policy or worker)')}</dd>
           <dt>{t('Worker queue')}</dt><dd class="mono">{detail.queue ?? '—'}</dd>
+          <dt>{t('Worker')}</dt><dd class="mono">{detail.worker ?? (detail.started_at ? t('not reported') : t('not taken yet'))}</dd>
           <dt>{t('Attempts')}</dt><dd>{detail.attempts ?? 1}{#if Number(detail.watchdog_republish_count ?? 0) > 0} · {t('sent again {n} time(s) by the watchdog', { n: detail.watchdog_republish_count ?? 0 })}{/if}</dd>
           {#if detail.retry_of}<dt>{t('Retry of')}</dt><dd><button type="button" class="jd__link" onclick={() => openDetail(Number(detail?.retry_of))}>#{detail.retry_of}</button></dd>{/if}
           {#if detail.retried_by?.length}
@@ -572,6 +587,9 @@
   {#snippet footer()}
   
       {#if detail}
+        <button type="button" class="b2s-btn b2s-btn-secondary" onclick={() => detail && exportDiagnostic(detail)} title={t('Everything shown here, secrets hidden, for a support request')}>
+          <i class="bi bi-download" aria-hidden="true"></i>{t('Export the diagnostic')}
+        </button>
         {#if detail.stuck}
           <button type="button" class="b2s-btn b2s-btn-danger-outline" disabled={busy} onclick={() => detail && (flushing = [detail])}>{t('Flush')}</button>
         {:else if isActiveJob(detail.status)}

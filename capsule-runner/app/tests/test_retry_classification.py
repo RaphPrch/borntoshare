@@ -52,6 +52,8 @@ def test_non_retryable_error_is_acked_and_persisted(monkeypatch) -> None:
     actors.run_provisioning_job(99)
 
     assert post_calls[0][0] == "/api/internal/provisioning/jobs/99/start"
+    # The worker says who it is (Governance Jobs shows it); a host name and a process, no secret
+    assert " · pid " in post_calls[0][1]["worker"] and len(post_calls[0][1]["worker"]) <= 120
     assert post_calls[-1][0] == "/api/internal/provisioning/jobs/99/fail"
     assert post_calls[-1][1]["error_code"] == "CAPSULE_INVALID_PAYLOAD"
 

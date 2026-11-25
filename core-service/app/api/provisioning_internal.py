@@ -59,6 +59,8 @@ class JobStartPayload(BaseModel):
     actor_ip: str | None = Field(default=None, max_length=64)
     user_agent: str | None = Field(default=None, max_length=256)
     correlation_id: str = Field(..., min_length=8, max_length=128)
+    # The worker that takes the job (host name and process), shown in Governance Jobs; optional: older workers omit it
+    worker: str | None = Field(default=None, max_length=120)
 
 
 class JobCancelPayload(BaseModel):
@@ -393,10 +395,12 @@ def _with_requester(metrics: dict | None) -> dict:
 
 
 def _keep_requester(row: Any, metrics: dict | None) -> dict | None:
+    """What core-service wrote itself (who asked, which worker took it) survives the metrics of the worker."""
     before = getattr(row, "metrics_json", None) or {}
-    if not isinstance(before, dict) or not before.get("requested_by"):
+    kept = {key: before[key] for key in ("requested_by", "worker") if isinstance(before, dict) and before.get(key)}
+    if not kept:
         return metrics
-    return {**(metrics or {}), "requested_by": before["requested_by"]}
+    return {**(metrics or {}), **kept}
 
 
 def _is_current_folder_job(db: Session, job_row: Any) -> bool:
@@ -954,16 +958,17 @@ def start_provisioning_job(job_id: int, payload: JobStartPayload, db: Session = 
     if current_status in {"RUNNING", "SUCCEEDED", "CANCELLED"}:
         return repo.to_dict(row)
 
-    row = repo.update(
-        obj=row,
-        updates={
-            "status": ensure_transition(current=row.status, next_status="RUNNING"),
-            "started_at": row.started_at or utcnow_naive(),
-            "finished_at": None,
-            "error_code": None,
-            "error_message": None,
-        },
-    )
+    updates: dict[str, Any] = {
+        "status": ensure_transition(current=row.status, next_status="RUNNING"),
+        "started_at": row.started_at or utcnow_naive(),
+        "finished_at": None,
+        "error_code": None,
+        "error_message": None,
+    }
+    if payload.worker:
+        before = getattr(row, "metrics_json", None)
+        updates["metrics_json"] = {**(before if isinstance(before, dict) else {}), "worker": payload.worker}
+    row = repo.update(obj=row, updates=updates)
     return repo.to_dict(row)
 
 

@@ -90,3 +90,12 @@ def test_the_time_limits_are_those_of_the_actors_of_the_worker() -> None:
     for queue, limit in re.findall(r"@dramatiq\.actor\(queue_name=(QUEUE_\w+)[^)]*?time_limit=([\d\s*]+)\)", actors):
         found[getattr(contracts, queue)] = eval(limit) // 1000  # noqa: S307 (digits and * only)
     assert found == job_board.WORKER_TIME_LIMIT_SECONDS
+
+
+def test_the_worker_that_took_a_job_is_shown() -> None:
+    [job] = job_board.summarize(_Db(), [_probe("scan_smb_sensitivity", "RUNNING", metrics_json='{"retries": 0, "worker": "capsule-runner · pid 12"}')])
+    assert job["worker"] == "capsule-runner · pid 12"
+
+
+def test_every_part_of_a_job_detail_hides_secrets() -> None:
+    assert job_board.redact({"error": {"bind_password": "x", "message": "LDAP bind failed"}}) == {"error": {"bind_password": "••••", "message": "LDAP bind failed"}}
