@@ -16,7 +16,10 @@ module>` ajoute les suites du 5S. Installation : `testing/install-lab/lab.sh run
 | 4 | H3 jobs RUNNING abandonnés clôturés `JOB_ABANDONED` ; watchdog journalisé ; contrat des temps limites vérifié des deux côtés | 78f3b2b | core | 3 tests ; core 572 | essai « worker tué » au labo non fait (délai minimal 25 min) | `git revert` ; `JOB_WATCHDOG_RUNNING_GRACE_SECONDS` |
 | 5 | M3 `/health/live` (sans dépendance) dans core, auth, worker ; `/health` reste la disponibilité ; docs exploitation (journaux, santé, jobs) | cb8dd16 | core, auth, capsule | core 572 ; auth 75 ; capsule 168 ; wizard 38 ; lint OK | les healthchecks des conteneurs restent sur `/health` (voulu : ordre de démarrage) | `git revert` |
 | 6 | Recette réelle AD / SMB / NTFS sur le build avec cette branche. Deux défauts trouvés et corrigés : déclaration d'un serveur de fichiers bloquée par la résolution DNS en série des serveurs déclarés (283 s, l'interface abandonne à 120 s) ; instantané d'annuaire perdu sur deadlock MariaDB quand deux annuaires sont synchronisés en même temps. H5 : `fives-service` relancé, doublon `services_fives-scanner_1` retiré | 59ba0fe, 8623bd0 | `e2e_check.py` (64 contrôles) ; core | e2e 56/64 avant, **64/64** après (1 SKIP connu : GG_B2S_Admins sans rôle) ; core 577 | le rejeu sur deadlock n'a pas été déclenché pendant la recette (prouvé par ses tests) ; un instantané resté QUEUED bloque sa source 30 min (garde existante) | `git revert` |
-| 7 | Dépendances : pip-audit (6 services, 0 vulnérabilité), npm audit production 0 ; `@sveltejs/kit` 2.70.4 : avis non exploitables ici (pas de remote functions ni de prérendu ; redirection du formulaire de connexion déjà filtrée par `safeInternalPath`) → montée en version 3 plus tard. Sauvegarde chiffrée : `.env` et certificats aussi (ils restaient en clair), `openssl` contrôlé avant le dump. Temps de réponse mesurés (`testing/perf/api_timings.py`) | voir `git log` | toutes les suites ; labo `restore` | voir le rapport de qualification | — | `git revert` |
+| 7 | Dépendances : pip-audit (6 services, 0 vulnérabilité), npm audit production 0 ; `@sveltejs/kit` 2.70.4 : avis non exploitables ici (pas de remote functions ni de prérendu ; redirection du formulaire de connexion déjà filtrée par `safeInternalPath`) → montée en version 3 plus tard. Sauvegarde chiffrée : `.env` et certificats aussi (ils restaient en clair), `openssl` contrôlé avant le dump. Temps de réponse mesurés (`testing/perf/api_timings.py`) | 08cf636 | toutes les suites ; labo `restore` | toutes les suites vertes ; restore 41/41 ; médiane ≤ 90 ms sauf `/storage-roots/context` 672 ms (2 125 dossiers) | — | `git revert` |
+| 8-9 | Documentation d'exploitation (mettre à jour, dépannage) ; labo : nettoyage garanti d'une exécution interrompue (hôtes, mots de passe, clé SSH) ; campagne finale | voir `git log` | labo complet | containers 37/37 ; hybrid 44/44 ; native 35/35 ; faults 41/41 ; restore 41/41 ; e2e AD 64/64 | faults a d'abord échoué faute de place sur le build (1,3 Go) : 41/41 après nettoyage des volumes anonymes ; mise à jour entre versions et volumétrie 5S non testées | `git revert` |
+
+Statut : **READY WITH LIMITATIONS** (rapport de qualification).
 
 ## État initial (audit)
 
@@ -38,10 +41,12 @@ Anomalies retenues, par gravité (détail : rapport d'audit) :
 
 ## Constats en cours
 
-- Espace disque du build : `/` à 96 % (images de rollback, cache) ; le labo a échoué une fois faute de place.
+- Espace disque du build : `/` à 99 % pendant la campagne (volumes anonymes de conteneurs supprimés, images de
+  rollback) ; deux exécutions du labo ont échoué faute de place ; 90 % après nettoyage.
 - `@sveltejs/kit` (dépendance de construction, embarquée dans l'interface) : 4 avis npm dont un « high » ; le
   correctif est une version majeure (lot 7).
 
-## Lot suivant
+## Décision attendue
 
-Lot 6 : intégration réelle AD / SMB / NTFS (`testing/ad-lab`) sur le build, avec le code de cette branche.
+H4 (jeton interne unique, identité déclarée par l'appelant) : proposition d'un jeton par service et d'une identité
+signée par le BFF, vérifiée par le core. Changement d'architecture : non fait, à valider.

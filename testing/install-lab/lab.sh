@@ -442,6 +442,9 @@ run_scenario() {
   images
   setup_scenario "$1"
   down "$SCEN" 2>/dev/null || true
+  # A run stopped halfway (a command failing under set -e, Ctrl-C) still removes its hosts, passwords and SSH key
+  trap 'echo "== $SCEN : interrompu, nettoyage"; down "$SCEN"' EXIT
+  trap 'exit 130' INT TERM
   local t0=$SECONDS
   up "$SCEN"
   # The wizard, the way the documentation says (make wizard), on the simulated host
@@ -461,6 +464,7 @@ run_scenario() {
   echo "$((SECONDS - t0))" > "$RUN/duration"
   say "$SCEN : nettoyage"
   down "$SCEN"
+  trap - EXIT INT TERM
   local left
   left=$(podman ps -a --format '{{.Names}}' | grep -c "^b2s-lab-$SCEN-" || true)
   left=$((left + $(podman network ls --format '{{.Name}}' | grep -c "^b2s-lab-$SCEN$" || true)))
