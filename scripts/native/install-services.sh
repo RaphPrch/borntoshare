@@ -180,6 +180,7 @@ do_services() {
   # Environment of each service: what podman-compose.yml gives its container, with the local addresses
   common="TZ=Europe/Paris
 LOG_LEVEL=INFO
+LOG_FORMAT=$(env_value LOG_FORMAT text)
 INTERNAL_TOKEN=$(env_value INTERNAL_TOKEN)
 PYTHONUNBUFFERED=1"
   env_file auth-service <<ENV

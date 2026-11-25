@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.core import settings
 from app.core.api_envelope import ok_data
+from app.core.log_format import ServiceFormatter, use_on
 
 
 
@@ -42,6 +43,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] [RUNNER] %(name)s - %(message)s",
 )
 logging.getLogger().setLevel(level)
+# Text, or JSON with LOG_FORMAT=json; the context of extra= in both
+use_on(logging.getLogger(), ServiceFormatter("capsule-runner", "RUNNER"))
 
 logger = logging.getLogger("capsule-runner")
 

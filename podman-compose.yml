@@ -28,6 +28,8 @@ x-healthcheck: &healthcheck
 x-common-env: &common-env
   TZ: Europe/Paris
   LOG_LEVEL: INFO
+  # text (default) or json: one JSON object per line, for a log collector
+  LOG_FORMAT: ${LOG_FORMAT:-text}
   INTERNAL_TOKEN: ${INTERNAL_TOKEN:?INTERNAL_TOKEN must be set}
 
 services:

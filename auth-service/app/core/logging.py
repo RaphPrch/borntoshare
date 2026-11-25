@@ -5,6 +5,7 @@ import logging
 from typing import Final
 
 from app.core.config import get_settings
+from app.core.log_format import ServiceFormatter, use_on
 
 # -----------------------------------------------------------
 # Log level normalization
@@ -59,6 +60,8 @@ def setup_logging() -> None:
         level=level,
         format="[%(asctime)s] [AUTH] [%(levelname)s] %(name)s - %(message)s",
     )
+    # Text, or JSON with LOG_FORMAT=json; the context of extra= and the request id in both
+    use_on(logging.getLogger(), ServiceFormatter(_DEFAULT_SERVICE, "AUTH", get_request_id_context))
 
     # Make sure uvicorn loggers inherit our level
     logging.getLogger("uvicorn").setLevel(level)
