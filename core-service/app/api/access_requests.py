@@ -1067,6 +1067,14 @@ def get_access_request_approval_preview(
             ou_state = verdict(db, source_id, out["target_ou_dn"])
             if ou_state["denied"]:
                 out["problems"].append({"code": "GROUP_OU_NOT_DELEGATED", "message": ou_state["message"]})
+        # Dry run of the NTFS change: the ACL as last read, the entry added, the risks (read only)
+        try:
+            from app.services.acl_preview import preview as acl_preview
+
+            out["acl_preview"] = acl_preview(db, int(item.get("target_id") or 0), out.get("group_name"), level)
+        except Exception:
+            db.rollback()
+            logger.warning("ACL_PREVIEW_FAILED", extra={"access_request_id": int(access_request_id), "storage_root_id": item.get("target_id")}, exc_info=True)
         items.append(out)
 
     for item in items:

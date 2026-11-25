@@ -199,6 +199,17 @@ export const createAccessRequest = (
 
 export type ApprovalProblem = { code: string; message: string };
 
+export type AclRights = 'full' | 'modify' | 'read' | 'special' | 'deny';
+/** Dry run of the NTFS change: the ACL as last read on the file server, the entry added, the risks (read only) */
+export type AclPreview = {
+  target: { principal: string | null; rights: 'modify' | 'read'; scope: string };
+  read_at: string | null;
+  current: { principal: string; rights: AclRights; kind: 'managed' | 'system' | 'broad' | 'other'; inherited: boolean }[];
+  change: 'add' | 'present' | 'level_change' | 'unknown';
+  change_from: AclRights | null;
+  risks: { code: string; values: Record<string, unknown> }[];
+};
+
 export type ApprovalPreviewItem = {
   id: number;
   storage_root_id: number;
@@ -210,6 +221,7 @@ export type ApprovalPreviewItem = {
   target_ou_dn?: string | null;
   identity_source_name?: string | null;
   acl: 'read_execute' | 'modify';
+  acl_preview?: AclPreview;
   problems: ApprovalProblem[];
 };
 
