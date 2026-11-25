@@ -22,6 +22,7 @@ module>` ajoute les suites du 5S. Installation : `testing/install-lab/lab.sh run
 | P5 | Job Center : worker de chaque job (contrat start, champ optionnel des deux côtés), export de diagnostic d'un job, métriques et erreur masquées | f01f63c | core, capsule, interface | core 588 ; capsule 168 ; interface 25 + check ; vérifié sur le build | pas de progression : les workers n'en remontent pas | `git revert` |
 | P7 | Simulation ACL avant validation : ACL actuelle, changement exact, risques, confirmation quand il y a des risques | 333ec2c | core, interface | core 593 ; interface 25 + check ; deux demandes réelles du labo AD sur le build | la comparaison porte sur la dernière lecture de l'ACL (son âge est affiché, ancienne au-delà de 7 jours) | `git revert` |
 | P12 | Aperçu d'un dossier : « permissions indisponibles » au lieu d'un chargement sans fin ; revue des erreurs avalées et des actions sensibles (déjà confirmées ou annulables) | voir `git log` | interface | 25 + check | cas d'échec non reproduit en réel | `git revert` |
+| N3 | Deux déclarations simultanées du même serveur de fichiers passaient toutes les deux (doublon « AD lab file server » sur le build) : verrou nommé MariaDB autour du contrôle et de l'insertion (`app/services/named_lock.py`) | voir `git log` | core ; essai réel | core 595 ; sur le build, deux déclarations simultanées : 200 et 409, un seul serveur | le changement d'adresse d'un serveur n'est pas encore sous ce verrou (rare) : plus tard | `git revert` |
 
 Statut : **READY WITH LIMITATIONS** (rapport de qualification).
 

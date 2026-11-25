@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
 from datetime import datetime
 from typing import Any
 
@@ -267,6 +268,21 @@ def _resolved(host: str) -> set[str]:
         return {info[4][0] for info in socket.getaddrinfo(host.strip(), None)}
     except (OSError, UnicodeError):
         return set()
+
+
+@contextmanager
+def _declaration_lock():
+    """One declaration of a file server at a time (a MariaDB named lock, app.services.named_lock)."""
+    from app.services.named_lock import LockBusy, named_lock
+
+    try:
+        with named_lock("b2s_storage_endpoint_declaration", 30):
+            yield
+    except LockBusy:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ENDPOINT_DECLARATION_BUSY", "message": "Another file server is being declared: try again in a moment"},
+        ) from None
 
 
 # Resolving the declared servers one by one waited for each one the DNS does not know (a decommissioned server, a
@@ -618,41 +634,44 @@ def create_endpoint(
 
     _require_platform_admin(request)
     data = _sync_endpoint_lifecycle(payload.model_dump())
-    if str(data.get("endpoint_type") or "").lower() == "dfs":
-        # Several namespaces share their DFS server: one namespace is declared once
-        _assert_namespace_free(db, ((data.get("capabilities") or {}).get("dfs_snapshot") or {}).get("path"))
-    else:
-        _assert_host_free(db, data.get("host"))
-    _assert_zone_of_server(db, data.get("host"), int(data.get("zone_id") or 0) or None)
+    # The check « this server is not declared yet » and the insert, one declaration at a time: two at the same
+    # moment (a slow answer sent again) both passed the check and declared the same server twice
+    with _declaration_lock():
+        if str(data.get("endpoint_type") or "").lower() == "dfs":
+            # Several namespaces share their DFS server: one namespace is declared once
+            _assert_namespace_free(db, ((data.get("capabilities") or {}).get("dfs_snapshot") or {}).get("path"))
+        else:
+            _assert_host_free(db, data.get("host"))
+        _assert_zone_of_server(db, data.get("host"), int(data.get("zone_id") or 0) or None)
 
-    if data.get("bind_dn") and not data.get("bind_password_ref"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="bind_password_ref is required when bind_dn is provided",
+        if data.get("bind_dn") and not data.get("bind_password_ref"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bind_password_ref is required when bind_dn is provided",
+            )
+
+        require_ad = _requires_ad_identity_source(
+            endpoint_type=str(data.get("endpoint_type") or ""),
+            protocol=str(data.get("protocol") or ""),
+        )
+        _validate_identity_source_for_endpoint(
+            db,
+            identity_source_id=int(data.get("identity_source_id") or 0) or None,
+            require_ad=require_ad,
         )
 
-    require_ad = _requires_ad_identity_source(
-        endpoint_type=str(data.get("endpoint_type") or ""),
-        protocol=str(data.get("protocol") or ""),
-    )
-    _validate_identity_source_for_endpoint(
-        db,
-        identity_source_id=int(data.get("identity_source_id") or 0) or None,
-        require_ad=require_ad,
-    )
+        endpoint = StorageEndpoint(**data)
 
-    endpoint = StorageEndpoint(**data)
+        db.add(endpoint)
 
-    db.add(endpoint)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Storage endpoint conflict",
-        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Storage endpoint conflict",
+            )
 
     db.refresh(endpoint)
     zone_ctx = _resolve_zone_context(

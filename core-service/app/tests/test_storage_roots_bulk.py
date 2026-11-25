@@ -207,3 +207,48 @@ def test_a_server_not_resolved_before_the_deadline_counts_as_unknown(monkeypatch
     monkeypatch.setattr(endpoints, "_RESOLVE_DEADLINE_SECONDS", 0.2)
     monkeypatch.setattr(endpoints, "_resolved", lambda host: (_time.sleep(1), {"10.0.0.9"})[1] if host == "slow" else {"10.0.0.1"})
     assert endpoints._resolved_many(["slow", "fast"]) == {"fast": {"10.0.0.1"}, "slow": set()}
+
+
+class _LockConn:
+    def __init__(self, granted: bool):
+        self.granted, self.calls = granted, []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def execute(self, statement, params=None):
+        self.calls.append(str(statement).split("(")[0].replace("SELECT ", ""))
+        return SimpleNamespace(scalar=lambda: 1 if self.granted else 0)
+
+
+def test_a_declaration_holds_the_lock_and_always_releases_it(monkeypatch) -> None:
+    import app.core.db as core_db
+    from app.api import storage_endpoints as endpoints
+
+    conn = _LockConn(True)
+    monkeypatch.setattr(core_db, "engine", SimpleNamespace(connect=lambda: conn))
+    try:
+        with endpoints._declaration_lock():
+            raise ValueError("refused by a check")
+    except ValueError:
+        pass
+    assert conn.calls == ["GET_LOCK", "RELEASE_LOCK"]
+
+
+def test_a_declaration_waiting_too_long_is_told_to_try_again(monkeypatch) -> None:
+    import pytest
+    from fastapi import HTTPException as _HTTPException
+
+    import app.core.db as core_db
+    from app.api import storage_endpoints as endpoints
+
+    conn = _LockConn(False)
+    monkeypatch.setattr(core_db, "engine", SimpleNamespace(connect=lambda: conn))
+    with pytest.raises(_HTTPException) as exc:
+        with endpoints._declaration_lock():
+            raise AssertionError("must not run without the lock")
+    assert exc.value.status_code == 409 and exc.value.detail["code"] == "STORAGE_ENDPOINT_DECLARATION_BUSY"
+    assert conn.calls == ["GET_LOCK"]
