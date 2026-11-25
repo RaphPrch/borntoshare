@@ -39,3 +39,11 @@ def test_health_needs_a_dramatiq_process_and_the_job_queue(monkeypatch) -> None:
     monkeypatch.setattr(agent, "_dramatiq_processes", lambda: 2)
     monkeypatch.setattr(redis.Redis, "from_url", classmethod(lambda cls, *a, **k: _Redis(False)))
     assert client.get("/health").status_code == 503
+
+
+def test_liveness_answers_without_workers_nor_queue(monkeypatch) -> None:
+    monkeypatch.setattr(agent, "_dramatiq_processes", lambda: 0)
+    monkeypatch.setattr(redis.Redis, "from_url", classmethod(lambda cls, *a, **k: _Redis(False)))
+    client = TestClient(agent.app)
+    assert client.get("/health/live").json() == {"status": "ok", "service": "capsule-runner"}
+    assert client.get("/health").status_code == 503

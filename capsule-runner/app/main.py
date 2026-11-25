@@ -102,6 +102,12 @@ def _broker_state() -> dict:
         return {"reachable": False, "error": str(exc)[:300]}
 
 
+@app.get("/health/live")
+def health_live():
+    """Liveness: the agent answers, whatever the workers and the job queue."""
+    return {"status": "ok", "service": "capsule-runner"}
+
+
 @app.get("/health")
 def health():
     """Container healthcheck: answers 503 when no Dramatiq process runs or the job queue cannot be reached."""

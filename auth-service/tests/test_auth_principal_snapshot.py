@@ -919,3 +919,11 @@ def test_a_new_installation_offers_the_local_account_only(monkeypatch) -> None:
         monkeypatch.setattr(auth_api, "core_get_active_identity_source", _one)
         enabled = client.get("/auth/providers").json()["enabled"]
     assert "local" in enabled
+
+
+def test_liveness_answers_without_dependencies() -> None:
+    with _new_client() as client:
+        res = client.get("/health/live")
+
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok", "service": "auth-service"}

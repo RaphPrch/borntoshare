@@ -93,7 +93,7 @@ async def _access_requests_read_model_contract_handler(request: Request, exc: Ac
 # ============================================================
 # core-service trusts the identity headers that the BFF sets (x-identity-id, x-roles): only a caller holding the
 # token shared by the services may send them. Registered first, so it runs after the request ID middleware.
-_OPEN_PATHS = {"/health"}
+_OPEN_PATHS = {"/health", "/health/live"}
 
 
 @app.middleware("http")
@@ -105,7 +105,7 @@ async def otel_span_middleware(request: Request, call_next):
 
     started = _time.time_ns()
     response = await call_next(request)
-    if request.url.path != "/health":
+    if not request.url.path.startswith("/health"):
         route = getattr(request.scope.get("route"), "path", None) or request.url.path
         record_span(request.method, route, response.status_code, started, _time.time_ns(), request.headers.get("traceparent"))
     return response
@@ -163,6 +163,12 @@ register_exception_handlers(app, logger)
 # ============================================================
 # Health (internal)
 # ============================================================
+
+@app.get("/health/live", tags=["health"])
+def health_live():
+    """Liveness: the process answers, whatever its dependencies (a monitor tells « stopped » from « degraded »)."""
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
 
 @app.get("/health", tags=["health"])
 def health():

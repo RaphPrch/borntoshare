@@ -164,3 +164,20 @@ def test_health_answers_503_with_the_failing_check(monkeypatch) -> None:
     monkeypatch.setattr(redis.Redis, "from_url", classmethod(lambda cls, *a, **k: _Redis(False)))
     down = TestClient(main.app).get("/health")
     assert down.status_code == 503 and down.json()["checks"]["job_queue"] == "redis down"
+
+
+def test_liveness_answers_without_token_while_the_database_is_down(monkeypatch) -> None:
+    from app import main
+
+    class _DownDB:
+        def execute(self, _sql):
+            raise RuntimeError("database down")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(main, "SessionLocal", _DownDB)
+    client = TestClient(main.app)
+    live = client.get("/health/live")
+    assert live.status_code == 200 and live.json()["status"] == "ok"
+    assert client.get("/health").status_code == 503
