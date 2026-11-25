@@ -7,8 +7,8 @@
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { t } from '$lib/i18n';
   import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
-  import { formatBytes } from '$lib/utils/format';
   import { copyText } from '$lib/utils/clipboard';
+  import { INSIGHT_ICONS, buildInsights, type Insight } from '$lib/utils/insights';
 
   /**
    * Insights & Recommendations (v2): what the last measures, scans and ACL reads of the folders reveal, each with
@@ -17,8 +17,6 @@
   type Report = { key: string; title: string; description: string; source?: 'core' | 'fives' };
   type Root = Record<string, any>;
   const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', security: 'bi-shield-lock', governance: 'bi-diagram-3', 'fives-5s': 'bi-stars', 'fives-hygiene': 'bi-recycle' };
-  const INSIGHT_ICONS: Record<string, string> = { cold: 'bi-snow', dups: 'bi-files', secrets: 'bi-key', corrections: 'bi-tools', guardian: 'bi-person-x',
-    inheritance: 'bi-scissors', quota: 'bi-speedometer2', junk: 'bi-trash3', never: 'bi-rulers' };
   let reports = $state<Report[] | null>(null);
   let roots = $state<Root[] | null>(null);
   let isAdmin = $derived(($page.data as any)?.navigation?.canSeeAdmin === true);
@@ -34,46 +32,7 @@
     roots = rows;
   });
 
-  const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
-  const size = (row: Root) => num(row.content_size_bytes ?? row.estimated_size_bytes);
-  type Insight = { key: string; big: string; title: string; detail: string; query: string; tone: 'bad' | 'warn' | 'mut' | 'ok'; count: number };
-  let insights = $derived.by(() => {
-    const rows = roots ?? [];
-    const list: Insight[] = [];
-    const add = (insight: Insight) => insight.count > 0 && list.push(insight);
-    const cold = rows.reduce((sum, row) => sum + num(row.cold_1y_bytes), 0);
-    const coldFolders = rows.filter((row) => size(row) > 0 && num(row.cold_1y_bytes) > 0.5 * size(row));
-    add({ key: 'cold', big: formatBytes(cold), title: t('Cold data'), tone: 'warn', count: coldFolders.length, query: 'est:donnees-froides',
-      detail: t('Untouched for more than a year; {count} folder(s) are mostly cold: candidates for the archive.', { count: coldFolders.length }) });
-    const dupBytes = rows.reduce((sum, row) => sum + num(row.dup_wasted_bytes) + num(row.shared_dup_bytes), 0);
-    const dupFolders = rows.filter((row) => num(row.dup_wasted_bytes) + num(row.shared_dup_bytes) > 0);
-    add({ key: 'dups', big: formatBytes(dupBytes), title: t('Duplicates to free'), tone: 'warn', count: dupFolders.length, query: 'est:doublons',
-      detail: t('Identical files (verified fingerprint) inside or between {count} folder(s).', { count: dupFolders.length }) });
-    const secrets = rows.filter((row) => num(row.password_files) + num(row.key_files) > 0);
-    add({ key: 'secrets', big: String(secrets.reduce((sum, row) => sum + num(row.password_files) + num(row.key_files), 0)), title: t('Passwords and keys in files'),
-      tone: 'bad', count: secrets.length, query: 'est:mot-de-passe', detail: t('Found by the sensitivity scan in {count} folder(s); ask their guardians to correct.', { count: secrets.length }) });
-    const corrections = rows.filter((row) => ['open', 'overdue'].includes(String(row.remediation_status ?? '')));
-    add({ key: 'corrections', big: String(corrections.length), title: t('Corrections in progress'), tone: 'warn', count: corrections.length, query: 'est:correction',
-      detail: t('Asked to the guardians after a sensitivity scan, some may be overdue.') });
-    if ($governanceEnabled) {
-      const noGuardian = rows.filter((row) => num(row.guardians_count) === 0);
-      add({ key: 'guardian', big: String(noGuardian.length), title: t('Folders without guardian'), tone: 'warn', count: noGuardian.length, query: 'est:sans-gardien',
-        detail: t('Their requests go to the administrators.') });
-      const broken = rows.filter((row) => row.inheritance_broken === true);
-      add({ key: 'inheritance', big: String(broken.length), title: t('Inheritance broken'), tone: 'mut', count: broken.length, query: 'est:heritage-rompu',
-        detail: t('The folder keeps its own entries and no longer follows its parent.') });
-    }
-    const quota = rows.filter((row) => row.quota_used_percent != null && num(row.quota_used_percent) >= num(row.quota_warn_percent ?? 85));
-    add({ key: 'quota', big: String(quota.length), title: t('Quotas almost full'), tone: 'warn', count: quota.length, query: 'est:quota-plein',
-      detail: t('{count} space request(s) waiting', { count: rows.reduce((sum, row) => sum + num(row.quota_pending_requests), 0) }) });
-    const junk = rows.filter((row) => num(row.junk_files) > 0);
-    add({ key: 'junk', big: rows.reduce((sum, row) => sum + num(row.junk_files), 0).toLocaleString('fr-FR'), title: t('Clutter files'), tone: 'mut', count: junk.length,
-      query: 'est:encombre', detail: t('~$*, Thumbs.db, .tmp… in {count} folder(s): they can go.', { count: junk.length }) });
-    const never = rows.filter((row) => row.content_size_bytes == null && !['done', 'running'].includes(String(row.measure_status ?? '')));
-    add({ key: 'never', big: String(never.length), title: t('Folders never measured'), tone: 'mut', count: never.length, query: 'est:non-mesure',
-      detail: t('No detailed volume, no 5S, no duplicates for them yet.') });
-    return list;
-  });
+  let insights = $derived(roots ? buildInsights(roots, $governanceEnabled) : []);
   // Share of the folders concerned by a recommendation (the bar of its card)
   let total = $derived(roots?.length ?? 0);
   const openFolders = (insight: Insight) => goto(`/storage-roots?q=${encodeURIComponent(insight.query)}`);

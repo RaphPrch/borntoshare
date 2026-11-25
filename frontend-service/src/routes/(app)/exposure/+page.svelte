@@ -14,7 +14,7 @@
   import { toast } from '$lib/stores/toast';
 
   /**
-   * Exposure map: every governed folder by zone, server and share, coloured by how widely its last ACL read opens it.
+   * Access Explorer (the exposure map): every governed folder by zone, server and share, coloured by how widely its last ACL read opens it.
    * The colour is never alone: each tile has its icon and its name; a click opens the Permissions tab of the folder.
    */
   type Level = 'open_write' | 'open_read' | 'outside' | 'governed' | 'unknown';
@@ -87,7 +87,7 @@
   const MENU: ContextMenuItem[] = [
     { key: 'permissions', label: t('Permissions and who reaches it'), icon: 'bi-shield-lock' },
     { key: 'open', label: t('Open the folder sheet'), icon: 'bi-folder2-open' },
-    { key: 'pilot', label: t('List and export with Raphaël'), icon: 'bi-chat-square-text' },
+    { key: 'pilot', label: t('List and export with the Assistant'), icon: 'bi-chat-square-text' },
     { key: 'copy', label: t('Copy the path'), icon: 'bi-clipboard', separated: true }
   ];
   function onMenuPick(key: string) {
@@ -95,17 +95,17 @@
     if (!folder) return;
     if (key === 'permissions') void goto(`/storage-roots?selected=${folder.id}&tab=permissions`);
     if (key === 'open') void goto(`/storage-roots?selected=${folder.id}`);
-    if (key === 'pilot') void goto(`/pilot?q=${encodeURIComponent(`Exporte-moi tous les utilisateurs du dossier ${folder.name}`)}`);
+    if (key === 'pilot') void goto(`/assistant?q=${encodeURIComponent(`Exporte-moi tous les utilisateurs du dossier ${folder.name}`)}`);
     if (key === 'copy') void copyText(folder.path).then((ok) => ok && toast.success(t('Copied: {value}', { value: folder.path })));
   }
 </script>
 
-<svelte:head><title>{t('Exposure map')} · BornToShare</title></svelte:head>
+<svelte:head><title>Access Explorer · BornToShare</title></svelte:head>
 
 <section class="ex">
   <header class="ex__top">
     <div>
-      <h1>{t('Exposure map')}</h1>
+      <h1>Access Explorer</h1>
       <p>{t('How widely each governed folder is open, from the last reading of its rights on the file server.')}</p>
     </div>
     {#if data}

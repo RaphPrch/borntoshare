@@ -63,10 +63,12 @@ for suite in "${suites[@]}"; do
       podman run --rm -v "$ROOT/frontend-service:/src:ro,z" -v "$ROOT/core-service:/r/core-service:ro,z" -v b2s-test-npm-cache:/root/.npm docker.io/library/node:26-alpine sh -c '
         set -e; mkdir -p /r/frontend-service; cd /src; tar --exclude=node_modules --exclude=.svelte-kit --exclude=build -cf - . | tar -xf - -C /r/frontend-service; cd /r/frontend-service
         npm ci --no-audit --no-fund >/dev/null
+        # The build too, as the CI: it refuses what the type check lets through (a server module imported by a page)
+        npm run -s build >/dev/null
         n=0; for s in $(node -p "Object.keys(require(\"./package.json\").scripts).filter(k => k.startsWith(\"test:\")).join(\" \")"); do
           echo "== $s"; npm run -s "$s"; n=$((n+1)); done
         npm run -s check -- --threshold error
-        echo "RESULT $n scripts de test, check sans erreur"' >"$LOGS/frontend-service.log" 2>&1
+        echo "RESULT build, $n scripts de test, check sans erreur"' >"$LOGS/frontend-service.log" 2>&1
       rc=$?
       result frontend-service $rc "$(grep '^RESULT' "$LOGS/frontend-service.log" | cut -c8- || true)" ;;
     *) result "$suite" 1 "suite inconnue" ;;

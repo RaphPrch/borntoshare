@@ -13,7 +13,7 @@
   import { fivesEnabled } from '$lib/utils/features';
 
   /**
-   * Raphaël (formerly Pilot): ask a question on the folders in plain French, get the answer as a list ready to export.
+   * Assistant: ask a question on the folders in plain French, get the answer as a list ready to export.
    * The answers are read from the data BornToShare already holds. A change (« ajoute le tag … ») is listed first and
    * applied only on « Appliquer », by an administrator.
    */
@@ -70,7 +70,7 @@
     if (await copyText(lines.join('\n'))) toast.success(t('Copied: paste it in Excel or an e-mail.'));
   }
 
-  // /pilot?q=… (from the dashboard): asked at once
+  // /assistant?q=… (from the dashboard, the search, Access Explorer; /pilot?q=… redirects here): asked at once
   onMount(() => {
     const q = $page.url.searchParams.get('q');
     if (q) void ask(q);
@@ -81,7 +81,7 @@
 <section class="v2 pl">
   <div class="pl-hero">
     <span class="pl-kick">Workspace</span>
-    <h1>Raphaël</h1>
+    <h1>Assistant</h1>
     <p>{t('Ask a question on your folders, the people who reach them, their measures: the answer comes as a list, ready to export. Ask for a tag to be put or taken off: the folders are listed first, nothing changes before « Apply ».')}</p>
     <form class="pl-ask" onsubmit={(event) => { event.preventDefault(); void ask(draft); }}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>

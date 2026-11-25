@@ -1,5 +1,6 @@
 /**
- * Main navigation of the v2 interface: four sections, each item with the paths it covers.
+ * Main navigation of the v2 interface: four sections, each item with the paths it covers. Only the entries whose
+ * page works are listed (no empty screen): Change Monitoring and Storage Passport wait for their feature.
  * The ☰ menu of the top bar draws it, the context bar takes its breadcrumb and tabs from it (section › page).
  * The menu names are product names (kept in English in both languages, as chosen for v2).
  */
@@ -37,8 +38,10 @@ export function buildNav(ctx: NavContext): NavSection[] {
   const sections: NavSection[] = [
     { key: 'workspace', label: 'Workspace', items: [
       { href: '/dashboard', label: 'Dashboard', icon: 'bi-grid-1x2', also: ['/live'] },
-      // Questions on the folders, answered as lists to export (administrators and guardians)
-      ...(ctx.staff ? [{ href: '/pilot', label: 'Raphaël', icon: 'bi-chat-square-text' }] : [])
+      // Questions on the folders, answered as lists to export (administrators and guardians); /pilot redirects here
+      ...(ctx.staff ? [{ href: '/assistant', label: 'Assistant', icon: 'bi-chat-square-text', also: ['/pilot'] }] : []),
+      // What waits for this person: requests to decide, reviews, alerts, recommendations, their own requests
+      { href: '/tasks', label: 'My Tasks', icon: 'bi-check2-square' }
     ] },
     {
       key: 'governance',
@@ -46,9 +49,11 @@ export function buildNav(ctx: NavContext): NavSection[] {
       items: [
         // Adding folders: the « + » of the folder list (no button in the top bar)
         { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
-        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/exposure', '/access-reviews'], count: ctx.pending,
+        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/access-reviews'], count: ctx.pending,
             tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },
-              ...(ctx.staff ? [{ href: '/exposure', label: t('Exposure') }, { href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
+              ...(ctx.staff ? [{ href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
+        // Who reaches what: the map of the folders by how widely their last ACL read opens them
+        ...(governance && ctx.staff ? [{ href: '/exposure', label: 'Access Explorer', icon: 'bi-diagram-3' }] : []),
         // Administrators: the platform (health, alerts, jobs) and, as a tab, what a manager sees; managers: their own view
         ...(ctx.admin
           ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.critical, danger: true,
@@ -61,14 +66,21 @@ export function buildNav(ctx: NavContext): NavSection[] {
     {
       key: 'intelligence',
       label: 'Storage Intelligence',
-      // The whole section comes with the 5S module (licensed and switched on)
-      items: fives && ctx.staff
+      // The 5S module (licensed and switched on) brings Explorer, Inventory and Analytics; the recommendations and
+      // the audit evidence come from the governance and stay without it
+      items: ctx.staff
         ? [
-            // Every page of one folder (content, 5S workshop, duplicates, rights to review, report) belongs to Explorer
-            { href: '/five-s/explore', label: 'Explorer', icon: 'bi-columns-gap', also: ['/five-s/duplicates', '/five-s/access', '/five-s/report'] },
-            { href: '/five-s/scanner', label: 'Inventory', icon: 'bi-list-ul' },
-            { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart' },
-            { href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb' }
+            ...(fives
+              ? [
+                  // Every page of one folder (content, 5S workshop, duplicates, rights to review, report) belongs to Explorer
+                  { href: '/five-s/explore', label: 'Explorer', icon: 'bi-columns-gap', also: ['/five-s/duplicates', '/five-s/access', '/five-s/report'] },
+                  { href: '/five-s/scanner', label: 'Inventory', icon: 'bi-list-ul' },
+                  { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart' }
+                ]
+              : []),
+            { href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb' },
+            // Audit evidence of the whole platform (administrators)
+            ...(ctx.admin ? [{ href: '/evidence', label: 'Evidence Center', icon: 'bi-file-earmark-zip' }] : [])
           ]
         : []
     },

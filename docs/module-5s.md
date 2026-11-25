@@ -69,7 +69,7 @@ SID orphelin, refus) et ce que le dossier change par rapport à son parent. Le m
 envoie les droits lus au Core (`POST /internal/modules/fives/folder-access`).
 
 La fiche d'un dossier (Governance › Storage Roots) résume aussi le module dans son onglet **Stockage · 5S**, et
-Raphaël répond aux questions de volume (dossiers jamais mesurés, données froides, doublons, quotas).
+L'Assistant répond aux questions de volume (dossiers jamais mesurés, données froides, doublons, quotas).
 
 ## Actions
 

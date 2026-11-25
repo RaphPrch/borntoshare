@@ -5,6 +5,7 @@ import type { LayoutServerLoad } from './$types';
 import { requireAuth } from '$lib/server/require-auth';
 import { apiServerGetData, apiServerGetList } from '$lib/server/api-server';
 import { normalizeMe } from '$lib/types/me';
+import { redirectFor } from '$lib/utils/route-access';
 
 export const load: LayoutServerLoad = async (event) => {
   const rawMe = await requireAuth(event);
@@ -39,17 +40,10 @@ export const load: LayoutServerLoad = async (event) => {
 
   const path = event.url.pathname;
   // A user who neither administers nor guards a folder: his requests and his folders only, not the screens about
-  // the folders (monitoring, reports, 5S, exposure)
+  // the folders (monitoring, reports, 5S, exposure); an installation for the 5S only: rules of $lib/utils/route-access
   const staff = me.is_admin || guardianRootIds.length > 0;
-  if (!staff && ['/observability', '/reports', '/five-s', '/exposure', '/pilot', '/access-reviews'].some((prefix) => path === prefix || path.startsWith(`${prefix}/`))) {
-    throw redirect(302, '/dashboard');
-  }
-
-  // An installation for the 5S only: no access request, no exposure; the dashboard of a guardian is the 5S
-  if (!features.includes('governance')) {
-    const home = features.includes('fives') && staff ? '/five-s' : '/dashboard';
-    if (path.startsWith('/access-requests') || path.startsWith('/exposure') || (path === '/dashboard' && staff && !me.is_admin)) throw redirect(302, home);
-  }
+  const target = redirectFor(path, { admin: me.is_admin, staff, features });
+  if (target) throw redirect(302, target);
 
   return {
     me,

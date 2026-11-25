@@ -7,8 +7,8 @@
 | `server/` | Server-only code: BFF proxy and routing to services, principal cookie, internal tokens, `require-auth.ts`. |
 | `components/ui/` | Generic widgets: modals, empty states, tables, tabs, toaster, search field. |
 | `components/entity/` | Building blocks of entity consoles (headers, drawers, KPI rows, alert strips, sidebars). |
-| `components/layout/` | Shell of the v2 interface: `nav.ts` (the four menu sections, `buildNav`, `activeItem`), `Sidebar`, `Topbar` (breadcrumb, ⌘K search, bell), `SectionTabs` (tabs of a menu entry), `GlobalSearch`, `NotificationCenter`. |
-| `components/<domain>/` | Domain components: `access-requests`, `activity`, `auth`, `dashboard` (Journal of the Dashboard), `identity`, `identity-sources`, `infrastructure`, `observability` (Governance Jobs), `pilot` (`pilot-engine.ts`: questions turned into lists, unit-tested), `provisioning`, `settings`, `storage-endpoints`, `storage-roots`, `tags`, `zones`. The 5S screens live in `routes/(app)/five-s`. |
+| `components/layout/` | Shell of the v2 interface (no sidebar): `nav.ts` (the four menu sections by role and license, `buildNav`, `activeItem`, tested by `nav.test.ts`), `AppHeader` (☰ menu `NavMenu`, ⌘K search, bell), `ContextBar` (section › page, tabs of the entry via `SectionTabs`, main action), `GlobalSearch` (pages of `search-pages.ts`), `NotificationCenter`. Who may open which page: `utils/route-access.ts` (the layout redirects, tested by `route-access.test.ts`). |
+| `components/<domain>/` | Domain components: `access-requests`, `activity`, `auth`, `dashboard` (Journal of the Dashboard), `identity`, `identity-sources`, `infrastructure`, `observability` (Governance Jobs), `pilot` (`pilot-engine.ts` of the Assistant, `/assistant`: questions turned into lists, unit-tested), `provisioning`, `settings`, `storage-endpoints`, `storage-roots`, `tags`, `zones`. The 5S screens live in `routes/(app)/five-s`. |
 | `mappers/` | Pure functions turning API payloads into view models (unit-tested). |
 | `stores/` | Svelte stores (toast, jobs, selection, snapshots, UI state). |
 | `jobs/` | Background job and probe polling, probe runners. |
