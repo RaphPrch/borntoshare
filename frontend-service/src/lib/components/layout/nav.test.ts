@@ -36,6 +36,7 @@ assert.ok(!JSON.stringify(buildNav(ctx({ admin: true, staff: true, features: ['g
 const sections = buildNav(ctx({ admin: true, staff: true, features: ['governance', 'fives'] }));
 assert.equal(activeItem(sections, '/pilot')?.item.label, 'Assistant');
 assert.equal(activeItem(sections, '/exposure')?.item.label, 'Access Explorer');
+assert.equal(activeItem(sections, '/access-explorer')?.item.label, 'Access Explorer');
 assert.equal(activeItem(sections, '/access-reviews/4')?.item.label, 'Access Management');
 assert.equal(activeItem(sections, '/five-s/report/12')?.item.label, 'Explorer');
 console.log('nav: menus by role and license ok');

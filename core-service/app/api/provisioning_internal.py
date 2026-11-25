@@ -643,6 +643,12 @@ def _extract_directory_snapshot_inputs(
     return snapshot_id, users, groups, memberships
 
 
+def _snapshot_account_state_read(result_json: dict | None) -> bool:
+    result = _as_dict(result_json)
+    payload = _as_dict(result.get("payload")) or _as_dict(_as_dict(result.get("details")).get("payload"))
+    return bool(payload.get("account_state_read"))
+
+
 def _apply_infrastructure_results(db: Session, *, job_row: Any, result_json: dict | None) -> None:
     """Advanced Settings › Infrastructure: health check states, share discovery of the data sync."""
     job_type = str(getattr(job_row, "job_type", "") or "").strip().upper()
@@ -723,6 +729,8 @@ def _apply_directory_snapshot_success(
             "phase": "collected",
             "job_id": int(getattr(job_row, "id", 0) or 0),
             "counts": counts,
+            # The users' is_active is their account state (AD): without it, « enabled » is not known (Access Explorer)
+            "account_state_read": _snapshot_account_state_read(result_json),
         },
         error_message=None,
     )

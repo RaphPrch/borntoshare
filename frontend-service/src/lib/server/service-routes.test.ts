@@ -8,7 +8,7 @@ function assert(condition: unknown, message: string): void {
 
 /** Pages that called a path the proxy did not know showed « API route not found » (access reviews, monthly report). */
 function testEveryPageOfTheCoreIsRouted(): void {
-  for (const path of ['/api/access-reviews', '/api/access-reviews/4', '/api/access-reviews/4/decisions', '/api/monthly-report/preview', '/api/monthly-report/send']) {
+  for (const path of ['/api/access-reviews', '/api/access-explorer/users/3', '/api/access-explorer/search', '/api/access-reviews/4', '/api/access-reviews/4/decisions', '/api/monthly-report/preview', '/api/monthly-report/send']) {
     const route = resolveDirectRoute(path);
     assert(route?.service === 'core', `${path} goes to the core`);
   }

@@ -12,7 +12,7 @@ for (const who of [admin, guardian, user]) {
   assert.equal(redirectFor('/dashboard', who), null);
 }
 // The screens about the folders: staff only, the old address of the Assistant included
-for (const path of ['/assistant', '/pilot', '/exposure', '/reports', '/five-s/explore', '/observability', '/access-reviews/3']) {
+for (const path of ['/assistant', '/pilot', '/exposure', '/access-explorer', '/reports', '/five-s/explore', '/observability', '/access-reviews/3']) {
   assert.equal(redirectFor(path, user), '/dashboard', path);
   assert.equal(redirectFor(path, guardian), null, path);
 }
@@ -23,6 +23,7 @@ assert.equal(redirectFor('/evidence', admin), null);
 const fivesOnlyGuardian = { admin: false, staff: true, features: ['fives'] };
 assert.equal(redirectFor('/access-requests', fivesOnlyGuardian), '/five-s');
 assert.equal(redirectFor('/exposure', fivesOnlyGuardian), '/five-s');
+assert.equal(redirectFor('/access-explorer', fivesOnlyGuardian), '/five-s');
 assert.equal(redirectFor('/dashboard', fivesOnlyGuardian), '/five-s');
 assert.equal(redirectFor('/five-s', fivesOnlyGuardian), null);
 console.log('route access: rules by role and license ok');
