@@ -136,7 +136,7 @@ jobs:
           severity: HIGH,CRITICAL
           skip-dirs: fives-service,fives-scanner,frontend-service/node_modules
           exit-code: "1"
-      # testing/ad-lab: the Samba test domain controller of the AD tests, root by nature and never deployed
+      # testing/ad-lab (Samba test DC) and testing/install-lab (nested-Podman simulated hosts): root by nature, never deployed
       - name: Containerfiles and compose (misconfigurations)
         if: always()
         uses: aquasecurity/trivy-action@v0.36.0
@@ -144,6 +144,6 @@ jobs:
           scan-type: config
           scan-ref: .
           severity: HIGH,CRITICAL
-          skip-dirs: fives-service,fives-scanner,testing/ad-lab
+          skip-dirs: fives-service,fives-scanner,testing/ad-lab,testing/install-lab
           exit-code: "1"
 
