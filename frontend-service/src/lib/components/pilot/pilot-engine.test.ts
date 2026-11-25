@@ -105,7 +105,7 @@ assert.ok(missingFolder.text.includes('Introuvable : nope'));
 console.log('pilot-engine actions: ok');
 
 
-// ---- Raphaël: people × folders ----
+// ---- Assistant: people × folders ----
 const responsible = await askPilot(fetchFn, 'Exporte-moi la liste de tous les utilisateurs avec le nombre de données dont ils sont responsables');
 assert.equal(responsible.intent, 'gardiens → dossiers, volume');
 assert.deepEqual(responsible.columns, ['Login', 'Nom', 'Dossiers', 'Volume', 'Dossiers sensibles']);
@@ -135,7 +135,7 @@ assert.equal((await askPilot(fetchFn, 'Dossiers avec des droits à revoir', off)
 assert.equal((await askPilot(fetchFn, 'Fichiers sensibles ouverts à tous', off)).rows.length, 1, 'the sensitivity scan is not the 5S');
 assert.ok((await askPilot(fetchFn, 'Retire le tag Archive des dossiers du serveur FILER', off)).action, 'a tag named Archive is not a 5S question');
 assert.ok(!pilotExamples(false).includes('Doublons à libérer') && pilotExamples(true).includes('Doublons à libérer'));
-console.log('raphael: ok');
+console.log('assistant: ok');
 
 // Access governance: requests past their deadline, accesses that end soon, open reviews
 {

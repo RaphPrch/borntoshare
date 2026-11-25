@@ -11,11 +11,13 @@ qui mesure et range les partages. Chaque compte de service n'a que les droits do
 
 ## Interface
 
-Un menu ☰ en haut à gauche, en quatre sections (la page garde toute la largeur) : **Workspace** (Dashboard avec le Journal du jour, Raphaël pour poser des questions
-sur les dossiers et exporter les réponses, ou poser / retirer un tag : « Ajoute le tag Confidentiel au dossier Finance »,
-les dossiers visés sont listés et rien ne change avant « Appliquer »), **Governance** (Storage Roots, Access Management, Governance Jobs, Policies),
-**Storage Intelligence** (Explorer, Inventory et Analytics du module 5S ; Insights & Recommendations) et
-**Administration** (Storage Endpoints, Zones, Identity & Users, Settings). Détail des écrans :
+Un menu ☰ en haut à gauche, en quatre sections (la page garde toute la largeur) : **Workspace** (Dashboard avec le Journal du jour,
+Assistant pour poser des questions sur les dossiers et exporter les réponses, ou poser / retirer un tag : « Ajoute le tag
+Confidentiel au dossier Finance », les dossiers visés sont listés et rien ne change avant « Appliquer » ; My Tasks, ce qui
+attend chacun : demandes à décider, revues, alertes, recommandations, ses demandes à suivre), **Governance** (Storage Roots,
+Access Management, Access Explorer, Governance Jobs, Policies), **Storage Intelligence** (Explorer, Inventory et Analytics du
+module 5S ; Insights & Recommendations et Evidence Center, qui restent sans le module) et **Administration** (Storage
+Endpoints, Zones, Identity & Users, Settings). Détail des écrans :
 [frontend-service/README.md](frontend-service/README.md#écrans).
 
 ## Vue d'ensemble

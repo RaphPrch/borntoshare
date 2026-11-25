@@ -1,5 +1,5 @@
 /**
- * Raphaël (formerly Pilot): questions in plain French on the folders, answered from what BornToShare already knows
+ * Assistant (formerly Pilot): questions in plain French on the folders, answered from what BornToShare already knows
  * (the context list of the storage roots, their guardians, the permissions of a folder: ACL read × directory ×
  * requests). No model, no guess: a few intents read from the words of the question; the answer says how the question
  * was understood. The questions of the 5S module (files, duplicates, cold data, rights to review) are answered only

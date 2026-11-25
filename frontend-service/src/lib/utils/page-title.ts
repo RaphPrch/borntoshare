@@ -1,10 +1,12 @@
 // Browser tab title per route (longest matching prefix wins): the name of the menu entry, a product name the same in both languages.
 const TITLES: [prefix: string, label: string][] = [
   ['/dashboard', 'Dashboard'],
-  ['/pilot', 'Raphaël'],
+  ['/assistant', 'Assistant'],
+  ['/tasks', 'My Tasks'],
+  ['/evidence', 'Evidence Center'],
   ['/storage-roots', 'Storage Roots'],
   ['/access-requests', 'Access Management'],
-  ['/exposure', 'Access Management'],
+  ['/exposure', 'Access Explorer'],
   ['/access-reviews', 'Access Management'],
   ['/observability', 'Governance Jobs'],
   ['/policies', 'Policies'],

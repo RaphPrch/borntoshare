@@ -203,14 +203,16 @@
       select(results[activeIndex]);
     }
   }
-  const MENU_NAMES = new Set(['Dashboard', 'Raphaël', 'Storage Roots', 'Access Management', 'Governance Jobs', 'Policies', 'Explorer', 'Inventory', 'Analytics',
-    'Insights & Recommendations', 'Storage Endpoints', 'Identity & Users', 'Settings']);
+  const MENU_NAMES = new Set(['Dashboard', 'Assistant', 'My Tasks', 'Storage Roots', 'Access Management', 'Access Explorer', 'Governance Jobs', 'Policies', 'Explorer',
+    'Inventory', 'Analytics', 'Insights & Recommendations', 'Evidence Center', 'Storage Endpoints', 'Zones', 'Identity & Users', 'Settings']);
   // Pages are translated when read (except the names of the menu)
   let pages = $derived([
     { title: 'Dashboard', href: '/dashboard', icon: 'bi-speedometer2', show: true },
+    { title: 'My Tasks', href: '/tasks', icon: 'bi-check2-square', show: true },
     { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: $governanceEnabled },
     // The pages of the 5S module only while it is usable (licensed, switched on, answering)
-    ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots && ($fivesEnabled || !item.href.startsWith('/five-s')) })),
+    ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots && ($fivesEnabled || !item.href.startsWith('/five-s'))
+      && ($governanceEnabled || item.href !== '/exposure') })),
     { title: 'Governance Jobs', href: '/observability', icon: 'bi-list-task', show: canSeeObservability },
     { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
     { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },
@@ -254,11 +256,11 @@
         ] : [])
       ] as Result[])
     : []);
-  // Any text: a file of that name in the inventory, or the question to Pilot (administrators and guardians)
+  // Any text: a file of that name in the inventory, or the question to the Assistant (administrators and guardians)
   let textActions = $derived(query.trim().length >= 2 && canSeeStorageRoots
     ? ([
         ...($fivesEnabled ? [{ group: t('Actions'), label: t('Find the file « {query} »', { query: query.trim() }), detail: t('In every measured folder'), href: `/five-s/explore?q=${encodeURIComponent(query.trim())}`, icon: 'bi-file-earmark-search' }] : []),
-        { group: t('Actions'), label: t('Ask Raphaël: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/pilot?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
+        { group: t('Actions'), label: t('Ask the Assistant: « {query} »', { query: query.trim() }), detail: t('An answer as a list, to export'), href: `/assistant?q=${encodeURIComponent(query.trim())}`, icon: 'bi-chat-square-text' }
       ] as Result[])
     : []);
   $effect.pre(() => {
