@@ -2,7 +2,7 @@
 # Restores a backup made by scripts/backup.sh on this server: make restore FROM=backups/<date>
 #   make restore FROM=…                 checks the backup and says what would be restored, changes nothing
 #   CONFIRM=yes make restore FROM=…     restores, then make deploy (SQL packs, services), then checks
-# B2S_BACKUP_PASSPHRASE_FILE=<file>: the passphrase of an encrypted backup (secrets.tar.gz.enc).
+# B2S_BACKUP_PASSPHRASE_FILE=<file>: the passphrase of an encrypted backup (secrets.tar.gz.enc, config.tar.gz.enc).
 #
 # What is restored:
 #   - the databases: replaced by those of the backup (same names, those of .env), with the migration account;
@@ -32,14 +32,20 @@ WORK=$(mktemp -d)
 chmod 700 "$WORK"
 trap 'find "$WORK" -type f -exec shred -u {} + 2>/dev/null; rm -rf "$WORK"' EXIT
 mkdir "$WORK/secrets" "$WORK/config"
-if [ -f "$FROM/secrets.tar.gz.enc" ]; then
-  [ -s "$PASSPHRASE" ] || { echo "Secrets chiffrés : B2S_BACKUP_PASSPHRASE_FILE=<fichier de la phrase de passe>" >&2; exit 1; }
-  openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass "file:$PASSPHRASE" -in "$FROM/secrets.tar.gz.enc" | tar -xzf - -C "$WORK/secrets" ||
-    { echo "Secrets illisibles : phrase de passe fausse ?" >&2; exit 1; }
-else
-  tar -xzf "$FROM/secrets.tar.gz" -C "$WORK/secrets"
+if ls "$FROM"/*.enc >/dev/null 2>&1 && ! command -v openssl >/dev/null; then
+  echo "Sauvegarde chiffrée et openssl introuvable : dnf install openssl" >&2; exit 1
 fi
-tar -xzf "$FROM/config.tar.gz" -C "$WORK/config"
+unpack() {  # archive (without .enc) directory: decrypted first when the backup is encrypted
+  if [ -f "$FROM/$1.enc" ]; then
+    [ -n "$PASSPHRASE" ] && [ -s "$PASSPHRASE" ] || { echo "Sauvegarde chiffrée : B2S_BACKUP_PASSPHRASE_FILE=<fichier de la phrase de passe>" >&2; exit 1; }
+    openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -pass "file:$PASSPHRASE" -in "$FROM/$1.enc" 2>/dev/null | tar -xzf - -C "$2" 2>/dev/null ||
+      { echo "$1.enc illisible : phrase de passe fausse ?" >&2; exit 1; }
+  else
+    tar -xzf "$FROM/$1" -C "$2"
+  fi
+}
+unpack secrets.tar.gz "$WORK/secrets"
+unpack config.tar.gz "$WORK/config"
 [ -s "$WORK/secrets/b2s_master_key" ] || { echo "La sauvegarde n'a pas la clé b2s_master_key" >&2; exit 1; }
 
 act() { if [ "$DO" = 1 ]; then "$@"; else echo "  (à faire) $*"; fi; }

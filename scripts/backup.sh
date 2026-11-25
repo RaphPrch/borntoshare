@@ -7,8 +7,9 @@
 #   secrets.tar.gz  the secrets, the key of the stored passwords (b2s_master_key) included: without it a restored
 #                   database has its passwords of directories and servers unreadable
 #   MANIFEST        date, version, mode, and the SHA-256 of each file (checked by scripts/restore.sh)
-# B2S_BACKUP_PASSPHRASE_FILE=<file>: the secrets are encrypted with that passphrase (secrets.tar.gz.enc, AES-256,
-# openssl), to copy the backup off this server. Without it the directory is readable by its owner only, like the
+# B2S_BACKUP_PASSPHRASE_FILE=<file>: the secrets and the configuration (.env holds INTERNAL_TOKEN and the signing
+# key, the certificates a private key) are encrypted with that passphrase (*.tar.gz.enc, AES-256, openssl), to copy
+# the backup off this server. Without it the directory is readable by its owner only, like the
 # secrets on this server: encrypt it before it leaves.
 # Restore: scripts/restore.sh <directory> (docs/exploitation.md).
 set -euo pipefail
@@ -18,6 +19,8 @@ TARGET="${1:-backups/$(date +%Y%m%d-%H%M%S)}"
 MODE=$(deploy_mode)
 PASSPHRASE="${B2S_BACKUP_PASSPHRASE_FILE:-}"
 [ -z "$PASSPHRASE" ] || [ -s "$PASSPHRASE" ] || { echo "Phrase de passe introuvable ou vide : $PASSPHRASE" >&2; exit 1; }
+# Checked before anything is dumped: a backup asked encrypted is never left in clear nor half made
+[ -z "$PASSPHRASE" ] || command -v openssl >/dev/null || { echo "openssl introuvable : dnf install openssl (chiffrement de la sauvegarde)" >&2; exit 1; }
 MIGRATE_USER="$(env_value DB_MIGRATE_USER b2s_migrate)"
 DATABASES="$(env_value DB_NAME borntoshare) $(env_value LOGGING_DB_NAME borntoshare_logging)"
 if has_secret b2s_db_fives; then
@@ -57,7 +60,13 @@ else
   # shellcheck disable=SC2046
   tar -czf "$TARGET/config.tar.gz" .env $(find capsule-runner/certs -maxdepth 1 -type f \( -name '*.crt' -o -name '*.key' -o -name '*.pem' \) 2>/dev/null)
 fi
-echo "$TARGET/config.tar.gz"
+if [ -n "$PASSPHRASE" ]; then
+  openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -pass "file:$PASSPHRASE" -in "$TARGET/config.tar.gz" -out "$TARGET/config.tar.gz.enc"
+  shred -u "$TARGET/config.tar.gz" 2>/dev/null || rm -f "$TARGET/config.tar.gz"
+  echo "$TARGET/config.tar.gz.enc (chiffré)"
+else
+  echo "$TARGET/config.tar.gz"
+fi
 
 # ---- secrets ----
 mkdir "$TARGET/.secrets"
@@ -87,7 +96,7 @@ rmdir "$TARGET/.secrets"
   echo "version=$(git rev-parse --short HEAD 2>/dev/null || echo inconnue)"
   echo "mode=$MODE"
   echo "databases=$DATABASES"
-  (cd "$TARGET" && sha256sum -- *.sql.gz config.tar.gz secrets.tar.gz*)
+  (cd "$TARGET" && sha256sum -- *.sql.gz config.tar.gz* secrets.tar.gz*)
 } > "$TARGET/MANIFEST"
 complete=1
 echo "Sauvegarde complète : $TARGET"
