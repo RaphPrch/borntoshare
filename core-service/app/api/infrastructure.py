@@ -68,6 +68,15 @@ def get_overview(request: Request, db: Session = Depends(get_db)):
     return ui_data(data)
 
 
+@router.get("/diagnostics")
+def get_diagnostics(request: Request, db: Session = Depends(get_db)):
+    """The checks of the installation, run now (read only, never a secret)."""
+    from app.services import diagnostics
+
+    _admin(request)
+    return ui_data(diagnostics.run(db))
+
+
 # ============================================================
 # Database
 # ============================================================

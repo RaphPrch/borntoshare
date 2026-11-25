@@ -233,13 +233,23 @@ def record_worker_check(db: Session, worker_id: int, result: dict[str, Any]) -> 
 def record_components(db: Session, results: list[dict[str, Any]], *, checked_by: str) -> None:
     now = _now()
     try:
-        before = {str(row[0]): str(row[1]) for row in db.execute(text("SELECT component, status FROM infra_component_status")).all()}
+        rows = db.execute(text("SELECT component, status, details_json FROM infra_component_status")).all()
+        before = {str(row[0]): str(row[1]) for row in rows}
+        before_details = {str(row[0]): _json(row[2]) or {} for row in rows}
     except Exception:
         db.rollback()
-        before = {}
+        before, before_details = {}, {}
     went_down = [item for item in results if item.get("status") == "down" and before.get(str(item["component"])[:96]) not in (None, "down")]
     for item in results:
         status = item.get("status") if item.get("status") in {"healthy", "degraded", "down", "unknown"} else "unknown"
+        # The last error stays once the component is back (when it failed, and why), in its details
+        details = dict(item.get("details") or {})
+        previous = before_details.get(str(item["component"])[:96]) or {}
+        if status in {"down", "degraded"}:
+            details["last_error"] = str(item.get("message") or "")[:300]
+            details["last_error_at"] = now.isoformat(timespec="seconds") + "Z"
+        elif previous.get("last_error"):
+            details["last_error"], details["last_error_at"] = previous["last_error"], previous.get("last_error_at")
         params = {
             "component": str(item["component"])[:96],
             "label": str(item.get("label") or item["component"])[:190],
@@ -248,7 +258,7 @@ def record_components(db: Session, results: list[dict[str, Any]], *, checked_by:
             "latency": item.get("latency_ms"),
             "message": str(item.get("message") or "")[:512],
             "checked_by": str(item.get("checked_by") or checked_by)[:120],
-            "details": json.dumps(item.get("details")) if item.get("details") else None,
+            "details": json.dumps(details) if details else None,
             "now": now,
         }
         db.execute(

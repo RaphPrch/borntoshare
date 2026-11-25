@@ -59,8 +59,9 @@ for suite in "${suites[@]}"; do
         -v "$FIVES/wizard-sql/fives_inventory:/r/wizard-ui/backend/app/sql/fives_inventory:ro,z" -- "/r/$suite" ;;
     frontend-service)
       # A copy (node_modules is installed in the container, never in the working copy), npm cache kept between runs
-      podman run --rm -v "$ROOT/frontend-service:/src:ro,z" -v b2s-test-npm-cache:/root/.npm docker.io/library/node:26-alpine sh -c '
-        set -e; mkdir /w; cd /src; tar --exclude=node_modules --exclude=.svelte-kit --exclude=build -cf - . | tar -xf - -C /w; cd /w
+      # Laid out as in the repository: some tests read the core next to it (../core-service)
+      podman run --rm -v "$ROOT/frontend-service:/src:ro,z" -v "$ROOT/core-service:/r/core-service:ro,z" -v b2s-test-npm-cache:/root/.npm docker.io/library/node:26-alpine sh -c '
+        set -e; mkdir -p /r/frontend-service; cd /src; tar --exclude=node_modules --exclude=.svelte-kit --exclude=build -cf - . | tar -xf - -C /r/frontend-service; cd /r/frontend-service
         npm ci --no-audit --no-fund >/dev/null
         n=0; for s in $(node -p "Object.keys(require(\"./package.json\").scripts).filter(k => k.startsWith(\"test:\")).join(\" \")"); do
           echo "== $s"; npm run -s "$s"; n=$((n+1)); done
