@@ -104,6 +104,7 @@ async def _resolve_snapshot_id_for_status(source_id: int | None, status_value: s
             identity_source_id=int(source_id) if source_id else None,
         )
     except Exception:
+        logger.warning("SNAPSHOT_LOOKUP_FAILED", extra={"identity_source_id": source_id, "status": status_value}, exc_info=True)
         return None
     if not isinstance(rows, list) or not rows:
         return None
