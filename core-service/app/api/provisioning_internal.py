@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.data.repositories import provisioning_internal_sql
@@ -667,6 +669,15 @@ def _apply_infrastructure_results(db: Session, *, job_row: Any, result_json: dic
         logger.exception("INFRA_RESULT_APPLY_FAILED job_id=%s", int(getattr(job_row, "id", 0) or 0))
 
 
+_SNAPSHOT_STORE_ATTEMPTS = 3
+
+
+def _lock_conflict(exc: OperationalError) -> bool:
+    """MariaDB deadlock (1213) or lock wait timeout (1205): the transaction may simply be replayed."""
+    args = getattr(getattr(exc, "orig", None), "args", None) or ()
+    return bool(args) and args[0] in (1205, 1213)
+
+
 def _apply_directory_snapshot_success(
     db: Session,
     *,
@@ -681,12 +692,25 @@ def _apply_directory_snapshot_success(
         return
 
     repo = DirectorySnapshotsRepo(db)
-    counts = repo.bulk_upsert(
-        snapshot_id=int(snapshot_id),
-        users=users,
-        groups=groups,
-        memberships=memberships,
-    )
+    # Two snapshots stored at the same time (two directories) may deadlock on the memberships: MariaDB rolls one
+    # back (1213). Its job was already marked done, so nobody would store it again and the snapshot stayed QUEUED.
+    # bulk_upsert replaces the rows of its snapshot in one transaction: replayed after a rollback, it is the same
+    for attempt in range(1, _SNAPSHOT_STORE_ATTEMPTS + 1):
+        try:
+            counts = repo.bulk_upsert(
+                snapshot_id=int(snapshot_id),
+                users=users,
+                groups=groups,
+                memberships=memberships,
+            )
+            break
+        except OperationalError as exc:
+            db.rollback()
+            if not _lock_conflict(exc) or attempt == _SNAPSHOT_STORE_ATTEMPTS:
+                raise
+            logger.warning("DIRECTORY_SNAPSHOT_STORE_RETRY", extra={"snapshot_id": int(snapshot_id), "attempt": attempt,
+                                                                    "mariadb_error": exc.orig.args[0]})
+            time.sleep(0.3 * attempt)
 
     repo.patch_status(
         snapshot_id=int(snapshot_id),
