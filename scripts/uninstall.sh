@@ -7,7 +7,7 @@
 #
 # Never removed: the databases (on the MariaDB server: the SQL to drop them is printed), this working copy and its .env.
 # Kept unless PURGE=1: the secrets, the key of the stored passwords (b2s_master_key) included. Without that key the
-# passwords kept encrypted in the database can no longer be read: back it up before a purge. A later
+# passwords kept encrypted in the database can no longer be read: make backup (which saves it) before a purge. A later
 # make deploy (or make wizard) reinstalls on the same databases.
 set -uo pipefail
 cd "$(dirname "$0")/.."

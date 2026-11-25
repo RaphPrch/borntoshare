@@ -70,6 +70,16 @@ def _ace_present(listing: str, ace_principal: str, ad_group_name: str) -> bool:
     return False
 
 
+def _read_acl(share_path: str, rel_path: str, *, username: str, password: str, timeout: int) -> str | None:
+    """The ACL listing of the folder, or None when it cannot be read (error, timeout)."""
+    try:
+        listing = run_samba(["smbcacls", share_path, rel_path], username=username, password=password,
+                            capture_output=True, timeout=timeout, check=True)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    return (listing.stdout or b"").decode(errors="ignore")
+
+
 def _domain_from_username(username: str) -> str:
     raw = str(username or "").strip()
     if "\\" not in raw:
@@ -320,6 +330,18 @@ def apply_acl_via_group(params: Dict[str, Any]):
                     ace,
                 ]
 
+                # Already there (a retry after a lost answer, an apply run twice): nothing written. With propagation
+                # the folder alone proves nothing about what it contains, so the apply runs again
+                if not propagation:
+                    before = _read_acl(share_path, rel_path, username=auth_user, password=password, timeout=timeout)
+                    if before is not None and _ace_present(before, ace_principal, ad_group_name):
+                        details.update(applied=False, already_present=True, verified=True, resolved_rel_path=rel_path,
+                                       resolved_principal=ace_principal, selected_principal_type=_principal_type(ace_principal),
+                                       attempts=attempts, command=safe_cmd)
+                        logger.info("ACL already present", extra={"operation": "acl_apply_via_group", "ad_group_name": ad_group_name,
+                                                                  "target_unc": unc, "resolved_principal": ace_principal})
+                        return True, "ACL already present", details
+
                 logger.info(
                     "Executing smbcacls ACL apply",
                     extra={
@@ -394,10 +416,26 @@ def apply_acl_via_group(params: Dict[str, Any]):
                     )
                     continue
                 except subprocess.TimeoutExpired:
+                    # The write may have happened: the ACL read back says which (never « failed » without looking)
                     details["timeout_sec"] = timeout
                     details["attempts"] = attempts
                     details["command"] = safe_cmd
-                    return False, "ACL apply timeout", details
+                    after = _read_acl(share_path, rel_path, username=auth_user, password=password, timeout=timeout)
+                    present = after is not None and _ace_present(after, ace_principal, ad_group_name)
+                    details["verified_after_timeout"] = after is not None
+                    details["ace_present_after_timeout"] = present
+                    logger.warning("ACL apply timeout", extra={"operation": "acl_apply_via_group", "ad_group_name": ad_group_name,
+                                                               "target_unc": unc, "timeout_sec": timeout, "acl_read_back": after is not None,
+                                                               "ace_present": present, "propagate": bool(propagation)})
+                    if present and not propagation:
+                        details.update(applied=True, verified=True, resolved_rel_path=rel_path, resolved_principal=ace_principal,
+                                       selected_principal_type=_principal_type(ace_principal))
+                        return True, "ACL applied (confirmed after timeout)", details
+                    if present:
+                        return False, "ACL apply timeout: ACE set on the folder, propagation to its content not confirmed", details
+                    if after is None:
+                        return False, "ACL apply timeout: result unknown, the ACL could not be read back", details
+                    return False, "ACL apply timeout: ACE not present", details
 
         if not _attempts_show_principal_resolution_failure(attempts) or time.monotonic() + 2 > deadline:
             break

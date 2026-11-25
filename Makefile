@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down reset-admin uninstall wizard-binary otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint test
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down reset-admin uninstall wizard-binary otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint test restore
 
 help:
 	@echo "make build          build the images"
@@ -13,7 +13,8 @@ help:
 	@echo "make restart        down + up"
 	@echo "make ps             containers status"
 	@echo "make logs           follow all logs   (make logs-auth-service: one service)"
-	@echo "make backup         save the two databases to backups/ (not the key of the secrets)"
+	@echo "make backup         save the databases, .env, certificates and secrets to backups/<date> (B2S_BACKUP_PASSPHRASE_FILE: encrypted)"
+	@echo "make restore FROM=backups/<date>   what restoring would do; CONFIRM=yes to restore, then deploy"
 	@echo "make wizard         start the database wizard (http://<host>:\$$WIZARD_PORT); WIZARD=binary: the executable"
 	@echo "make wizard-binary  build the wizard as a single executable (dist/b2s-wizard)"
 	@echo "make wizard-check   read the prerequisites again (shown by the wizard)"
@@ -59,6 +60,10 @@ logs-%:
 
 backup: .env
 	./scripts/backup.sh
+
+# Without .env: a reinstalled server gets the one of the backup
+restore:
+	./scripts/restore.sh "$(FROM)"
 
 # What this server offers (podman, Python, Node.js, httpd, SELinux…) is read first: the step « Prérequis » shows it.
 # Without podman, the wizard runs in its own Python environment (installation without container).

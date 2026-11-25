@@ -10,6 +10,7 @@ testing/install-lab/lab.sh run containers   # lab-db + lab-app (tout en conteneu
 testing/install-lab/lab.sh run hybrid       # lab-db + lab-app + lab-web (interface sur un serveur annexe, par SSH)
 testing/install-lab/lab.sh run faults       # installation hybride puis pannes une à une (message attendu, puis reprise)
 testing/install-lab/lab.sh run native       # lab-db + lab-app en natif (systemd), essai partiel, accès Internet (pip, npm)
+testing/install-lab/lab.sh run restore      # installation, make backup, perte du serveur et des bases, make restore
 B2S_LAB_DRIVE=api testing/install-lab/lab.sh run containers   # le wizard par son API au lieu de ses écrans
 testing/install-lab/lab.sh report           # synthèse par mode
 testing/install-lab/lab.sh down hybrid      # nettoyage après une interruption
@@ -30,7 +31,7 @@ masqués) et le journal du déploiement restent dans `~/.cache/b2s-install-lab/r
 
 Les images produit sont celles du dépôt (`localhost/b2s-*:latest`) : archivées une fois (`lab.sh images`), puis
 chargées dans chaque hôte ; rien n'est construit dans le labo (`podman-compose-lab` ignore `build`). Le code
-déployé est l'état commité (`git archive HEAD`), donné dans le rapport.
+déployé est celui de la copie de travail, fichiers suivis et indexés (`git stash create`, sinon `HEAD`), donné dans le rapport.
 
 Contrôles : prérequis, base vérifiée, installation, phases du déploiement, `.env` complété, secrets podman,
 images en service, healthchecks, connectivité (core → base, Redis, auth, worker ; annexe → API), bases
@@ -40,6 +41,10 @@ l'annexe ; puis une deuxième installation (`make deploy`), un redémarrage, une
 Pannes (`faults`) : DNS faux et port fermé au Wizard, base arrêtée pendant un déploiement, Redis et worker
 arrêtés, image absente sans registre, annexe injoignable, clé SSH inconnue, compte sans sudo, clé d'hôte changée,
 certificat introuvable, `.env` incomplet ; chacune doit échouer avec sa cause, puis `make deploy` reprend.
+
+Restauration (`restore`) : un mot de passe chiffré en base, `make backup` (manifeste, droits, sauvegarde altérée
+refusée), puis BornToShare purgé, `.env` retiré et bases vidées ; `make restore` sans puis avec `CONFIRM=yes` doit
+rendre `.env`, les secrets, les données, l'interface, et relire le mot de passe avec la clé restaurée.
 
 Limites : le natif est un essai partiel (un conteneur avec systemd n'est pas un serveur) ; SELinux et firewalld ne
 sont actifs dans aucun hôte simulé : à valider sur une vraie VM.
