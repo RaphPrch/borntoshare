@@ -240,3 +240,19 @@ export function clearAuthCookiesWithNames(
   cookies.delete(sessionCookieName, { path: '/' });
   cookies.delete(principalCookieName, { path: '/' });
 }
+
+/**
+ * Assertion of the person for core-service (X-B2S-Actor): the identity, roles and name of the signed-in user, signed
+ * with the key of the principal cookie, valid 60 s, audience « core ». core-service believes no other source of
+ * identity once each service has its token (H4): the worker and the 5S module, without the key, cannot forge one.
+ */
+export async function signActorAssertion(
+  actor: { id: number | null; roles: string[]; name: string | null },
+  signingKey: string,
+  nowSeconds: number = Math.floor(Date.now() / 1000)
+): Promise<string> {
+  const roles = [...new Set(actor.roles.map((role) => role.trim().toLowerCase()).filter(Boolean))].sort();
+  const payload = { id: actor.id, roles, name: actor.name, aud: 'core', exp: nowSeconds + 60 };
+  const body = base64UrlEncode(JSON.stringify(payload));
+  return `${body}.${await sign(body, signingKey)}`;
+}

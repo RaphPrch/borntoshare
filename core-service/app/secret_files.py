@@ -6,7 +6,9 @@ from __future__ import annotations
 import os
 from urllib.parse import quote
 
-NAMES = ("DB_PASSWORD", "LOGGING_DB_PASSWORD", "FIVES_DB_PASSWORD", "REDIS_PASSWORD", "B2S_SECRET_MASTER_KEY")
+NAMES = ("DB_PASSWORD", "LOGGING_DB_PASSWORD", "FIVES_DB_PASSWORD", "REDIS_PASSWORD", "B2S_SECRET_MASTER_KEY",
+         # The token of this service (X-Service-Token), and those core-service knows to name its callers
+         "B2S_SERVICE_TOKEN", "B2S_TOKEN_FRONTEND", "B2S_TOKEN_AUTH", "B2S_TOKEN_CAPSULE", "B2S_TOKEN_FIVES")
 
 
 def load(environ: "os._Environ[str] | dict[str, str]" = os.environ) -> None:

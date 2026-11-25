@@ -62,6 +62,8 @@ services:
     environment:
       <<: *common-env
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
+      # Its own token for core-service (H4); empty before make deploy gave it
+      B2S_SERVICE_TOKEN: ${B2S_TOKEN_AUTH:-}
       SESSION_STORE_BACKEND: redis
       REDIS_DB: 1
       REDIS_PASSWORD_FILE: /run/secrets/b2s_redis
@@ -85,6 +87,13 @@ services:
     build: ./core-service
     environment:
       <<: *common-env
+      # The token of each service: core-service names its callers by them (H4); the key verifies the person signed by
+      # the BFF and auth-service. Empty before make deploy gave them: the shared token still works then
+      B2S_TOKEN_FRONTEND: ${B2S_TOKEN_FRONTEND:-}
+      B2S_TOKEN_AUTH: ${B2S_TOKEN_AUTH:-}
+      B2S_TOKEN_CAPSULE: ${B2S_TOKEN_CAPSULE:-}
+      B2S_TOKEN_FIVES: ${B2S_TOKEN_FIVES:-}
+      PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
       B2S_SECRET_MASTER_KEY_FILE: /run/secrets/b2s_master_key
       DB_HOST: ${DB_HOST:?DB_HOST must be set}
       DB_PORT: ${DB_PORT:-3306}
@@ -123,6 +132,7 @@ services:
     build: ./capsule-runner
     environment:
       <<: *common-env
+      B2S_SERVICE_TOKEN: ${B2S_TOKEN_CAPSULE:-}
       # Its name in Governance Jobs (the host name of a container is its id)
       B2S_WORKER_NAME: capsule-runner
       CAPSULE_BROKER_URL: redis://redis:6379/2
@@ -159,6 +169,7 @@ services:
       # The 5S module (when installed and licensed): /api/modules/fives/*
       B2S_FIVES_URL: http://fives-service:8000
       PRINCIPAL_SIGNING_KEY: ${PRINCIPAL_SIGNING_KEY}
+      B2S_SERVICE_TOKEN: ${B2S_TOKEN_FRONTEND:-}
     ports:
       - "${FRONTEND_PUBLISHED_PORT:-3000}:3000"
     healthcheck:
@@ -183,6 +194,7 @@ services:
     profiles: [fives]
     environment:
       <<: *common-env
+      B2S_SERVICE_TOKEN: ${B2S_TOKEN_FIVES:-}
       B2S_CORE_URL: http://core-service:8000
       FIVES_DB_HOST: ${DB_HOST}
       FIVES_DB_PORT: ${DB_PORT:-3306}
@@ -211,6 +223,7 @@ services:
     profiles: [fives]
     environment:
       <<: *common-env
+      B2S_SERVICE_TOKEN: ${B2S_TOKEN_FIVES:-}
       CORE_URL: http://core-service:8000
       SCANNER_ID: ${FIVES_SCANNER_ID:-scanner-1}
       FIVES_DB_HOST: ${DB_HOST}

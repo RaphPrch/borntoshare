@@ -24,7 +24,8 @@ def _configured_log_level() -> str:
     try:
         resp = httpx.get(
             f"{settings.CORE_URL}/api/admin/config/advanced",
-            headers={"X-Internal-Token": settings.INTERNAL_TOKEN or ""},
+            headers={"X-Internal-Token": settings.INTERNAL_TOKEN or "",
+                     **({"X-Service-Token": os.environ["B2S_SERVICE_TOKEN"]} if os.getenv("B2S_SERVICE_TOKEN") else {})},
             timeout=2.0,
         )
         level_name = (resp.json().get("data") or {}).get("logging", {}).get("level")

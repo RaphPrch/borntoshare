@@ -34,6 +34,7 @@ phase() {  # phase key detail
 
 # ---- secrets --------------------------------------------------------------------------------------------------
 phase secrets "$MODE"
+ensure_service_tokens
 if [ "$MODE" = native ]; then as_root scripts/native/install-services.sh secrets; else scripts/secrets.sh; fi
 
 SERVICES="core-service capsule-runner auth-service"

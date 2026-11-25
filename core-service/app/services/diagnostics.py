@@ -51,6 +51,21 @@ def _internal_token() -> dict[str, Any]:
                   length=length, minimum=INTERNAL_TOKEN_MIN_LENGTH)
 
 
+def _service_tokens() -> dict[str, Any]:
+    """H4: each service names itself by its own token, the person is signed. Before make deploy gave the tokens, the
+    shared token still opens core-service and the identity headers are believed."""
+    from app.core.service_identity import SERVICES, service_tokens
+
+    present = sorted(service_tokens())
+    missing = [s for s in SERVICES if s not in present]
+    key = bool((os.getenv("PRINCIPAL_SIGNING_KEY") or "").strip())
+    if not present:
+        return _check("config.service_tokens", "configuration", WARNING, "high", missing=missing, key=key)
+    if not key:
+        return _check("config.service_tokens", "configuration", ERROR, "critical", missing=missing, key=key)
+    return _check("config.service_tokens", "configuration", WARNING if missing else OK, "medium", missing=missing, key=key)
+
+
 def _master_key() -> dict[str, Any]:
     from app.services.secret_store import SecretError, master_key
 
@@ -184,6 +199,7 @@ def _fives(db: Session) -> list[dict[str, Any]]:
 def run(db: Session) -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     checks += _guarded("config.internal_token", "configuration", "high", _internal_token)
+    checks += _guarded("config.service_tokens", "configuration", "high", _service_tokens)
     checks += _guarded("config.master_key", "configuration", "critical", _master_key)
     checks += _guarded("secrets.missing", "configuration", "high", lambda: _missing_secrets(db))
     checks += _guarded("database.application", "data", "critical", _live_connections)

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 
 from app.core.config import get_settings
-from app.core.internal_token import build_internal_headers
+from app.core.internal_token import actor_assertion, build_internal_headers
 from app.services.providers.registry import DEFAULT_AUTH_PROVIDER
 from app.services.session_limits import session_idle_seconds, session_ttl_seconds
 from app.core.errors import get_request_id
@@ -1472,6 +1472,9 @@ async def admin_change_password(
         headers["X-Identity-Id"] = str(user.identity_id)
     if user.display_name or user.username:
         headers["X-Actor-Display"] = str(user.display_name or user.username)
+    # The same person, signed: the only identity core-service believes once each service has its token
+    headers["X-B2S-Actor"] = actor_assertion(int(user.identity_id) if user.identity_id else None, user.roles or [],
+                                             str(user.display_name or user.username or "") or None)
 
     try:
         async with httpx.AsyncClient(timeout=int(settings.CORE_TIMEOUT_SECONDS)) as client:

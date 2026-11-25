@@ -21,6 +21,17 @@ const TEXTS: Record<string, Texts> = {
     problem: (v) => t('{length} characters, {minimum} at least: the services trust each other with it.', v),
     action: (v) => t('Set a random INTERNAL_TOKEN of {minimum} characters or more in .env, then make deploy.', v)
   },
+  'config.service_tokens': {
+    title: () => t('Identity of the services'),
+    ok: () => t('Each service has its own token and the person is signed: a service cannot pass for another, nor for someone.'),
+    problem: (v) =>
+      !v.key
+        ? t('Tokens per service without the signing key: core-service refuses every person.')
+        : Array.isArray(v.missing) && (v.missing as unknown[]).length < 4
+          ? t('Tokens missing for: {names}.', { names: (v.missing as unknown[]).map(String).join(', ') })
+          : t('Mode of before: the services share one token and core-service believes the identity they declare.'),
+    action: () => t('Run make deploy: it creates the token of each service in .env and gives them to the services.')
+  },
   'config.master_key': {
     title: () => t('Key of the stored passwords'),
     ok: () => t('Present: the passwords of directories and servers can be read.'),

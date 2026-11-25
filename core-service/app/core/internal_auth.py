@@ -1,7 +1,9 @@
 """Service-to-service authentication (inbound checks).
 
-- X-Internal-Token: the token shared by every service (INTERNAL_TOKEN)
-- X-Service-Name / X-Service-Scope: caller identity and scopes for scoped internal routes (with X-Internal-Token)
+- X-Service-Token: the token of the calling service, which names it (app.core.service_identity); its scopes are
+  set by core-service
+- before make deploy gave these tokens (« legacy »): X-Internal-Token, the token shared by every service, and
+  X-Service-Name / X-Service-Scope as the caller declares them
 """
 from __future__ import annotations
 
@@ -37,14 +39,37 @@ def _verify_internal_token(provided: str | None) -> None:
         )
 
 
+def internal_caller(request: Request) -> str | None:
+    """The calling service (frontend, auth, capsule, fives, or « legacy »), None for an unknown token."""
+    from app.core.service_identity import TOKEN_HEADER, caller_of
+
+    return caller_of(request.headers.get(TOKEN_HEADER), request.headers.get("X-Internal-Token"))
+
+
 def require_internal_token(request: Request) -> None:
-    """Protect internal endpoints."""
-    _verify_internal_token(request.headers.get("X-Internal-Token"))
+    """Protect internal endpoints: a service, never the BFF acting for a person."""
+    from app.core.service_identity import INTERNAL_CALLERS, per_service_mode
+
+    if not per_service_mode():
+        _verify_internal_token(request.headers.get("X-Internal-Token"))
+        return
+    caller = internal_caller(request)
+    if caller is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing internal token")
+    if caller not in INTERNAL_CALLERS:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Internal route: not for the web interface")
 
 
 def require_orchestration_access(request: Request) -> None:
-    """Guard for the orchestration routes (/governance/*): the internal token, like every route of core-service."""
-    require_internal_token(request)
+    """Guard for the orchestration routes (/governance/*): a known caller, the BFF included (it calls them for a
+    person, whose rights each route checks)."""
+    from app.core.service_identity import per_service_mode
+
+    if not per_service_mode():
+        require_internal_token(request)
+        return
+    if internal_caller(request) is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing internal token")
 
 
 # ============================================================
@@ -70,6 +95,23 @@ def require_internal(scopes: set[str]) -> Callable:
         x_service_name: str = Header(default=""),
         x_service_scope: str = Header(default=""),
     ) -> None:
+        from app.core.service_identity import SCOPES, per_service_mode
+
+        if per_service_mode():
+            # The caller is the owner of its token, its scopes are those core-service gives it
+            caller = internal_caller(request)
+            if caller is None:
+                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing internal token")
+            granted = SCOPES.get(caller, frozenset())
+            missing = sorted(s for s in required if s not in granted)
+            if missing:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={"error_code": "MISSING_REQUIRED_SCOPES", "message": f"missing required scope(s): {', '.join(missing)}",
+                            "details": {"missing_scopes": missing, "service": caller}},
+                )
+            return
+
         _verify_internal_token(x_internal_token)
 
         service_name = str(x_service_name or "").strip().lower()

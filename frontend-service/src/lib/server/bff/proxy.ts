@@ -1,6 +1,8 @@
 import type { RequestEvent } from '@sveltejs/kit';
 
 import { buildInternalHeaders } from '../internal-token';
+import { signActorAssertion } from '../auth/principal-cookie';
+import { principalSigningKey } from '../auth/user-context';
 import { getServiceBaseUrl, resolveDirectRoute, stripApiPrefix } from '../service-routes';
 
 type BffMe = {
@@ -47,6 +49,7 @@ function dropTrustedHeaders(headers: Headers): void {
       name === 'x-roles' ||
       name === 'x-identity-id' ||
       name === 'x-actor-display' ||
+      name === 'x-b2s-actor' ||
       name.startsWith('x-internal-') ||
       name.startsWith('x-service-')
     ) {
@@ -232,6 +235,14 @@ export async function proxyApi(event: RequestEvent): Promise<Response> {
   }
   if (actorDisplay) {
     headers.set('x-actor-display', actorDisplay);
+  }
+  // The person, signed: what core-service believes once each service has its token (the headers above are then
+  // ignored by it, kept for the services that still read them)
+  if (identityId || roles.length > 0) {
+    headers.set(
+      'x-b2s-actor',
+      await signActorAssertion({ id: identityId ? Number(identityId) : null, roles, name: actorDisplay || null }, principalSigningKey())
+    );
   }
 
   // Every upstream call carries the shared token: core-service trusts the identity headers above only with it

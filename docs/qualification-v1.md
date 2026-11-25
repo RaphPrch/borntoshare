@@ -23,6 +23,7 @@ module>` ajoute les suites du 5S. Installation : `testing/install-lab/lab.sh run
 | P7 | Simulation ACL avant validation : ACL actuelle, changement exact, risques, confirmation quand il y a des risques | 333ec2c | core, interface | core 593 ; interface 25 + check ; deux demandes réelles du labo AD sur le build | la comparaison porte sur la dernière lecture de l'ACL (son âge est affiché, ancienne au-delà de 7 jours) | `git revert` |
 | P12 | Aperçu d'un dossier : « permissions indisponibles » au lieu d'un chargement sans fin ; revue des erreurs avalées et des actions sensibles (déjà confirmées ou annulables) | voir `git log` | interface | 25 + check | cas d'échec non reproduit en réel | `git revert` |
 | N3 | Deux déclarations simultanées du même serveur de fichiers passaient toutes les deux (doublon « AD lab file server » sur le build) : verrou nommé MariaDB autour du contrôle et de l'insertion (`app/services/named_lock.py`) | voir `git log` | core ; essai réel | core 595 ; sur le build, deux déclarations simultanées : 200 et 409, un seul serveur | changement d'adresse aussi sous ce verrou, avec une lecture verrouillante (REPEATABLE READ) : 3 essais réels de chaque cas, 200 et 409, un seul serveur | `git revert` |
+| H4 | Jeton par service vers core-service (`X-Service-Token`), droits fixés par le core (routes du worker et du module 5S, portées), identité signée (`X-B2S-Actor`, clé du cookie principal) par le BFF et auth-service, relayée par le module 5S ; mode d'avant tant que `make deploy` n'a pas créé les jetons ; contrôle « Identité des services » du diagnostic | voir `git log` | core, auth, capsule, interface, module 5S ; tentatives réelles ; e2e AD | core 605 ; auth 77 ; capsule 169 ; interface 27 + check ; 5S 59 + 53 ; usurpations depuis le worker, le module 5S et l'interface refusées (403) ; e2e AD 64/64 en mode par service | appels vers auth-service, le worker et le module 5S encore au jeton partagé ; labo hybride et natif à repasser | `git revert` ; sans les jetons, le mode d'avant |
 
 Statut : **READY WITH LIMITATIONS** (rapport de qualification).
 
@@ -36,7 +37,7 @@ Anomalies retenues, par gravité (détail : rapport d'audit) :
 | H1 | HIGH | Suppression d'un annuaire : un comptage de dépendance en échec est ignoré | 1 |
 | H2 | HIGH | ACL : timeout déclaré échec sans relecture ; pas de contrôle avant écriture | 1 |
 | H3 | HIGH | Job RUNNING abandonné par un worker mort jamais clôturé ; watchdog muet sur ses erreurs | 4 |
-| H4 | HIGH | Jeton interne unique, identité déclarée par l'appelant | décision d'architecture |
+| H4 | HIGH | Jeton interne unique, identité déclarée par l'appelant | fait (accord du 25/11) |
 | H5 | HIGH | `fives-service` absent sur le build (conteneur disparu après le déploiement du 17/11) : relancé, le core le joint | 6 (fait) |
 | M1 | MEDIUM | Exceptions avalées qui transforment une erreur en résultat vide | 2 |
 | M2 | MEDIUM | Logs non JSON, champs communs non garantis | 3 |
@@ -51,7 +52,6 @@ Anomalies retenues, par gravité (détail : rapport d'audit) :
 - `@sveltejs/kit` (dépendance de construction, embarquée dans l'interface) : 4 avis npm dont un « high » ; le
   correctif est une version majeure (lot 7).
 
-## Décision attendue
+## Décision prise
 
-H4 (jeton interne unique, identité déclarée par l'appelant) : proposition d'un jeton par service et d'une identité
-signée par le BFF, vérifiée par le core. Changement d'architecture : non fait, à valider.
+H4 : fait le 25/11 (jeton par service vers core-service, identité signée).

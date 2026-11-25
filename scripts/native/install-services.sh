@@ -186,6 +186,7 @@ PYTHONUNBUFFERED=1"
   env_file auth-service <<ENV
 $common
 PRINCIPAL_SIGNING_KEY=$(env_value PRINCIPAL_SIGNING_KEY)
+B2S_SERVICE_TOKEN=$(env_value B2S_TOKEN_AUTH)
 SESSION_STORE_BACKEND=redis
 REDIS_HOST=127.0.0.1
 REDIS_DB=1
@@ -195,6 +196,11 @@ ENV
   env_file core-service <<ENV
 $common
 B2S_SECRET_MASTER_KEY_FILE=/etc/borntoshare/secrets/b2s_master_key
+B2S_TOKEN_FRONTEND=$(env_value B2S_TOKEN_FRONTEND)
+B2S_TOKEN_AUTH=$(env_value B2S_TOKEN_AUTH)
+B2S_TOKEN_CAPSULE=$(env_value B2S_TOKEN_CAPSULE)
+B2S_TOKEN_FIVES=$(env_value B2S_TOKEN_FIVES)
+PRINCIPAL_SIGNING_KEY=$(env_value PRINCIPAL_SIGNING_KEY)
 DB_HOST=$(env_value DB_HOST)
 DB_PORT=$(env_value DB_PORT 3306)
 DB_NAME=$(env_value DB_NAME borntoshare)
@@ -212,6 +218,7 @@ $common
 CAPSULE_BROKER_URL=redis://127.0.0.1:6379/2
 REDIS_PASSWORD_FILE=/etc/borntoshare/secrets/b2s_redis
 RUNNER_MAX_SCOPE=$(env_value RUNNER_MAX_SCOPE write)
+B2S_SERVICE_TOKEN=$(env_value B2S_TOKEN_CAPSULE)
 CORE_URL=http://127.0.0.1:$CORE_PORT
 ENV
   if [ -n "$fives" ]; then
@@ -225,12 +232,14 @@ FIVES_INVENTORY_DB_NAME=$(env_value FIVES_INVENTORY_DB_NAME b2s_fives_inventory)
     env_file fives-service <<ENV
 $common
 B2S_CORE_URL=http://127.0.0.1:$CORE_PORT
+B2S_SERVICE_TOKEN=$(env_value B2S_TOKEN_FIVES)
 $fives_env
 ENV
     env_file fives-scanner <<ENV
 $common
 CORE_URL=http://127.0.0.1:$CORE_PORT
 SCANNER_ID=$(env_value FIVES_SCANNER_ID scanner-1)
+B2S_SERVICE_TOKEN=$(env_value B2S_TOKEN_FIVES)
 $fives_env
 ENV
   fi
