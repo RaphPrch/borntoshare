@@ -11,7 +11,9 @@ from pathlib import Path
 TOPOLOGY = {
     "containers": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis, interface : Podman)",
     "hybrid": "lab-db (MariaDB 11.4) · lab-app (wizard, core, auth, capsule-runner, Redis : Podman ; ports ouverts à l'annexe) · "
-              "lab-web (annexe : systemd, httpd + mod_ssl, Node.js 22, interface poussée par SSH)",
+              "lab-web (annexe : systemd, httpd + mod_ssl, Node.js 26, interface poussée par SSH)",
+    "native": "lab-db (MariaDB 11.4) · lab-app (systemd : services b2s-*, Redis et Python 3.12 du système, interface sous httpd ; accès Internet pour pip et npm)",
+    "faults": "topologie hybride ; une panne à la fois après l'installation : message explicite attendu, puis reprise par make deploy",
 }
 
 
@@ -19,7 +21,8 @@ def load(run: Path) -> dict:
     steps = json.loads((run / "steps.json").read_text()) if (run / "steps.json").exists() else []
     read = lambda name: (run / name).read_text().strip() if (run / name).exists() else "—"  # noqa: E731
     return {"run": run.name, "scenario": run.name.split("-", 2)[-1], "steps": steps, "commit": read("commit"),
-            "duration": read("duration"), "config": sorted(p.name for p in (run / "config").glob("*")) if (run / "config").exists() else []}
+            "duration": read("duration"), "config": sorted(p.name for p in (run / "config").glob("*")) if (run / "config").exists() else [],
+            "screens": sorted(p.name for p in (run / "screens").glob("*.png")) if (run / "screens").exists() else []}
 
 
 def run_report(info: dict) -> str:
@@ -38,6 +41,8 @@ def run_report(info: dict) -> str:
         lines.append(f"| {'✅' if s['ok'] else '❌'} | {s['step']} | {s['seconds']:.0f} s | {detail} |")
     if info["config"]:
         lines += ["", "**Fichiers de configuration conservés** (secrets masqués) : " + ", ".join(f"`config/{c}`" for c in info["config"])]
+    if info["screens"]:
+        lines += ["", "**Captures du wizard** : " + ", ".join(f"`screens/{c}`" for c in info["screens"])]
     failed = [s for s in info["steps"] if not s["ok"]]
     if failed:
         lines += ["", "## Échecs", ""] + [f"- **{s['step']}** : {s['detail']}" for s in failed]
@@ -56,7 +61,7 @@ def main(cache: Path) -> None:
     for scenario, info in sorted(latest.items()):
         ok = sum(1 for s in info["steps"] if s["ok"])
         lines.append(f"| {scenario} | {info['run']} | {info['commit']} | {ok}/{len(info['steps'])} | {info['duration']} s | runs/{info['run']}/report.md |")
-    lines += ["", "| Mode | Statut |", "|---|---|", "| native | non couvert par le labo : à valider sur une vraie VM avec systemd |"]
+    lines += ["", "| Mode | Statut |", "|---|---|", "| native (vraie VM) | le scénario native est un essai partiel dans un conteneur systemd : SELinux, firewalld et noyau réels à valider sur VM |"]
     (cache / "report.md").write_text("\n".join(lines) + "\n")
     print((cache / "report.md").read_text())
 

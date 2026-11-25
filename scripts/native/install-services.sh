@@ -43,7 +43,9 @@ python_bin() {
 }
 
 do_secrets() {
-  install -d -m 0750 "$ETC"
+  # Shared with the interface under httpd (b2s-web, web.env): crossed by both accounts, listed by none; each file
+  # keeps its own owner
+  install -d -m 0751 "$ETC"
   install -d -m 0700 "$SECRETS"
   if [ -z "$STAGE" ] && ! id "$USER_NAME" >/dev/null 2>&1; then
     useradd --system --home-dir /var/lib/borntoshare --shell /sbin/nologin "$USER_NAME"
@@ -81,7 +83,7 @@ do_secrets() {
     chmod 0400 "$file"
     case "$file" in *.cnf) owner root:root "$file" ;; *) owner "$USER_NAME:$USER_NAME" "$file" ;; esac
   done
-  owner "root:$USER_NAME" "$ETC"
+  owner root:root "$ETC"
   chmod 0751 "$SECRETS"
 }
 
@@ -162,6 +164,8 @@ do_services() {
   owner "$USER_NAME:$USER_NAME" "$VAR" "$VAR/redis"
 
   # Code and environments: built beside the running ones, then swapped (the running one becomes .previous)
+  # The units run « venv/bin/python -m … », never the scripts of venv/bin: their first line names the .next directory
+  # the environment was built in, and no longer exists once it is swapped
   for svc in $services; do
     echo "  $svc : code et environnement Python"
     stage_code "$svc" "$APP/$svc.next"
@@ -264,19 +268,19 @@ ReadWritePaths=/var/lib/borntoshare/redis
 WantedBy=borntoshare.target
 UNIT
   local bin=/opt/borntoshare/app
-  unit b2s-auth "authentification" "$bin/auth-service/venv/bin/uvicorn app.main:app --host $API_BIND --port $AUTH_PORT" auth-service
-  unit b2s-core "API" "$bin/core-service/venv/bin/uvicorn app.main:app --host $API_BIND --port $CORE_PORT" core-service
+  unit b2s-auth "authentification" "$bin/auth-service/venv/bin/python -m uvicorn app.main:app --host $API_BIND --port $AUTH_PORT" auth-service
+  unit b2s-core "API" "$bin/core-service/venv/bin/python -m uvicorn app.main:app --host $API_BIND --port $CORE_PORT" core-service
   # The worker: its agent (declared in Infrastructure › Workers as 127.0.0.1:$AGENT_PORT) and its two job queues
   if [ -f "$CERTS/agent.crt" ] && [ -f "$CERTS/agent.key" ]; then
-    unit b2s-agent "agent du worker (HTTPS)" "$bin/capsule-runner/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port $AGENT_PORT --no-access-log --ssl-certfile /etc/b2s/certs/agent.crt --ssl-keyfile /etc/b2s/certs/agent.key" capsule-runner
+    unit b2s-agent "agent du worker (HTTPS)" "$bin/capsule-runner/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port $AGENT_PORT --no-access-log --ssl-certfile /etc/b2s/certs/agent.crt --ssl-keyfile /etc/b2s/certs/agent.key" capsule-runner
   else
-    unit b2s-agent "agent du worker" "$bin/capsule-runner/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port $AGENT_PORT --no-access-log" capsule-runner
+    unit b2s-agent "agent du worker" "$bin/capsule-runner/venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port $AGENT_PORT --no-access-log" capsule-runner
   fi
-  unit b2s-jobs "travaux du worker" "$bin/capsule-runner/venv/bin/dramatiq app.jobs.tasks --queues capsule_identity capsule_provisioning capsule_acl capsule_probes" capsule-runner
-  unit b2s-scans "parcours des dossiers" "$bin/capsule-runner/venv/bin/dramatiq app.jobs.tasks --queues capsule_scans --processes 1 --threads 2" capsule-runner
+  unit b2s-jobs "travaux du worker" "$bin/capsule-runner/venv/bin/python -m dramatiq app.jobs.tasks --queues capsule_identity capsule_provisioning capsule_acl capsule_probes" capsule-runner
+  unit b2s-scans "parcours des dossiers" "$bin/capsule-runner/venv/bin/python -m dramatiq app.jobs.tasks --queues capsule_scans --processes 1 --threads 2" capsule-runner
   units="b2s-redis b2s-auth b2s-core b2s-agent b2s-jobs b2s-scans"
   if [ -n "$fives" ]; then
-    unit b2s-fives "module 5S" "$bin/fives-service/venv/bin/uvicorn app.main:app --host $API_BIND --port $FIVES_PORT" fives-service
+    unit b2s-fives "module 5S" "$bin/fives-service/venv/bin/python -m uvicorn app.main:app --host $API_BIND --port $FIVES_PORT" fives-service
     unit b2s-scanner "scanner du module 5S" "$bin/fives-scanner/venv/bin/python -m scanner" fives-scanner
     units="$units b2s-fives b2s-scanner"
   fi
@@ -291,6 +295,8 @@ UNIT
   run systemctl enable borntoshare.target $units
   # shellcheck disable=SC2086
   run systemctl restart $units
+  # The target itself too: « systemctl restart borntoshare.target » (rollback, documentation) acts on its units
+  run systemctl start borntoshare.target
   echo "  unités : $units"
 }
 

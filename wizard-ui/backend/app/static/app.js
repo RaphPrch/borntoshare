@@ -160,10 +160,10 @@ function prereqs() {
   const add = (label, why, found, level) => out.push({ label, why, found, level });
   const sudo = h.sudo === "root" || h.sudo === "nopasswd";
   if (!Object.keys(h).length) {
-    add("Prérequis non lus", "lancer le wizard par make wizard (il lit le serveur d’abord), puis Relire", "—", "warn");
+    add("Prérequis non lus", "Relire pour les lire sur ce serveur", "—", "warn");
     return out;
   }
-  add("Dossier secrets/ en écriture", "les mots de passe générés y attendent le déploiement (0600)", h.secrets_writable ? "oui" : "non", h.secrets_writable ? "ok" : "bad");
+  add("Dossier des mots de passe", "les mots de passe générés y attendent le déploiement, lisibles par root seulement", h.secrets_writable ? "oui" : "non", h.secrets_writable ? "ok" : "bad");
   if (state.mode !== "native") {
     add("Podman", "images et services", h.podman || "absent", h.podman ? "ok" : "bad");
     add("podman-compose", "démarrage des services", h.podman_compose || "absent", h.podman_compose ? "ok" : "bad");
@@ -173,13 +173,14 @@ function prereqs() {
     add("Port de l’interface", "publié pour les navigateurs", h.port_frontend === "free" ? "libre" : "déjà pris (une installation existante sera remplacée)", h.port_frontend === "free" ? "ok" : "warn");
   }
   if (state.mode === "native") {
-    add("Python 3.12 ou plus", "un environnement par service, dans /opt/borntoshare", h.python || `absent (${h.python_any || "aucun"})`, h.python ? "ok" : "bad");
+    add("Python 3.12 ou plus", "un environnement par service", h.python || `absent (${h.python_any || "aucun"})`, h.python ? "ok" : "bad");
     add("Redis", "file des travaux et sessions (redis-server)", h.redis || "absent : dnf install redis", h.redis ? "ok" : "bad");
     add("Client MariaDB", "paquets SQL, sauvegardes", h.mariadb_client || "absent : dnf install mariadb", h.mariadb_client ? "ok" : "bad");
-    add("Droits root", "le déploiement crée le compte b2s, les unités, /etc/borntoshare", h.sudo === "root" ? "root" : h.sudo === "nopasswd" ? "sudo" : "lancer sudo make deploy", sudo ? "ok" : "warn");
+    add("npm", "construit l’interface sur ce serveur", h.npm || "absent : dnf module install nodejs:26", h.npm ? "ok" : "bad");
+    add("Droits root", "le déploiement crée le compte de service et les services système", h.sudo === "root" ? "root" : h.sudo === "nopasswd" ? "sudo" : "à donner au déploiement", sudo ? "ok" : "warn");
   }
   if (state.mode !== "containers" && !annex()) {
-    add("Node.js 20 ou plus", "l’interface, en service systemd", h.node || "absent : dnf module install nodejs:22", major(h.node) >= 20 ? "ok" : "bad");
+    add("Node.js 26 ou plus", "l’interface, en service systemd", h.node || "absent : dnf module install nodejs:26", major(h.node) >= 26 ? "ok" : "bad");
     add("httpd et mod_ssl", "publication HTTPS", h.httpd ? (h.mod_ssl ? h.httpd : `${h.httpd}, sans mod_ssl`) : "absent : dnf install httpd mod_ssl", h.httpd && h.mod_ssl ? "ok" : "bad");
     add("SELinux : httpd vers l’interface", "booléen httpd_can_network_connect", h.selinux === "Disabled" ? "SELinux inactif" : h.httpd_can_network_connect || "?", h.selinux === "Disabled" || h.httpd_can_network_connect === "on" ? "ok" : "warn");
     add("Port 443", "le vhost de BornToShare", h.port_443 === "free" ? "libre" : "déjà servi par httpd : le vhost s’ajoute", "ok");
@@ -199,7 +200,9 @@ function renderPrereqs() {
   $("p_list").innerHTML = prereqs().map((c) => `<div class="row"><span class="dot is-${c.level}"></span><span class="grow"><b>${escape(c.label)}</b><small>${escape(c.why)}</small></span><span class="mono">${escape(c.found)}</span></div>`).join("");
 }
 $("p_reload").addEventListener("click", async () => {
-  try { state.host = await api("/api/host-check"); render(); toast("Prérequis relus.", "ok"); } catch (e) { toast(e.message); }
+  busy($("p_reload"), true, "Lecture…");
+  try { state.host = await api("/api/host-check/refresh", {}); render(); toast("Prérequis relus.", "ok"); } catch (e) { toast(e.message); }
+  finally { busy($("p_reload"), false); }
 });
 
 /* ---------- MariaDB ---------- */
@@ -234,7 +237,7 @@ $("s_test").addEventListener("click", async () => {
 /* ---------- Databases ---------- */
 function refreshBases() {
   $$("[data-name]").forEach((el) => (el.textContent = val(el.dataset.name) || "…"));
-  $$("[data-secret-where]").forEach((el) => (el.textContent = state.mode === "native" ? "/etc/borntoshare/secrets" : "secret podman"));
+  $$("[data-secret-where]").forEach((el) => (el.textContent = "sur ce serveur, jamais affiché"));
   const present = new Set((state.serverInfo?.databases || []).map((d) => d.toLowerCase()));
   const found = [val("a_db"), val("a_log")].filter((d) => d && present.has(d.toLowerCase()));
   $("a_exists").hidden = !found.length;
@@ -242,31 +245,11 @@ function refreshBases() {
 }
 
 /* ---------- Web interface ---------- */
-function vhost() {
-  const name = val("h_name") || "borntoshare.corp.local";
-  const p = Number($("h_port").value) || 443;
-  const suffix = p === 443 ? "" : `:${p}`;
-  return `${p === 443 ? "" : `Listen ${p} https\n`}<VirtualHost *:${p}>
-  ServerName ${name}
-  SSLEngine on
-  SSLCertificateFile    ${val("h_cert")}
-  SSLCertificateKeyFile ${val("h_key")}
-  ProxyPreserveHost On
-  ProxyPass        / http://127.0.0.1:3000/
-  ProxyPassReverse / http://127.0.0.1:3000/
-  RequestHeader set X-Forwarded-Proto "https"
-</VirtualHost>
-<VirtualHost *:80>
-  ServerName ${name}
-  Redirect permanent / https://${name}${suffix}/
-</VirtualHost>`;
-}
 function refreshWeb() {
   $$("[data-for-mode]").forEach((el) => (el.hidden = (el.dataset.forMode === "containers") !== (state.mode === "containers")));
   $$("[data-web]").forEach((b) => b.classList.toggle("is-on", b.dataset.web === state.web));
   $$("[data-on-annex]").forEach((el) => (el.hidden = !annex()));
   $("w_hint").textContent = annex() ? "Le serveur web de l’entreprise (une DMZ par exemple) : seuls les ports des services lui sont ouverts ici." : "httpd, Node.js et les services sur la même machine : rien à ouvrir entre serveurs.";
-  $("h_vhost").textContent = vhost();
 }
 $$("[data-web]").forEach((b) => b.addEventListener("click", () => { state.web = b.dataset.web; render(); }));
 
@@ -473,8 +456,6 @@ async function install() {
       return;
     }
     state.result = result;
-    $("p1_env").hidden = !result.env.length;
-    $("p1_env_text").textContent = result.env.map(([k, v]) => `${k}=${v}`).join("\n");
     $$('input[type="password"]').forEach((input) => (input.value = ""));
     $("d1_where").textContent = annex() ? `ici, puis sur ${val("n_host")}` : "sur ce serveur";
     $("d2_admin").textContent = p.admin.username;

@@ -8,6 +8,8 @@
 #   testing/install-lab/lab.sh run hybrid
 #   testing/install-lab/lab.sh down <scenario>     removes what a scenario created (after an interruption)
 #   testing/install-lab/lab.sh report              summary of the runs (Markdown)
+#   B2S_LAB_DRIVE=api …                             the wizard by its API instead of its screens
+#   B2S_LAB_SKIP_BUILD=1 …                          the :latest product images as they are (no build from the code)
 #
 # Scenarios
 #   containers  lab-db (MariaDB) + lab-app (every service and the interface in Podman)
@@ -32,6 +34,14 @@ images() {
   mkdir -p "$CACHE"
   podman image exists localhost/b2s-lab-app-host || podman build -q -t localhost/b2s-lab-app-host -f "$LAB/Containerfile.app-host" "$LAB"
   podman image exists localhost/b2s-lab-web-host || podman build -q -t localhost/b2s-lab-web-host -f "$LAB/Containerfile.web-host" "$LAB"
+  podman image exists localhost/b2s-lab-native-host || podman build -q -t localhost/b2s-lab-native-host -f "$LAB/Containerfile.native-host" "$LAB"
+  # The product images are built from this working copy first (B2S_LAB_SKIP_BUILD=1: the :latest images as they are),
+  # otherwise an old image would be tested with new scripts
+  if [ "${B2S_LAB_SKIP_BUILD:-0}" != 1 ]; then
+    say "construction des images produit depuis le code"
+    (cd "$REPO" && podman-compose -f podman-compose.yml build core-service auth-service capsule-runner frontend-service >/dev/null &&
+      podman-compose --profile wizard -f podman-compose.yml build wizard-ui >/dev/null)
+  fi
   # The product images under test, saved once per set of image ids (the archive is reloaded in each simulated host)
   local ids
   ids=$(podman image inspect --format '{{.Id}}' "${PRODUCT_IMAGES[@]}" | sha256sum | cut -c1-16)
@@ -46,7 +56,10 @@ images() {
 # ---- one scenario ---------------------------------------------------------------------------------------------------
 setup_scenario() {
   SCEN="$1"
-  case "$SCEN" in containers) NET_N=31 ;; hybrid) NET_N=32 ;; *) echo "scénario inconnu : $SCEN (containers, hybrid)" >&2; exit 1 ;; esac
+  # TOPO: the hosts of the scenario; « faults » breaks a hybrid installation one way at a time
+  case "$SCEN" in containers) NET_N=31; TOPO=containers ;; hybrid) NET_N=32; TOPO=hybrid ;; faults) NET_N=33; TOPO=hybrid ;;
+    native) NET_N=34; TOPO=native ;;
+    *) echo "scénario inconnu : $SCEN (containers, hybrid, faults, native)" >&2; exit 1 ;; esac
   P="b2s-lab-$SCEN"
   NET="$P"
   SUBNET="10.89.$NET_N.0/24"
@@ -91,8 +104,10 @@ up() {
   mkdir -p "$RUN/repo" "$RUN/storage" "$RUN/config"
   chmod 0700 "$RUN"
   echo "$RUN" > "$CACHE/current-$SCEN"
-  say "$SCEN : hôtes simulés ($SUBNET, sans accès Internet) — $RUN"
-  podman network create --internal --subnet "$SUBNET" "$NET" >/dev/null
+  say "$SCEN : hôtes simulés ($SUBNET$([ "$TOPO" = native ] && echo ", lab-app avec accès Internet" || echo ", sans accès Internet")) — $RUN"
+  # Closed network, except for native: it installs its Python packages and builds its interface (PyPI, npm), as a real
+  # server does (an internal network has no DNS for outside names, even with a second network)
+  podman network create $([ "$TOPO" = native ] || echo --internal) --subnet "$SUBNET" "$NET" >/dev/null
   # Test values made for this run only
   (umask 077; secret 24 > "$RUN/db-root.pw"; secret 20 > "$RUN/admin.pw")
 
@@ -103,20 +118,33 @@ up() {
   # The code under test: the committed tree (the report gives its commit)
   git -C "$REPO" archive HEAD | tar -x -C "$RUN/repo"
   git -C "$REPO" describe --always --dirty > "$RUN/commit"
+  # Native: the wizard as its single executable when it is built (make wizard-binary), as a customer may receive it
+  if [ "$TOPO" = native ] && [ -x "$REPO/dist/b2s-wizard" ]; then install -D -m 0755 "$REPO/dist/b2s-wizard" "$RUN/repo/dist/b2s-wizard"; fi
   local origin="http://lab-app:3000"
-  [ "$SCEN" = hybrid ] && origin="https://lab-web"
+  [ "$TOPO" = hybrid ] && origin="https://lab-web"
+  [ "$TOPO" = native ] && origin="https://lab-app"
   # .env of a new installation (as the documentation asks: .env.example filled in), the wizard adds the rest
   sed -e "s|^INTERNAL_TOKEN=.*|INTERNAL_TOKEN=$(secret 48)|" -e "s|^PRINCIPAL_SIGNING_KEY=.*|PRINCIPAL_SIGNING_KEY=$(secret 48)|" \
       -e "s|^DB_HOST=.*|DB_HOST=lab-db|" -e "s|^FRONTEND_PUBLIC_ORIGIN=.*|FRONTEND_PUBLIC_ORIGIN=$origin|" \
       "$REPO/.env.example" > "$RUN/repo/.env"
   chmod 0600 "$RUN/repo/.env"
 
-  podman run -d --privileged --name "$P-app" --hostname lab-app --network "$NET:ip=$IP_APP,alias=lab-app" \
-    -v "$RUN/repo:/srv/borntoshare:z" -v "$RUN/storage:/var/lib/containers:z" \
-    -v "$CACHE/product-images.tar:/lab/images.tar:ro,z" localhost/b2s-lab-app-host >/dev/null
-  check "hôte lab-app : images produit chargées (sans registre)" app podman load -q -i /lab/images.tar
+  if [ "$TOPO" = native ]; then
+    # Native: systemd, the Python and Redis of the distribution; the second network gives it PyPI and npm (as a real server)
+    podman run -d --name "$P-app" --hostname lab-app --network "$NET:ip=$IP_APP,alias=lab-app" \
+      -v "$RUN/repo:/srv/borntoshare:z" localhost/b2s-lab-native-host >/dev/null
+    for _ in $(seq 1 30); do app systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded' && break; sleep 2; done
+    app sh -c 'install -d -m 0755 /etc/pki/lab && openssl req -x509 -newkey rsa:2048 -nodes -days 7 -subj /CN=lab-app \
+      -addext subjectAltName=DNS:lab-app -keyout /etc/pki/lab/web.key -out /etc/pki/lab/web.crt 2>/dev/null && chmod 0600 /etc/pki/lab/web.key'
+    check "hôte lab-app (natif) : systemd, Python, Redis, httpd, Node.js" app sh -c 'systemctl is-system-running; python3.12 --version; redis-server --version | cut -c1-40; httpd -v | head -1; node --version'
+  else
+    podman run -d --privileged --name "$P-app" --hostname lab-app --network "$NET:ip=$IP_APP,alias=lab-app" \
+      -v "$RUN/repo:/srv/borntoshare:z" -v "$RUN/storage:/var/lib/containers:z" \
+      -v "$CACHE/product-images.tar:/lab/images.tar:ro,z" localhost/b2s-lab-app-host >/dev/null
+    check "hôte lab-app : images produit chargées (sans registre)" app podman load -q -i /lab/images.tar
+  fi
 
-  if [ "$SCEN" = hybrid ]; then
+  if [ "$TOPO" = hybrid ]; then
     ssh-keygen -q -t ed25519 -N '' -C "b2s-install-lab" -f "$RUN/lab_ed25519"
     podman run -d --name "$P-web" --hostname lab-web --network "$NET:ip=$IP_WEB,alias=lab-web" localhost/b2s-lab-web-host >/dev/null
     for _ in $(seq 1 30); do web systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded' && break; sleep 2; done
@@ -133,7 +161,9 @@ up() {
 
 plan_json() {
   local deploy
-  if [ "$SCEN" = containers ]; then
+  if [ "$TOPO" = native ]; then
+    deploy='{"mode": "native", "web": {"location": "local", "server_name": "lab-app", "https_port": 443, "cert": "/etc/pki/lab/web.crt", "key": "/etc/pki/lab/web.key"}}'
+  elif [ "$TOPO" = containers ]; then
     deploy='{"mode": "containers", "web": {"origin": "http://lab-app:3000", "published_port": 3000}}'
   else
     deploy=$(jq -n --arg ip "$IP_WEB" '{mode: "hybrid",
@@ -141,9 +171,11 @@ plan_json() {
       network: {auth_port: 8101, core_port: 8102, fives_port: 8105, web_host: "lab-web", web_ip: $ip, api_host: "lab-app",
                 push: "ssh", ssh_user: "labdeploy", ssh_key: "/root/.ssh/lab_ed25519"}}')
   fi
-  jq -n --arg root "$(cat "$RUN/db-root.pw")" --arg admin "$(cat "$RUN/admin.pw")" --argjson deploy "$deploy" --arg scen "$SCEN" '{
-    scenario: $scen, wizard_url: "http://lab-app:8080",
-    app_url: (if $scen == "containers" then "http://lab-app:3000" else "https://lab-web" end),
+  # B2S_LAB_DRIVE: « screens » (default) plays the wizard by its screens in a browser, « api » calls its API
+  jq -n --arg root "$(cat "$RUN/db-root.pw")" --arg admin "$(cat "$RUN/admin.pw")" --argjson deploy "$deploy" --arg scen "$SCEN" --arg topo "$TOPO" \
+     --arg drive "$([ "$SCEN" = faults ] && echo api || echo "${B2S_LAB_DRIVE:-screens}")" '{
+    scenario: $scen, drive: $drive, wizard_url: "http://lab-app:8080",
+    app_url: (if $topo == "containers" then "http://lab-app:3000" elif $topo == "native" then "https://lab-app" else "https://lab-web" end),
     plan: {server: {host: "lab-db", port: 3306, user: "root", password: $root},
            app: {db_name: "borntoshare", logging_db_name: "borntoshare_logs", user: "b2s_app", migrate_user: "b2s_migrate"},
            admin: {username: "admin", email: "admin@lab.test", password: ("Lab-" + $admin + "-9a")},
@@ -152,12 +184,12 @@ plan_json() {
 
 checks_after_install() {
   local services="core-service auth-service capsule-runner redis"
-  [ "$SCEN" = containers ] && services="$services frontend-service"
+  [ "$TOPO" = containers ] && services="$services frontend-service"
   # Configuration generated by the wizard and the deployment (secret values masked)
   check "configuration : .env complété par le wizard" app sh -c "grep -E '^(B2S_DEPLOY_MODE|DB_HOST|FRONTEND_PUBLIC_ORIGIN|B2S_WEB_[A-Z_]+|B2S_API_HOST|B2S_[A-Z]+_PORT)=' .env"
   app sh -c "sed -E 's/^([A-Z_]*(TOKEN|KEY|PASSWORD|SECRET)[A-Z_]*)=.*/\1=***masqué***/' .env" > "$RUN/config/env.masked" || true
   app sh -c 'podman secret ls --format "{{.Name}}"' > "$RUN/config/podman-secrets.txt" || true
-  cp "$RUN/repo/podman-compose.yml" "$RUN/config/"; [ "$SCEN" = hybrid ] && cp "$RUN/repo/podman-compose.hybrid.yml" "$RUN/config/"
+  cp "$RUN/repo/podman-compose.yml" "$RUN/config/"; [ "$TOPO" = hybrid ] && cp "$RUN/repo/podman-compose.hybrid.yml" "$RUN/config/"
   app sh -c 'cat secrets/.deploy.log 2>/dev/null' > "$RUN/config/deploy.log" || true
   check "configuration : secrets podman créés" app sh -c 'names=$(podman secret ls --format "{{.Name}}" | sort | tr "\n" " "); echo "$names"; echo "$names" | grep -q b2s_db_core'
   check "images et versions en service" app sh -c "podman ps --format '{{.Names}} {{.Image}} {{.ImageID}}' | sort"
@@ -170,7 +202,7 @@ for url in ('http://auth-service:8000/health', 'http://capsule-runner:8080/healt
   check "bases initialisées (tables, administrateur)" podman exec "$P-db" sh -c 'MYSQL_PWD="$(cat /run/lab/root.pw)" mariadb -N -e "
     SELECT CONCAT(table_schema, \": \", COUNT(*), \" tables\") FROM information_schema.tables WHERE table_schema IN (\"borntoshare\", \"borntoshare_logs\") GROUP BY table_schema;
     SELECT CONCAT(\"administrateurs : \", COUNT(*)) FROM borntoshare.identities WHERE username = \"admin\";"'
-  if [ "$SCEN" = hybrid ]; then
+  if [ "$TOPO" = hybrid ]; then
     check "hybride : services publiés pour l'annexe (B2S_API_BIND)" app sh -c "podman port auth-service; podman port core-service"
     check "hybride : lab-web joint auth et core sur lab-app" web sh -c 'curl -s -o /dev/null -w "auth %{http_code}\n" http://lab-app:8101/health && curl -s -o /dev/null -w "core %{http_code}\n" http://lab-app:8102/health'
     check "hybride : b2s-web et httpd actifs sur lab-web (systemd)" web sh -c 'systemctl is-active b2s-web httpd && systemctl is-enabled b2s-web httpd'
@@ -199,6 +231,159 @@ except urllib.error.HTTPError as e:
     for i in \$(seq 1 40); do podman exec $P-app podman exec core-service python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)\" 2>/dev/null && echo \"sain après \$((i*3)) s\" && exit 0; sleep 3; done; exit 1"
 }
 
+# ---- faults (11.6): each one must stop with a message that names its cause, then make deploy takes it up again ----
+# expect_failure NAME PATTERN COMMAND…: OK when the command fails AND its output matches PATTERN (grep -Ei)
+expect_failure() {
+  local name="$1" pattern="$2" started out rc
+  shift 2
+  started=$SECONDS
+  set +e
+  out=$("$@" 2>&1)
+  rc=$?
+  set -e
+  if [ "$rc" != 0 ] && echo "$out" | grep -Eiq "$pattern"; then
+    step "$name" 0 "$((SECONDS - started))" "refusé avec : $(echo "$out" | grep -Ei "$pattern" | tail -2)"
+  elif [ "$rc" = 0 ]; then
+    step "$name" 1 "$((SECONDS - started))" "NON détecté : la commande a réussi. $(echo "$out" | tail -3)"
+  else
+    step "$name" 1 "$((SECONDS - started))" "échec sans message explicite (attendu : $pattern) : $(echo "$out" | tail -4)"
+  fi
+  return 0
+}
+
+# The wizard's check of a MariaDB server, from the host itself; the JSON (with the password) goes on stdin
+server_check_must_fail() {  # json → output; status 0 only when the wizard accepted the server
+  local out
+  out=$(printf '%s' "$1" | podman exec -i "$P-app" curl -s -w ' HTTP%{http_code}' -X POST -H 'content-type: application/json' \
+    --data-binary @- http://127.0.0.1:8080/api/server/check)
+  echo "$out"
+  case "$out" in *HTTP200) return 0 ;; *) return 1 ;; esac
+}
+
+faults_before_install() {
+  local root
+  root=$(cat "$RUN/db-root.pw")
+  for _ in $(seq 1 40); do app curl -sf -o /dev/null http://127.0.0.1:8080/health && break; sleep 3; done
+  expect_failure "panne : DNS faux (serveur MariaDB inconnu)" "Unknown (MySQL|MariaDB) server host|Name or service not known|lab-nodb" \
+    server_check_must_fail "$(jq -nc --arg p "$root" '{host: "lab-nodb", port: 3306, user: "root", password: $p}')"
+  expect_failure "panne : port fermé (3307)" "Can't connect|Connection refused|2003" \
+    server_check_must_fail "$(jq -nc --arg p "$root" '{host: "lab-db", port: 3307, user: "root", password: $p}')"
+}
+
+redeploy() { app bash -c 'FORCE=1 make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -25 /tmp/deploy.out; exit $rc'; }
+# The /health of the core; its answer is printed even when it is a 503 (it names the check that fails)
+core_health() { app podman exec core-service python3 -c "
+import urllib.request, urllib.error
+try:
+    print(urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=10).read().decode())
+except urllib.error.HTTPError as e:
+    print(e.code, e.read().decode()); raise SystemExit(1)"; }
+
+checks_faults() {
+  # Database stopped during a deployment, then back
+  podman stop -t 5 "$P-db" >/dev/null
+  expect_failure "panne : base arrêtée pendant le déploiement" "lab-db|Can't connect|Unknown server|MariaDB|mysql" redeploy
+  podman start "$P-db" >/dev/null; sleep 5
+  check "reprise : make deploy après le retour de la base" redeploy
+
+  # Redis stopped: the core says the job queue is down, then recovers
+  app podman stop -t 5 redis >/dev/null
+  expect_failure "panne : Redis arrêté, signalé par le core" "job_queue|redis|Connection refused" core_health
+  app podman start redis >/dev/null
+  check "reprise : Redis redémarré, core sain" sh -c "for i in \$(seq 1 30); do podman exec $P-app podman exec core-service python3 -c \"import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)\" 2>/dev/null && echo \"sain après \$((i*3)) s\" && exit 0; sleep 3; done; exit 1"
+
+  # Worker stopped: the core cannot reach its agent; a deployment brings it back
+  app podman stop -t 5 capsule-runner >/dev/null
+  expect_failure "panne : worker arrêté, injoignable depuis le core" "capsule-runner|Name or service|refused|URLError" \
+    app podman exec core-service python3 -c "import urllib.request;urllib.request.urlopen('http://capsule-runner:8080/health', timeout=5)"
+  check "reprise : make deploy relance le worker" redeploy
+
+  # Missing image on a server without Internet access: the deployment builds it, and its base image cannot be pulled
+  # (no offline installation: nothing ships the images)
+  app podman untag localhost/b2s-core-service:latest localhost/b2s-core-service:latest
+  expect_failure "panne : image absente, serveur sans accès au registre" "registry|pull|no such host" redeploy
+  app podman load -q -i /lab/images.tar >/dev/null
+  check "reprise : image rechargée, make deploy" redeploy
+
+  # Annex web server unreachable during the push of the interface
+  podman stop -t 10 "$P-web" >/dev/null
+  expect_failure "panne : serveur annexe injoignable (SSH)" "lab-web|ssh|Connection|resolve" redeploy
+  podman start "$P-web" >/dev/null
+  for _ in $(seq 1 30); do web systemctl is-active sshd >/dev/null 2>&1 && break; sleep 2; done
+  check "reprise : annexe revenue, make deploy" redeploy
+
+  # SSH to the annex (11.4): a key it does not know, an account without sudo, a host key that changed
+  app sh -c 'ssh-keygen -q -t ed25519 -N "" -f /root/.ssh/lab_unknown && sed -i "s|^B2S_WEB_SSH_KEY=.*|B2S_WEB_SSH_KEY=/root/.ssh/lab_unknown|" .env'
+  expect_failure "panne SSH : clé inconnue de l'annexe" "Permission denied|publickey" redeploy
+  app sh -c 'sed -i "s|^B2S_WEB_SSH_KEY=.*|B2S_WEB_SSH_KEY=/root/.ssh/lab_ed25519|" .env && rm -f /root/.ssh/lab_unknown*'
+  web mv /etc/sudoers.d/labdeploy /root/labdeploy.sudoers
+  expect_failure "panne SSH : compte sans sudo sur l'annexe" "sudo|password is required|not in the sudoers" redeploy
+  web mv /root/labdeploy.sudoers /etc/sudoers.d/labdeploy
+  web sh -c 'rm -f /etc/ssh/ssh_host_*key* && ssh-keygen -A >/dev/null && systemctl restart sshd'
+  expect_failure "panne SSH : clé d'hôte de l'annexe changée" "HOST IDENTIFICATION HAS CHANGED|Host key verification failed" redeploy
+  # The administrator checks the new key, then removes the old one from known_hosts
+  app ssh-keygen -R lab-web >/dev/null 2>&1
+  check "reprise : clé d'hôte acceptée, make deploy" redeploy
+
+  # Certificate missing on the annex
+  app sed -i 's|^B2S_WEB_CERT=.*|B2S_WEB_CERT=/etc/pki/lab/absent.crt|' .env
+  expect_failure "panne : certificat introuvable sur l'annexe" "Certificat|absent.crt" redeploy
+  app sed -i 's|^B2S_WEB_CERT=.*|B2S_WEB_CERT=/etc/pki/lab/web.crt|' .env
+
+  # Incomplete .env: the token shared by the services is missing
+  app sh -c 'grep "^INTERNAL_TOKEN=" .env > /tmp/token.line && sed -i "/^INTERNAL_TOKEN=/d" .env'
+  expect_failure "panne : .env incomplet (INTERNAL_TOKEN absent)" "INTERNAL_TOKEN" redeploy
+  app sh -c 'cat /tmp/token.line >> .env && rm -f /tmp/token.line'
+  check "reprise : .env complété, make deploy" redeploy
+  check "reprise : connexion de bout en bout par l'annexe" web sh -c 'curl -sk -o /dev/null -w "https://lab-web/login %{http_code}\n" https://lab-web/login | grep " 200"'
+}
+
+# ---- native: systemd units, accounts, permissions, journals, restart, reinstallation, removal ----
+checks_native() {
+  app sh -c 'sed -E "s/^([A-Z_]*(TOKEN|KEY|PASSWORD|SECRET)[A-Z_]*)=.*/\1=***masqué***/" .env' > "$RUN/config/env.masked" || true
+  app sh -c 'cat secrets/.deploy.log 2>/dev/null' > "$RUN/config/deploy.log" || true
+  app sh -c 'cat /etc/systemd/system/b2s-core.service 2>/dev/null' > "$RUN/config/b2s-core.service" || true
+  check "natif : unités systemd actives" app sh -c 'systemctl --no-pager --plain list-units "b2s-*" --all | grep -E "^b2s-" > /tmp/units || true; cat /tmp/units;
+    [ -s /tmp/units ] && ! grep -vq " active running" /tmp/units'
+  check "natif : borntoshare.target et démarrage au boot" app sh -c 'systemctl is-active borntoshare.target && systemctl is-enabled borntoshare.target'
+  check "natif : compte b2s et secrets 0400" app sh -ec 'id b2s; stat -c "%a %U %n" /etc/borntoshare/secrets/* | head -6; ! stat -c "%a" /etc/borntoshare/secrets/* | grep -qv "^400$"'
+  check "natif : santé auth et core (127.0.0.1)" app sh -c 'curl -sf http://127.0.0.1:8101/health && echo && curl -sf http://127.0.0.1:8102/health'
+  check "natif : journaux dans journald" app sh -c 'journalctl -u b2s-core --no-pager -n 3 -o cat | tail -3; [ "$(journalctl -u b2s-core --no-pager -o cat | wc -l)" -gt 0 ]'
+  check "natif : interface publiée par httpd (https://lab-app)" app sh -c 'systemctl is-active httpd b2s-web && curl -sk -o /dev/null -w "%{http_code}\n" https://lab-app/login | grep 200'
+  check "natif : redémarrage automatique après un arrêt brutal" app sh -c 'pid=$(systemctl show -p MainPID --value b2s-core); kill -9 "$pid";
+    for i in $(seq 1 40); do sleep 3; new=$(systemctl show -p MainPID --value b2s-core); if [ "$new" != 0 ] && [ "$new" != "$pid" ] && curl -sf -o /dev/null http://127.0.0.1:8102/health; then echo "relancé (pid $pid → $new) en $((i*3)) s"; exit 0; fi; done; systemctl status b2s-core --no-pager -n 0 | head -6; journalctl -u b2s-core --no-pager -n 12 -o cat; exit 1'
+  check "natif : arrêt puis démarrage (borntoshare.target)" app sh -c 'systemctl stop borntoshare.target && systemctl start borntoshare.target &&
+    for i in $(seq 1 40); do curl -sf -o /dev/null http://127.0.0.1:8102/health && echo "core sain après $((i*3)) s" && exit 0; sleep 3; done; systemctl status b2s-core --no-pager -n 0 | head -6; journalctl -u b2s-core --no-pager -n 12 -o cat; exit 1'
+  check "natif : réinstallation (make deploy)" app bash -c 'make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -6 /tmp/deploy.out; exit $rc'
+  check "natif : point de retour (.previous) après réinstallation" app sh -c 'ls -d /opt/borntoshare/app/*.previous'
+  checks_uninstall
+}
+
+# ---- uninstall, then reinstall on the same databases (every mode) ----
+checks_uninstall() {
+  local gone kept
+  check "désinstallation : make uninstall sans CONFIRM ne retire rien" app sh -c 'make uninstall > /tmp/u.out 2>&1; rc=$?; tail -4 /tmp/u.out; grep -q "Rien n.a été retiré" /tmp/u.out && [ $rc = 0 ]'
+  check "désinstallation : CONFIRM=yes make uninstall" app sh -c 'CONFIRM=yes make uninstall > /tmp/u.out 2>&1; rc=$?; tail -6 /tmp/u.out; exit $rc'
+  case "$TOPO" in
+    native) gone='! systemctl list-unit-files "b2s-*" --no-legend | grep -q . && [ ! -d /opt/borntoshare/app ] && [ ! -f /etc/httpd/conf.d/borntoshare.conf ] && echo "unités, code et vhost retirés"'
+            kept='ls /etc/borntoshare/secrets | tr "\n" " "' ;;
+    *) gone='! podman ps -a --format "{{.Names}}" | grep -Eq "^(core-service|auth-service|capsule-runner|frontend-service|redis)$" && echo "conteneurs retirés"'
+       kept='podman secret ls --format "{{.Name}}" | grep b2s_ | tr "\n" " "' ;;
+  esac
+  check "désinstallation : services retirés de lab-app" app sh -c "$gone"
+  check "désinstallation : secrets conservés (sans PURGE)" app sh -c "$kept | grep b2s_master_key"
+  if [ "$TOPO" = hybrid ]; then
+    check "désinstallation : interface retirée de l'annexe (SSH)" web sh -c '! systemctl list-unit-files b2s-web.service --no-legend | grep -q . && [ ! -f /etc/httpd/conf.d/borntoshare.conf ] && [ ! -d /opt/borntoshare/web ] && echo "b2s-web, vhost et /opt/borntoshare/web retirés"'
+  fi
+  check "désinstallation : bases conservées" podman exec "$P-db" sh -c 'MYSQL_PWD="$(cat /run/lab/root.pw)" mariadb -N -e "SELECT CONCAT(\"administrateurs : \", COUNT(*)) FROM borntoshare.identities WHERE username = \"admin\""'
+  check "réinstallation après désinstallation : make deploy" app bash -c 'FORCE=1 make deploy > /tmp/deploy.out 2>&1; rc=$?; tail -4 /tmp/deploy.out; exit $rc'
+  case "$TOPO" in
+    containers) check "réinstallation : interface de nouveau servie" app sh -c 'for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:3000/login && echo "http://lab-app:3000/login 200" && exit 0; sleep 3; done; exit 1' ;;
+    hybrid) check "réinstallation : interface de nouveau servie par l'annexe" web sh -c 'curl -sk -o /dev/null -w "https://lab-web/login %{http_code}\n" https://lab-web/login | grep " 200"' ;;
+    native) check "réinstallation : interface de nouveau servie" app sh -c 'curl -sk -o /dev/null -w "https://lab-app/login %{http_code}\n" https://lab-app/login | grep " 200"' ;;
+  esac
+}
+
 down() {
   setup_scenario "$1"
   RUN="$(cat "$CACHE/current-$SCEN" 2>/dev/null || true)"
@@ -219,13 +404,18 @@ run_scenario() {
   up "$SCEN"
   # The wizard, the way the documentation says (make wizard), on the simulated host
   check "wizard : make wizard sur lab-app" app make wizard
+  [ "$SCEN" = faults ] && faults_before_install
   (umask 077; plan_json > "$RUN/run.json")
   say "$SCEN : installation par le wizard, déploiement, parcours (contrôleur Playwright)"
   podman run --rm --network "$NET" -v "$LAB:/lab:ro,z" -v "$RUN:/run-dir:z" --entrypoint python3 "$CONTROLLER_IMAGE" \
     /lab/controller.py /run-dir/run.json /run-dir/steps.json || true
   say "$SCEN : contrôles depuis les hôtes"
-  checks_after_install
-  checks_resilience
+  if [ "$TOPO" = native ]; then
+    checks_native
+  else
+    checks_after_install
+    if [ "$SCEN" = faults ]; then checks_faults; else checks_resilience; checks_uninstall; fi
+  fi
   echo "$((SECONDS - t0))" > "$RUN/duration"
   say "$SCEN : nettoyage"
   down "$SCEN"
@@ -238,7 +428,7 @@ run_scenario() {
 
 case "${1:-}" in
   images) images ;;
-  run) run_scenario "${2:?scénario : containers ou hybrid}" ;;
+  run) run_scenario "${2:?scénario : containers, hybrid ou faults}" ;;
   down) down "${2:?scénario}" ;;
   report) python3 "$LAB/report.py" "$CACHE" ;;
   *) sed -n '2,20p' "$0"; exit 1 ;;

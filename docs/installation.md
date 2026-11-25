@@ -4,7 +4,7 @@
 
 | Élément | Attendu |
 |---|---|
-| Hôte | Linux (RHEL 9 ou équivalent), `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum. Selon la façon d'installer (section 2) : Podman 4+ et podman-compose ; ou Python 3.12, Redis, Node.js 20+, httpd et mod_ssl |
+| Hôte | Linux (RHEL 9 ou équivalent), `make`, `git` ; 2 vCPU, 4 Go de RAM au minimum. Selon la façon d'installer (section 2) : Podman 4+ et podman-compose ; ou Python 3.12, Redis, Node.js 26+, httpd et mod_ssl |
 | Base | MariaDB 10.6+ ou 11.x, joignable en 3306 ; un compte avec les droits de création (root) le temps du wizard |
 | Réseau | Les flux de [architecture.md](architecture.md#flux-à-ouvrir-vers-lextérieur) ouverts depuis l'hôte |
 | Annuaire | Un AD joignable en LDAPS (636) et Kerberos (88) avec le certificat de son autorité ; un compte de lecture, un compte de connexion et, pour les accès, un compte délégué sur l'OU des groupes seulement (voir [droits-ad.md](droits-ad.md)) |
@@ -63,9 +63,13 @@ s'il existe :
 ## 2. L'installateur : trois façons d'installer
 
 ```bash
-make wizard          # http://<hôte>:8080 (sans podman : le wizard tourne dans son propre environnement Python)
-make wizard-check    # relire les prérequis du serveur, puis « Relire » dans l'installateur
+make wizard          # http://<hôte>:8080, le wizard dans un conteneur (sans Podman : le binaire ou un environnement Python)
+make wizard-binary   # construit le wizard en un seul exécutable, dist/b2s-wizard (ni Python ni Podman pour le lancer)
+WIZARD=binary make wizard   # lance ce binaire, même quand Podman est présent
 ```
+
+Le binaire `dist/b2s-wizard` (Linux x86_64, RHEL 9 ou plus récent) contient le wizard complet, ses écrans et ses
+paquets SQL ; il peut être livré seul à côté du dépôt. 
 
 `make wizard` lit d'abord ce que le serveur offre (`scripts/host-check.sh` → `secrets/.host-check.json` : podman,
 Python, Node.js, httpd, mod_ssl, Redis, client MariaDB, SELinux, firewalld, sudo, disque, ports). L'installateur
@@ -74,8 +78,8 @@ s'ouvre sur le choix de la façon d'installer :
 | Façon | Ce serveur | Interface web | Demande |
 |---|---|---|---|
 | **Tout en conteneurs** (recommandé) | Podman : services, Redis, interface | conteneur publié sur `FRONTEND_PUBLISHED_PORT`, ou derrière votre reverse proxy | podman, podman-compose |
-| **Hybride** | Podman : services, Redis | service Node.js `b2s-web` publié par Apache httpd, **sur ce serveur ou sur un serveur web annexe** | en plus : httpd, mod_ssl, Node.js 20+ (là où tourne l'interface) |
-| **Sans conteneur** | unités systemd `b2s-*`, chacune avec son environnement Python, Redis du système | idem hybride | Python 3.12+, Redis, client MariaDB, Node.js 20+, httpd, mod_ssl ; `sudo make deploy` |
+| **Hybride** | Podman : services, Redis | service Node.js `b2s-web` publié par Apache httpd, **sur ce serveur ou sur un serveur web annexe** | en plus : httpd, mod_ssl, Node.js 26+ (là où tourne l'interface) |
+| **Sans conteneur** | unités systemd `b2s-*`, chacune avec son environnement Python, Redis du système | idem hybride | Python 3.12+, Redis, client MariaDB, Node.js 26+, httpd, mod_ssl ; `sudo make deploy` |
 
 Puis, étape par étape (seules celles qui servent à la façon choisie apparaissent) :
 
@@ -171,6 +175,20 @@ signale alors « mot de passe introuvable » pour chaque objet touché, et il fa
 
 Restauration : recharger les deux dumps dans une base vide (`gzip -dc … | mariadb …`), remettre le même
 `.env` (même clé), puis `make up`. Détails dans [infrastructure.md](infrastructure.md).
+
+## 5 bis. Désinstaller
+
+```bash
+make uninstall                       # dit ce qui serait retiré, sans rien toucher
+CONFIRM=yes make uninstall           # retire BornToShare de ce serveur
+CONFIRM=yes PURGE=1 make uninstall   # et aussi les secrets, les données de Redis, les images, les comptes système
+```
+
+Retirés : les services (conteneurs ou unités systemd `b2s-*`), le code (`/opt/borntoshare/app`), l'interface web
+(service `b2s-web`, vhost `borntoshare.conf`, `/opt/borntoshare/web`, sur ce serveur ou sur l'annexe par SSH) et
+les règles de pare-feu ouvertes à l'annexe. **Jamais les bases** : la commande affiche le SQL pour les supprimer.
+Sans `PURGE=1`, les secrets restent, dont `b2s_master_key` : sans elle, les mots de passe chiffrés dans la base ne
+sont plus lisibles. `make deploy` (ou `make wizard`) réinstalle ensuite sur les mêmes bases.
 
 ## 6. Vérifier
 

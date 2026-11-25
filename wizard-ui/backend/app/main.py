@@ -69,6 +69,23 @@ def host_check() -> dict[str, Any]:
         return {}
 
 
+@app.post("/api/host-check/refresh")
+def refresh_host_check() -> dict[str, Any]:
+    """« Relire »: asks the host to read itself again (scripts/after-wizard.sh does it), then gives what it read."""
+    import time
+
+    directory = install.secrets_dir()
+    result = directory / ".host-check.json"
+    before = result.stat().st_mtime if result.exists() else 0.0
+    (directory / ".host-check.request").write_text("", encoding="utf-8")
+    deadline = time.monotonic() + 25
+    while time.monotonic() < deadline:
+        if result.exists() and result.stat().st_mtime > before:
+            return host_check()
+        time.sleep(0.5)
+    raise HTTPException(status_code=504, detail="Le serveur n'a pas répondu : relancer l'installateur sur le serveur.")
+
+
 class Server(BaseModel):
     host: str = Field(min_length=1, max_length=255)
     port: int = Field(default=3306, ge=1, le=65535)

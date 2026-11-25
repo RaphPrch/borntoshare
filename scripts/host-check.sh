@@ -18,6 +18,8 @@ done
 PYTHON=$( [ -n "$PYTHON_BIN" ] && version_of "$PYTHON_BIN" --version )
 PYTHON_ANY=$(has python3 && version_of python3 --version)
 NODE=$(has node && version_of node --version)
+# Native: the interface is built here with npm (the package of the nodejs:26 module, not always installed with node)
+NPM=$(has npm && version_of npm --version)
 HTTPD=$( (has httpd && version_of httpd -v) || true)
 MOD_SSL=$( [ -e /etc/httpd/conf.modules.d/00-ssl.conf ] || [ -e /usr/lib64/httpd/modules/mod_ssl.so ] && echo yes)
 REDIS=$( (has redis-server && version_of redis-server --version) || true)
@@ -33,7 +35,7 @@ PORT_443=$(port_free 443 && echo free || echo used)
 SSH=$(has ssh && echo yes)
 SECRETS_OK=$( [ -w secrets ] && echo yes)
 
-export PODMAN COMPOSE PYTHON PYTHON_BIN PYTHON_ANY NODE HTTPD MOD_SSL REDIS MARIADB_CLIENT FIREWALLD SELINUX HTTPD_NET SUDO DISK_GB \
+export PODMAN COMPOSE PYTHON PYTHON_BIN PYTHON_ANY NODE NPM HTTPD MOD_SSL REDIS MARIADB_CLIENT FIREWALLD SELINUX HTTPD_NET SUDO DISK_GB \
   PORT_3000 PORT_443 SSH SECRETS_OK
 # The values go through the environment, never pasted into code
 python3 - <<'PY' > secrets/.host-check.json.tmp || { rm -f secrets/.host-check.json.tmp; echo "Lecture des prérequis impossible" >&2; exit 1; }
@@ -44,7 +46,7 @@ print(json.dumps({
     "host": socket.getfqdn(), "user": getpass.getuser(),
     "podman": e("PODMAN"), "podman_compose": e("COMPOSE"),
     "python": e("PYTHON"), "python_bin": e("PYTHON_BIN"), "python_any": e("PYTHON_ANY"),
-    "node": e("NODE"), "httpd": e("HTTPD"), "mod_ssl": e("MOD_SSL") == "yes", "redis": e("REDIS"), "mariadb_client": e("MARIADB_CLIENT"),
+    "node": e("NODE"), "npm": e("NPM"), "httpd": e("HTTPD"), "mod_ssl": e("MOD_SSL") == "yes", "redis": e("REDIS"), "mariadb_client": e("MARIADB_CLIENT"),
     "firewalld": e("FIREWALLD") or "inactive", "selinux": e("SELINUX"), "httpd_can_network_connect": e("HTTPD_NET"),
     "sudo": e("SUDO"), "disk_free_gb": int(e("DISK_GB") or 0), "port_frontend": e("PORT_3000"), "port_443": e("PORT_443"),
     "ssh": e("SSH") == "yes", "secrets_writable": e("SECRETS_OK") == "yes",
