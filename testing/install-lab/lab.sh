@@ -241,7 +241,7 @@ expect_failure() {
   out=$("$@" 2>&1)
   rc=$?
   set -e
-  if [ "$rc" != 0 ] && echo "$out" | grep -Eiq "$pattern"; then
+  if [ "$rc" != 0 ] && grep -Eiq "$pattern" <<<"$out"; then
     step "$name" 0 "$((SECONDS - started))" "refusé avec : $(echo "$out" | grep -Ei "$pattern" | tail -2)"
   elif [ "$rc" = 0 ]; then
     step "$name" 1 "$((SECONDS - started))" "NON détecté : la commande a réussi. $(echo "$out" | tail -3)"

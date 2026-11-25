@@ -34,8 +34,6 @@ def _refuse(code: str, message: str, status_code: int = status.HTTP_422_UNPROCES
 
 def _folder(db: Session, request: Request, root_id: int) -> dict[str, Any]:
     """The folder, when the actor may see it (administrator, guardian or backup guardian)."""
-    from app.data.models.storage_root import StorageRoot
-
     actor = actor_from_request(request)
     require_storage_roots_index(db, actor)
     root = lookups_repo.storage_root(db, int(root_id))

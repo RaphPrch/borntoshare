@@ -4,7 +4,7 @@
 
 COMPOSE := podman-compose -f podman-compose.yml
 
-.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down reset-admin uninstall wizard-binary otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint
+.PHONY: backup help build up down restart ps logs logs-% wizard wizard-check wizard-down reset-admin uninstall wizard-binary otel-up otel-logs otel-down mail-up mail-down clean ad-lab-up ad-lab-down ad-lab-reset ad-lab-logs deploy lint test
 
 help:
 	@echo "make build          build the images"
@@ -23,6 +23,7 @@ help:
 	@echo "make deploy         database packs, rollback point, build and recreate the services"
 	@echo "make uninstall      what removing BornToShare would remove; CONFIRM=yes to do it (PURGE=1: secrets, data too)"
 	@echo "make lint           Python lint of the four services (Ruff, rules in ruff.toml)"
+	@echo "make test           every test suite, each in its service image (FIVES_REPO=<module 5S>: the 5S too)"
 	@echo "make ad-lab-up      test Active Directory adlab.example.test (end-to-end tests, never in production)"
 	@echo "make ad-lab-down    stop it (data kept)     make ad-lab-reset: stop and delete its domain"
 
@@ -129,6 +130,9 @@ ad-lab-reset:
 
 ad-lab-logs:
 	$(AD_LAB) logs -f --tail=100
+
+test:
+	testing/run-tests.sh
 
 lint:
 	podman run --rm -e PIP_DISABLE_PIP_VERSION_CHECK=1 -v "$(CURDIR)":/src:z,ro -w /src docker.io/library/python:3.14-slim-trixie \
