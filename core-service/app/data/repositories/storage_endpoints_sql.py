@@ -24,9 +24,13 @@ def assert_zone_of_server_1(db: Session, params: Any) -> Any:
 
 
 def assert_host_free_1(db: Session) -> Any:
-    """SELECT id, name, host FROM storage_endpoints WHERE host IS NOT NULL AND LOWER(endpoint_type) <> 'dfs'"""
+    """SELECT id, name, host FROM storage_endpoints WHERE host IS NOT NULL AND LOWER(endpoint_type) <> 'dfs'
+
+    A locking read: it sees what was committed last, not the snapshot of the transaction (REPEATABLE READ). A
+    change of address reads the server before waiting for the lock of the declarations: without it, it would check
+    against what the database was before the other declaration it waited for."""
     return db.execute(
-        text("SELECT id, name, host FROM storage_endpoints WHERE host IS NOT NULL AND LOWER(endpoint_type) <> 'dfs'"),
+        text("SELECT id, name, host FROM storage_endpoints WHERE host IS NOT NULL AND LOWER(endpoint_type) <> 'dfs' LOCK IN SHARE MODE"),
     )
 
 

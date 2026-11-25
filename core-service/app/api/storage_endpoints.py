@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from typing import Any
 
@@ -835,118 +835,120 @@ def update_endpoint(
     )
 
     updates = _sync_endpoint_lifecycle(payload.model_dump(exclude_unset=True))
-    if "host" in updates:
-        _assert_host_free(db, updates.get("host"), exclude_id=int(endpoint.id))
-    rewrite_root_paths = bool(updates.pop("rewrite_root_paths", False))
-    root_path_rewrites = _guard_endpoint_change(db, endpoint, updates, rewrite_root_paths=rewrite_root_paths)
+    # A new address is checked and saved under the lock of the declarations (two at once declared a server twice)
+    with (_declaration_lock() if "host" in updates else nullcontext()):
+        if "host" in updates:
+            _assert_host_free(db, updates.get("host"), exclude_id=int(endpoint.id))
+        rewrite_root_paths = bool(updates.pop("rewrite_root_paths", False))
+        root_path_rewrites = _guard_endpoint_change(db, endpoint, updates, rewrite_root_paths=rewrite_root_paths)
 
-    next_bind_dn = updates.get("bind_dn", endpoint.bind_dn)
-    next_bind_ref = updates.get("bind_password_ref", endpoint.bind_password_ref)
-    if next_bind_dn and not next_bind_ref:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="bind_password_ref is required when bind_dn is provided",
-        )
-
-    next_endpoint_type = updates.get("endpoint_type", endpoint.endpoint_type)
-    next_protocol = updates.get("protocol", endpoint.protocol)
-    require_ad = _requires_ad_identity_source(
-        endpoint_type=str(next_endpoint_type or ""),
-        protocol=str(next_protocol or ""),
-    )
-
-    should_validate_identity_source = (
-        "identity_source_id" in updates
-        or "endpoint_type" in updates
-        or "protocol" in updates
-    )
-    if should_validate_identity_source:
-        _validate_identity_source_for_endpoint(
-            db,
-            identity_source_id=(
-                int(updates.get("identity_source_id") or 0)
-                if "identity_source_id" in updates
-                else int(getattr(endpoint, "identity_source_id", 0) or 0)
+        next_bind_dn = updates.get("bind_dn", endpoint.bind_dn)
+        next_bind_ref = updates.get("bind_password_ref", endpoint.bind_password_ref)
+        if next_bind_dn and not next_bind_ref:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bind_password_ref is required when bind_dn is provided",
             )
-            or None,
-            require_ad=require_ad,
+
+        next_endpoint_type = updates.get("endpoint_type", endpoint.endpoint_type)
+        next_protocol = updates.get("protocol", endpoint.protocol)
+        require_ad = _requires_ad_identity_source(
+            endpoint_type=str(next_endpoint_type or ""),
+            protocol=str(next_protocol or ""),
         )
 
-    host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
-    zone_moved = "zone_id" in updates and int(updates.get("zone_id") or 0) != int(endpoint.zone_id or 0)
-    for field, value in updates.items():
-        setattr(endpoint, field, value)
-    if zone_moved or host_moved:
-        # A server belongs to one zone: its other namespaces follow (a new host joins the zone of that server)
-        siblings = _same_server(db, endpoint.host, exclude_id=int(endpoint.id))
-        if host_moved and not zone_moved and siblings:
-            endpoint.zone_id = siblings[0]["zone_id"]
-        elif siblings:
-            storage_endpoints_sql.update_endpoint_1(db, {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
-    if {"bind_dn", "bind_password_ref"} & set(updates):
-        # Another account: its right to manage a DFS namespace is not known yet
-        _remember_dfs_delegation(endpoint, denied=False)
-    capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
-    # Another account (or password) may hold the delegation: the refusal of the previous one no longer tells anything
-    account_changed = "bind_dn" in updates or "bind_password_ref" in updates
-    if account_changed and ("dfs_manage_denied" in capabilities or "dfs_manage_ok" in capabilities):
-        capabilities = {key: value for key, value in capabilities.items() if key not in ("dfs_manage_denied", "dfs_manage_ok")}
-        endpoint.capabilities = capabilities
-    if host_moved and "discovered_roots_snapshot" in capabilities:
-        # The shares found on the previous host carry its address: the next search lists them again
-        endpoint.capabilities = {key: value for key, value in capabilities.items() if key != "discovered_roots_snapshot"}
-    for root, new_path in root_path_rewrites:
-        root.root_path = new_path
-        root.normalized_root_path = normalize_root_path(new_path)
-
-    probe_status = str(updates.get("last_probe_status") or "").strip().lower()
-    probe_failed_roots: list[dict[str, object]] = []
-    if probe_status:
-        probe_message = str(updates.get("last_probe_message") or "").strip() or None
-        impacted_roots = ProbeResultService(db).record_storage_endpoint_probe(
-            endpoint,
-            status_value=probe_status,
-            checked_at=_coerce_probe_datetime(updates.get("last_probe_at")),
-            message=probe_message,
-            source_type="storage_endpoint_update",
-            source_id=str(int(endpoint.id)),
-            job_id=int(updates.get("last_probe_job_id") or 0) or None,
-            correlation_id=(request.headers.get("x-request-id") or None),
-            cascade_to_roots=True,
+        should_validate_identity_source = (
+            "identity_source_id" in updates
+            or "endpoint_type" in updates
+            or "protocol" in updates
         )
-        if probe_status == "failed":
-            probe_failed_roots = impacted_roots
+        if should_validate_identity_source:
+            _validate_identity_source_for_endpoint(
+                db,
+                identity_source_id=(
+                    int(updates.get("identity_source_id") or 0)
+                    if "identity_source_id" in updates
+                    else int(getattr(endpoint, "identity_source_id", 0) or 0)
+                )
+                or None,
+                require_ad=require_ad,
+            )
 
-    critical_fields = {
-        "host",
-        "port",
-        "protocol",
-        "endpoint_type",
-        "identity_source_id",
-        "bind_dn",
-        "bind_password_ref",
-    }
-    changed_critical_fields = [
-        field
-        for field in sorted(critical_fields)
-        if field in updates and critical_before.get(field) != getattr(endpoint, field, None)
-    ]
-    revalidation_roots: list[dict[str, object]] = []
-    if changed_critical_fields and probe_status != "failed":
-        revalidation_roots = ProbeResultService(db).mark_roots_need_revalidation(
-            endpoint=endpoint,
-            reason=f"storage_endpoint_configuration_changed:{','.join(changed_critical_fields)}",
-            correlation_id=(request.headers.get("x-request-id") or None),
-        )
+        host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
+        zone_moved = "zone_id" in updates and int(updates.get("zone_id") or 0) != int(endpoint.zone_id or 0)
+        for field, value in updates.items():
+            setattr(endpoint, field, value)
+        if zone_moved or host_moved:
+            # A server belongs to one zone: its other namespaces follow (a new host joins the zone of that server)
+            siblings = _same_server(db, endpoint.host, exclude_id=int(endpoint.id))
+            if host_moved and not zone_moved and siblings:
+                endpoint.zone_id = siblings[0]["zone_id"]
+            elif siblings:
+                storage_endpoints_sql.update_endpoint_1(db, {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
+        if {"bind_dn", "bind_password_ref"} & set(updates):
+            # Another account: its right to manage a DFS namespace is not known yet
+            _remember_dfs_delegation(endpoint, denied=False)
+        capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+        # Another account (or password) may hold the delegation: the refusal of the previous one no longer tells anything
+        account_changed = "bind_dn" in updates or "bind_password_ref" in updates
+        if account_changed and ("dfs_manage_denied" in capabilities or "dfs_manage_ok" in capabilities):
+            capabilities = {key: value for key, value in capabilities.items() if key not in ("dfs_manage_denied", "dfs_manage_ok")}
+            endpoint.capabilities = capabilities
+        if host_moved and "discovered_roots_snapshot" in capabilities:
+            # The shares found on the previous host carry its address: the next search lists them again
+            endpoint.capabilities = {key: value for key, value in capabilities.items() if key != "discovered_roots_snapshot"}
+        for root, new_path in root_path_rewrites:
+            root.root_path = new_path
+            root.normalized_root_path = normalize_root_path(new_path)
 
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Storage endpoint conflict",
-        )
+        probe_status = str(updates.get("last_probe_status") or "").strip().lower()
+        probe_failed_roots: list[dict[str, object]] = []
+        if probe_status:
+            probe_message = str(updates.get("last_probe_message") or "").strip() or None
+            impacted_roots = ProbeResultService(db).record_storage_endpoint_probe(
+                endpoint,
+                status_value=probe_status,
+                checked_at=_coerce_probe_datetime(updates.get("last_probe_at")),
+                message=probe_message,
+                source_type="storage_endpoint_update",
+                source_id=str(int(endpoint.id)),
+                job_id=int(updates.get("last_probe_job_id") or 0) or None,
+                correlation_id=(request.headers.get("x-request-id") or None),
+                cascade_to_roots=True,
+            )
+            if probe_status == "failed":
+                probe_failed_roots = impacted_roots
+
+        critical_fields = {
+            "host",
+            "port",
+            "protocol",
+            "endpoint_type",
+            "identity_source_id",
+            "bind_dn",
+            "bind_password_ref",
+        }
+        changed_critical_fields = [
+            field
+            for field in sorted(critical_fields)
+            if field in updates and critical_before.get(field) != getattr(endpoint, field, None)
+        ]
+        revalidation_roots: list[dict[str, object]] = []
+        if changed_critical_fields and probe_status != "failed":
+            revalidation_roots = ProbeResultService(db).mark_roots_need_revalidation(
+                endpoint=endpoint,
+                reason=f"storage_endpoint_configuration_changed:{','.join(changed_critical_fields)}",
+                correlation_id=(request.headers.get("x-request-id") or None),
+            )
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Storage endpoint conflict",
+            )
 
     after = {
         "name": endpoint.name,
