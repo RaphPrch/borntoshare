@@ -105,6 +105,8 @@ def list_runs(limit: int = 200) -> list[dict]:
         data = response.json().get("data")
         return data if isinstance(data, list) else []
     except (httpx.HTTPError, ValueError):
+        # The Job Center then shows no measure of the module: the reason is in the log
+        logger.warning("FIVES_RUNS_UNAVAILABLE", exc_info=True)
         return []
 
 
@@ -153,6 +155,7 @@ def folder_paths(storage_root_id: int) -> list[str]:
         data = response.json()
         return [str(path) for path in (data.get("data") if isinstance(data, dict) else data) or []]
     except (httpx.HTTPError, ValueError):
+        logger.warning("FIVES_FOLDER_PATHS_UNAVAILABLE", extra={"storage_root_id": storage_root_id}, exc_info=True)
         return []
 
 
@@ -169,6 +172,7 @@ def derive(parent_root_id: int, child_root_id: int, path: str) -> dict[str, Any]
         data = response.json()
         return data.get("data") if isinstance(data, dict) else None
     except (httpx.HTTPError, ValueError):
+        logger.warning("FIVES_DERIVE_FAILED", extra={"parent_root_id": parent_root_id, "child_root_id": child_root_id}, exc_info=True)
         return None
 
 

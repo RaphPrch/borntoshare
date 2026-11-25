@@ -46,3 +46,16 @@ as_root() {
 
 # Installation without container: the secrets are files of /etc/borntoshare/secrets (0400, user b2s)
 NATIVE_SECRETS=/etc/borntoshare/secrets
+
+# The token of each service (H4: core-service names its callers by them), in .env like INTERNAL_TOKEN: made when
+# missing, never replaced. Before them, core-service accepts the shared token (an installation from before).
+ensure_service_tokens() {
+  local name made=""
+  for name in B2S_TOKEN_FRONTEND B2S_TOKEN_AUTH B2S_TOKEN_CAPSULE B2S_TOKEN_FIVES; do
+    [ -n "$(env_value "$name")" ] && continue
+    printf '%s=%s\n' "$name" "$(head -c 48 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 48)" >> .env
+    made="$made $name"
+  done
+  [ -n "$made" ] && echo "jetons des services créés dans .env :$made"
+  return 0
+}

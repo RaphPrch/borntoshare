@@ -1061,7 +1061,8 @@ def list_storage_roots_effective_access(
     return ui_list(rows, meta={"count": int(len(rows))})
 
 
-@router.post("/discovery-sync", dependencies=[Depends(admin_only), Depends(require_internal_token)])
+# An administrator through the BFF (the token of the caller is checked for every route by main.py)
+@router.post("/discovery-sync", dependencies=[Depends(admin_only)])
 def sync_storage_root_discovery(
     payload: StorageRootDiscoverySyncPayload,
     db: Session = Depends(get_db),

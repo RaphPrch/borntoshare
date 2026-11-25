@@ -93,23 +93,17 @@ core-service les chiffre et les déchiffre ; auth-service et les workers les lui
 La clé (`b2s_master_key`, un secret podman monté en fichier dans core-service seul) n'est jamais en base : un dump ou un accès SQL seul ne donne donc pas les mots de passe.
 En revanche, une faille permettant d'exécuter du code dans core-service y donnerait accès, puisqu'il détient la clé et la base.
 
-Une sauvegarde complète comprend **deux éléments** : la base et la clé `b2s_master_key` (`podman secret inspect --showsecret --format '{{.SecretData}}' b2s_master_key`), à conserver séparément. Sans la clé, les
-références restent en base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
+Une sauvegarde complète comprend **la base et la clé `b2s_master_key`** : `make backup` enregistre les deux (la clé
+chiffrée par une phrase de passe si `B2S_BACKUP_PASSPHRASE_FILE` est donné). Sans la clé, les références restent en
+base mais les annuaires passent en panne (« mot de passe illisible ») jusqu'à leur nouvelle saisie.
 
 Le health check vérifie aussi que chaque référence de mot de passe mène à un secret : s'il en manque (base restaurée
 sans sa clé, coffre réinitialisé), son résultat les nomme, le Dashboard des administrateurs les liste avec
 un lien vers chaque objet, et la fiche d'un serveur propose « Ressaisir le mot de passe »
 (`GET /api/infrastructure/secrets/missing`).
 
-`make backup` enregistre les deux bases dans `backups/` (fichiers lisibles par leur seul propriétaire). La clé n'y est pas : à conserver
-dans un coffre, à part. Pour restaurer sur une installation arrêtée, avec le même `.env` :
-
-```bash
-zcat backups/<date>/borntoshare.sql.gz | mariadb -h <hôte> -u <compte> -p borntoshare
-zcat backups/<date>/borntoshare_logging.sql.gz | mariadb -h <hôte> -u <compte> -p borntoshare_logging
-```
-
-Puis relancer les services et vérifier qu'un test d'annuaire réussit : c'est lui qui prouve que la clé correspond aux mots de passe.
+`make backup` enregistre les bases, `.env`, les certificats du worker et les secrets, clé comprise ; `make restore`
+les remet en place : voir [exploitation.md](exploitation.md#sauvegarder).
 
 ## Base de données
 

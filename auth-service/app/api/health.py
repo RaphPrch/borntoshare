@@ -6,6 +6,12 @@ from app.services.session_store import RedisSessionStore, get_session_store
 router = APIRouter(tags=["health"])
 
 
+@router.get("/health/live")
+def health_live():
+    """Liveness: the process answers, whatever its dependencies."""
+    return {"status": "ok", "service": "auth-service"}
+
+
 @router.get("/health")
 def health():
     """Container healthcheck: answers 503 when the session store (Redis) cannot be reached."""

@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse
 
 from app.core import settings
 from app.core.api_envelope import ok_data
+from app.core.log_format import ServiceFormatter, use_on
 
 
 
@@ -23,7 +24,8 @@ def _configured_log_level() -> str:
     try:
         resp = httpx.get(
             f"{settings.CORE_URL}/api/admin/config/advanced",
-            headers={"X-Internal-Token": settings.INTERNAL_TOKEN or ""},
+            headers={"X-Internal-Token": settings.INTERNAL_TOKEN or "",
+                     **({"X-Service-Token": os.environ["B2S_SERVICE_TOKEN"]} if os.getenv("B2S_SERVICE_TOKEN") else {})},
             timeout=2.0,
         )
         level_name = (resp.json().get("data") or {}).get("logging", {}).get("level")
@@ -42,6 +44,8 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] [RUNNER] %(name)s - %(message)s",
 )
 logging.getLogger().setLevel(level)
+# Text, or JSON with LOG_FORMAT=json; the context of extra= in both
+use_on(logging.getLogger(), ServiceFormatter("capsule-runner", "RUNNER"))
 
 logger = logging.getLogger("capsule-runner")
 
@@ -97,6 +101,12 @@ def _broker_state() -> dict:
         return {"reachable": True, "latency_ms": latency, "queues": queues}
     except Exception as exc:
         return {"reachable": False, "error": str(exc)[:300]}
+
+
+@app.get("/health/live")
+def health_live():
+    """Liveness: the agent answers, whatever the workers and the job queue."""
+    return {"status": "ok", "service": "capsule-runner"}
 
 
 @app.get("/health")

@@ -11,8 +11,11 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.services import domain_dns
 from app.services.storage_guards import same_host
+
+logger = get_logger("core.dfs_links")
 
 
 def _norm(path: str) -> str:
@@ -214,6 +217,7 @@ def namespace_of(db: Session, root_path: str) -> dict[str, Any] | None:
             for link in describe_links(db, namespace):
                 targets.extend(str(target.get("unc") or target.get("root_path") or "") for target in link.get("targets") or [])
         except Exception:
-            pass
+            # The namespace is still named, without its targets
+            logger.warning("DFS_LINKS_UNREADABLE", extra={"namespace_id": int(namespace.id)}, exc_info=True)
         return {"id": int(namespace.id), "name": namespace.name, "targets": sorted({target for target in targets if target})[:10]}
     return None

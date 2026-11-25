@@ -4,6 +4,7 @@ import contextvars
 import logging
 
 from app.core.config import get_settings
+from app.core.log_format import ServiceFormatter
 
 
 _DEFAULT_SERVICE = "core-service"
@@ -31,10 +32,8 @@ def init_logging() -> logging.Logger:
     handler = logging.StreamHandler()
     handler.setLevel(level)
 
-    formatter = logging.Formatter(
-        "%(asctime)s [%(levelname)s] [CORE] %(name)s - %(message)s"
-    )
-    handler.setFormatter(formatter)
+    # Text, or JSON with LOG_FORMAT=json; the context of extra= and the request id in both
+    handler.setFormatter(ServiceFormatter(_DEFAULT_SERVICE, "CORE", get_request_id_context))
 
     # Avoid duplicate handlers (important in reload / tests)
     if not logger.handlers:

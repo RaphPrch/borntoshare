@@ -11,6 +11,10 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
+
+logger = get_logger("core.group_ou_check")
+
 DENIED_CODES = {"OU_NOT_DELEGATED", "OU_NOT_FOUND"}
 DENIED_JOB_CODES = {"AD_GROUP_CREATE_DENIED", "AD_TARGET_OU_NOT_FOUND"}
 
@@ -28,6 +32,8 @@ def ous_in_use(db: Session) -> dict[int, set[str]]:
         try:
             ctx = get_storage_root_provisioning_context(int(root_id), db)
         except Exception:
+            # Its OU goes unchecked this time: said, not silent
+            logger.warning("GROUP_OU_CONTEXT_UNREADABLE", extra={"storage_root_id": int(root_id)}, exc_info=True)
             continue
         ou = ctx.get("effective_group_ou_dn") or ctx.get("zone_default_group_ou_dn") or ctx.get("default_group_ou_dn")
         if ctx.get("identity_source_id") and ou:

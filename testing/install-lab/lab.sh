@@ -39,7 +39,9 @@ images() {
   # otherwise an old image would be tested with new scripts
   if [ "${B2S_LAB_SKIP_BUILD:-0}" != 1 ]; then
     say "construction des images produit depuis le code"
-    (cd "$REPO" && podman-compose -f podman-compose.yml build core-service auth-service capsule-runner frontend-service >/dev/null &&
+    # The compose file requires INTERNAL_TOKEN and DB_HOST even to build (a working copy without .env): any value,
+    # never used by a build
+    (cd "$REPO" && export INTERNAL_TOKEN="${INTERNAL_TOKEN:-lab-build-only}" DB_HOST="${DB_HOST:-lab-build-only}" && podman-compose -f podman-compose.yml build core-service auth-service capsule-runner frontend-service >/dev/null &&
       podman-compose --profile wizard -f podman-compose.yml build wizard-ui >/dev/null)
   fi
   # The product images under test, saved once per set of image ids (the archive is reloaded in each simulated host)
@@ -58,8 +60,8 @@ setup_scenario() {
   SCEN="$1"
   # TOPO: the hosts of the scenario; « faults » breaks a hybrid installation one way at a time
   case "$SCEN" in containers) NET_N=31; TOPO=containers ;; hybrid) NET_N=32; TOPO=hybrid ;; faults) NET_N=33; TOPO=hybrid ;;
-    native) NET_N=34; TOPO=native ;;
-    *) echo "scénario inconnu : $SCEN (containers, hybrid, faults, native)" >&2; exit 1 ;; esac
+    native) NET_N=34; TOPO=native ;; restore) NET_N=35; TOPO=containers ;;
+    *) echo "scénario inconnu : $SCEN (containers, hybrid, faults, native, restore)" >&2; exit 1 ;; esac
   P="b2s-lab-$SCEN"
   NET="$P"
   SUBNET="10.89.$NET_N.0/24"
@@ -115,8 +117,12 @@ up() {
     -e MARIADB_ROOT_PASSWORD_FILE=/run/lab/root.pw -v "$RUN/db-root.pw:/run/lab/root.pw:ro,z" \
     docker.io/library/mariadb:11.4 >/dev/null
 
-  # The code under test: the committed tree (the report gives its commit)
-  git -C "$REPO" archive HEAD | tar -x -C "$RUN/repo"
+  # The code under test (the report gives its commit, « -dirty » when it is not committed yet)
+  # The working copy as it is (tracked and staged files, untracked ones left out): a lot is tried before its commit.
+  # git stash create changes nothing; it prints nothing when the copy is clean
+  local tree
+  tree=$(git -C "$REPO" stash create)
+  git -C "$REPO" archive "${tree:-HEAD}" | tar -x -C "$RUN/repo"
   git -C "$REPO" describe --always --dirty > "$RUN/commit"
   # Native: the wizard as its single executable when it is built (make wizard-binary), as a customer may receive it
   if [ "$TOPO" = native ] && [ -x "$REPO/dist/b2s-wizard" ]; then install -D -m 0755 "$REPO/dist/b2s-wizard" "$RUN/repo/dist/b2s-wizard"; fi
@@ -241,7 +247,7 @@ expect_failure() {
   out=$("$@" 2>&1)
   rc=$?
   set -e
-  if [ "$rc" != 0 ] && echo "$out" | grep -Eiq "$pattern"; then
+  if [ "$rc" != 0 ] && grep -Eiq "$pattern" <<<"$out"; then
     step "$name" 0 "$((SECONDS - started))" "refusé avec : $(echo "$out" | grep -Ei "$pattern" | tail -2)"
   elif [ "$rc" = 0 ]; then
     step "$name" 1 "$((SECONDS - started))" "NON détecté : la commande a réussi. $(echo "$out" | tail -3)"
@@ -384,6 +390,42 @@ checks_uninstall() {
   esac
 }
 
+# ---- backup, loss of the server, restore (8.3): the data and the key of the stored passwords come back ----
+core_py() { app podman exec -i core-service python3 -; }
+checks_restore() {
+  local proof db_root='MYSQL_PWD="$(cat /run/lab/root.pw)" mariadb -N'
+  check "restauration : mot de passe chiffré en base (preuve de la clé)" core_py <<'PY'
+from app.core.db import SessionLocal
+from app.services.secret_store import store
+db = SessionLocal()
+print(store(db, "lab/restore-proof", "valeur-de-preuve"))
+db.commit()
+PY
+  check "sauvegarde : make backup (bases, .env, certificats, secrets)" app sh -c 'make backup > /tmp/b.out 2>&1; rc=$?; tail -8 /tmp/b.out; exit $rc'
+  check "sauvegarde : manifeste et empreintes" app sh -c 'd=$(ls -d backups/*/ | tail -1); cat "$d/MANIFEST"; ls -l "$d"; grep -c "^[0-9a-f]\{64\}  " "$d/MANIFEST" | grep -qx 4'
+  check "sauvegarde : fichiers lisibles par leur seul propriétaire" app sh -c 'd=$(ls -d backups/*/ | tail -1); stat -c "%a %n" "$d" "$d"/*; ! stat -c %a "$d" "$d"/* | grep -qv "^[67]00$"'
+  check "sauvegarde chiffrée : secrets et configuration illisibles sans la phrase de passe" app sh -c 'head -c 32 /dev/urandom | base64 > /root/b2s.pass; rm -rf /tmp/enc; B2S_BACKUP_PASSPHRASE_FILE=/root/b2s.pass ./scripts/backup.sh /tmp/enc > /tmp/e.out 2>&1 || { tail -5 /tmp/e.out; exit 1; }; ls /tmp/enc; [ ! -e /tmp/enc/config.tar.gz ] && [ ! -e /tmp/enc/secrets.tar.gz ] && ! zcat -f /tmp/enc/*.enc 2>/dev/null | grep -aq INTERNAL_TOKEN'
+  check "sauvegarde chiffrée : relue avec la phrase de passe, refusée sans ou avec une fausse" app sh -c 'B2S_BACKUP_PASSPHRASE_FILE=/root/b2s.pass ./scripts/restore.sh /tmp/enc > /tmp/r1.out 2>&1 && grep -q "Rien n.a été restauré" /tmp/r1.out || { tail -4 /tmp/r1.out; exit 1; }; ./scripts/restore.sh /tmp/enc > /tmp/r2.out 2>&1 && exit 1; echo faux > /tmp/bad.pass; B2S_BACKUP_PASSPHRASE_FILE=/tmp/bad.pass ./scripts/restore.sh /tmp/enc > /tmp/r3.out 2>&1 && exit 1; tail -1 /tmp/r2.out; tail -1 /tmp/r3.out; rm -rf /tmp/enc /root/b2s.pass /tmp/bad.pass'
+  check "sauvegarde : une sauvegarde altérée est refusée" app sh -c 'd=$(ls -d backups/*/ | tail -1); rm -rf /tmp/bad; cp -a "$d" /tmp/bad; echo x >> /tmp/bad/config.tar.gz; ./scripts/restore.sh /tmp/bad > /tmp/r.out 2>&1; rc=$?; tail -2 /tmp/r.out; rm -rf /tmp/bad; [ $rc != 0 ] && grep -q altérée /tmp/r.out'
+  # The server lost: BornToShare purged (services, secrets, images), .env gone, and the databases emptied
+  check "perte du serveur : CONFIRM=yes PURGE=1 make uninstall, .env retiré" app sh -c 'CONFIRM=yes PURGE=1 make uninstall > /tmp/u.out 2>&1; rc=$?; rm -f .env; tail -3 /tmp/u.out; podman secret ls --format "{{.Name}}" | grep -c b2s_ | grep -qx 0 && exit $rc'
+  check "perte des données : bases vidées sur lab-db" podman exec "$P-db" sh -c "$db_root -e \"DROP DATABASE borntoshare; CREATE DATABASE borntoshare; DROP DATABASE borntoshare_logs; CREATE DATABASE borntoshare_logs; SELECT CONCAT('tables : ', COUNT(*)) FROM information_schema.tables WHERE table_schema IN ('borntoshare','borntoshare_logs')\""
+  app podman load -q -i /lab/images.tar >/dev/null
+  check "restauration : make restore sans CONFIRM ne change rien" app sh -c 'd=$(ls -d backups/*/ | tail -1); make restore FROM="$d" > /tmp/r.out 2>&1; rc=$?; tail -12 /tmp/r.out; [ $rc = 0 ] && grep -q "Rien n.a été restauré" /tmp/r.out && [ ! -f .env ]'
+  check "restauration : CONFIRM=yes make restore" app bash -c 'd=$(ls -d backups/*/ | tail -1); CONFIRM=yes make restore FROM="$d" > /tmp/r.out 2>&1; rc=$?; tail -10 /tmp/r.out; exit $rc'
+  check "restauration : .env et secrets de retour" app sh -c 'test -f .env && podman secret ls --format "{{.Name}}" | sort | tr "\n" " " | tee /dev/stderr | grep -q b2s_master_key'
+  check "restauration : services sains" app sh -c 'for i in $(seq 1 40); do podman exec core-service python3 -c "import urllib.request;print(urllib.request.urlopen(\"http://127.0.0.1:8000/health\", timeout=5).read().decode())" 2>/dev/null && exit 0; sleep 3; done; exit 1'
+  check "restauration : données de retour (administrateur)" podman exec "$P-db" sh -c "$db_root -e \"SELECT CONCAT('administrateurs : ', COUNT(*)) FROM borntoshare.identities WHERE username = 'admin'\" | tee /dev/stderr | grep -q ': 1'"
+  check "restauration : mot de passe stocké relu avec la clé restaurée" core_py <<'PY'
+from app.core.db import SessionLocal
+from app.services.secret_store import resolve
+value = resolve(SessionLocal(), "sm://lab/restore-proof")
+print("relu :", "conforme" if value == "valeur-de-preuve" else "DIFFÉRENT")
+assert value == "valeur-de-preuve"
+PY
+  check "restauration : interface servie, première connexion" app sh -c 'for i in $(seq 1 30); do curl -sf -o /dev/null http://127.0.0.1:3000/login && echo "http://lab-app:3000/login 200" && exit 0; sleep 3; done; exit 1'
+}
+
 down() {
   setup_scenario "$1"
   RUN="$(cat "$CACHE/current-$SCEN" 2>/dev/null || true)"
@@ -400,6 +442,9 @@ run_scenario() {
   images
   setup_scenario "$1"
   down "$SCEN" 2>/dev/null || true
+  # A run stopped halfway (a command failing under set -e, Ctrl-C) still removes its hosts, passwords and SSH key
+  trap 'echo "== $SCEN : interrompu, nettoyage"; down "$SCEN"' EXIT
+  trap 'exit 130' INT TERM
   local t0=$SECONDS
   up "$SCEN"
   # The wizard, the way the documentation says (make wizard), on the simulated host
@@ -414,11 +459,12 @@ run_scenario() {
     checks_native
   else
     checks_after_install
-    if [ "$SCEN" = faults ]; then checks_faults; else checks_resilience; checks_uninstall; fi
+    case "$SCEN" in faults) checks_faults ;; restore) checks_restore ;; *) checks_resilience; checks_uninstall ;; esac
   fi
   echo "$((SECONDS - t0))" > "$RUN/duration"
   say "$SCEN : nettoyage"
   down "$SCEN"
+  trap - EXIT INT TERM
   local left
   left=$(podman ps -a --format '{{.Names}}' | grep -c "^b2s-lab-$SCEN-" || true)
   left=$((left + $(podman network ls --format '{{.Name}}' | grep -c "^b2s-lab-$SCEN$" || true)))
@@ -428,7 +474,7 @@ run_scenario() {
 
 case "${1:-}" in
   images) images ;;
-  run) run_scenario "${2:?scénario : containers, hybrid ou faults}" ;;
+  run) run_scenario "${2:?scénario : containers, hybrid, faults, native ou restore}" ;;
   down) down "${2:?scénario}" ;;
   report) python3 "$LAB/report.py" "$CACHE" ;;
   *) sed -n '2,20p' "$0"; exit 1 ;;

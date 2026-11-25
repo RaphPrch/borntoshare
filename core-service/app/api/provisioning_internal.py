@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.data.repositories import provisioning_internal_sql
@@ -57,6 +59,8 @@ class JobStartPayload(BaseModel):
     actor_ip: str | None = Field(default=None, max_length=64)
     user_agent: str | None = Field(default=None, max_length=256)
     correlation_id: str = Field(..., min_length=8, max_length=128)
+    # The worker that takes the job (host name and process), shown in Governance Jobs; optional: older workers omit it
+    worker: str | None = Field(default=None, max_length=120)
 
 
 class JobCancelPayload(BaseModel):
@@ -391,10 +395,12 @@ def _with_requester(metrics: dict | None) -> dict:
 
 
 def _keep_requester(row: Any, metrics: dict | None) -> dict | None:
+    """What core-service wrote itself (who asked, which worker took it) survives the metrics of the worker."""
     before = getattr(row, "metrics_json", None) or {}
-    if not isinstance(before, dict) or not before.get("requested_by"):
+    kept = {key: before[key] for key in ("requested_by", "worker") if isinstance(before, dict) and before.get(key)}
+    if not kept:
         return metrics
-    return {**(metrics or {}), "requested_by": before["requested_by"]}
+    return {**(metrics or {}), **kept}
 
 
 def _is_current_folder_job(db: Session, job_row: Any) -> bool:
@@ -667,6 +673,15 @@ def _apply_infrastructure_results(db: Session, *, job_row: Any, result_json: dic
         logger.exception("INFRA_RESULT_APPLY_FAILED job_id=%s", int(getattr(job_row, "id", 0) or 0))
 
 
+_SNAPSHOT_STORE_ATTEMPTS = 3
+
+
+def _lock_conflict(exc: OperationalError) -> bool:
+    """MariaDB deadlock (1213) or lock wait timeout (1205): the transaction may simply be replayed."""
+    args = getattr(getattr(exc, "orig", None), "args", None) or ()
+    return bool(args) and args[0] in (1205, 1213)
+
+
 def _apply_directory_snapshot_success(
     db: Session,
     *,
@@ -681,12 +696,25 @@ def _apply_directory_snapshot_success(
         return
 
     repo = DirectorySnapshotsRepo(db)
-    counts = repo.bulk_upsert(
-        snapshot_id=int(snapshot_id),
-        users=users,
-        groups=groups,
-        memberships=memberships,
-    )
+    # Two snapshots stored at the same time (two directories) may deadlock on the memberships: MariaDB rolls one
+    # back (1213). Its job was already marked done, so nobody would store it again and the snapshot stayed QUEUED.
+    # bulk_upsert replaces the rows of its snapshot in one transaction: replayed after a rollback, it is the same
+    for attempt in range(1, _SNAPSHOT_STORE_ATTEMPTS + 1):
+        try:
+            counts = repo.bulk_upsert(
+                snapshot_id=int(snapshot_id),
+                users=users,
+                groups=groups,
+                memberships=memberships,
+            )
+            break
+        except OperationalError as exc:
+            db.rollback()
+            if not _lock_conflict(exc) or attempt == _SNAPSHOT_STORE_ATTEMPTS:
+                raise
+            logger.warning("DIRECTORY_SNAPSHOT_STORE_RETRY", extra={"snapshot_id": int(snapshot_id), "attempt": attempt,
+                                                                    "mariadb_error": exc.orig.args[0]})
+            time.sleep(0.3 * attempt)
 
     repo.patch_status(
         snapshot_id=int(snapshot_id),
@@ -930,16 +958,17 @@ def start_provisioning_job(job_id: int, payload: JobStartPayload, db: Session = 
     if current_status in {"RUNNING", "SUCCEEDED", "CANCELLED"}:
         return repo.to_dict(row)
 
-    row = repo.update(
-        obj=row,
-        updates={
-            "status": ensure_transition(current=row.status, next_status="RUNNING"),
-            "started_at": row.started_at or utcnow_naive(),
-            "finished_at": None,
-            "error_code": None,
-            "error_message": None,
-        },
-    )
+    updates: dict[str, Any] = {
+        "status": ensure_transition(current=row.status, next_status="RUNNING"),
+        "started_at": row.started_at or utcnow_naive(),
+        "finished_at": None,
+        "error_code": None,
+        "error_message": None,
+    }
+    if payload.worker:
+        before = getattr(row, "metrics_json", None)
+        updates["metrics_json"] = {**(before if isinstance(before, dict) else {}), "worker": payload.worker}
+    row = repo.update(obj=row, updates=updates)
     return repo.to_dict(row)
 
 

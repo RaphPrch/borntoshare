@@ -110,3 +110,58 @@ def test_a_source_that_does_not_authenticate_may_share_the_domain() -> None:
     )
 
     assert not any("domain_name" in sql for sql in db.queries)
+
+
+class _DeleteDB:
+    def __init__(self):
+        self.rolled_back = False
+        self.deleted = []
+        self.committed = False
+
+    def rollback(self):
+        self.rolled_back = True
+
+    def delete(self, obj):
+        self.deleted.append(obj)
+
+    def commit(self):
+        self.committed = True
+
+
+def test_deletion_is_refused_when_a_dependency_cannot_be_counted(monkeypatch) -> None:
+    """A failed count never reads as « no dependency »: nothing is deleted, the error is explicit."""
+    from types import SimpleNamespace
+
+    src = SimpleNamespace(id=7, name="Corp AD", host="dc1", type="ad", bind_password_ref=None)
+    db = _DeleteDB()
+    monkeypatch.setattr(identity_sources, "_get_identity_source", lambda _db, _id: src)
+    monkeypatch.setattr(identity_sources, "load_accounts", lambda _db, _id: {})
+    monkeypatch.setattr(identity_sources, "purge_identity_source_related_records", lambda _db, _id: None)
+
+    def failing_count(*_a, **_kw):
+        raise RuntimeError("lost connection to MariaDB")
+
+    monkeypatch.setattr(identity_sources.identity_sources_sql, "identity_source_dependency_counts_1", failing_count)
+
+    with pytest.raises(HTTPException) as exc:
+        identity_sources.delete_identity_source(7, request=SimpleNamespace(state=SimpleNamespace()), db=db)
+
+    assert exc.value.status_code == 503
+    assert exc.value.detail["error_code"] == "IDENTITY_SOURCE_DEPENDENCY_CHECK_FAILED"
+    assert db.rolled_back and not db.deleted and not db.committed
+
+
+def test_dependencies_found_are_named(monkeypatch) -> None:
+    class _Count:
+        def __init__(self, n):
+            self.n = n
+
+        def scalar(self):
+            return self.n
+
+    monkeypatch.setattr(
+        identity_sources.identity_sources_sql,
+        "identity_source_dependency_counts_1",
+        lambda _db, _p, *, column_name, table_name: _Count(3 if table_name == "storage_endpoints" else 0),
+    )
+    assert identity_sources._identity_source_dependency_counts(object(), 7) == {"storage endpoints": 3}

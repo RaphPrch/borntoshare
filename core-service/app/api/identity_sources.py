@@ -137,11 +137,9 @@ def _identity_source_dependency_counts(db: Session, source_id: int) -> dict[str,
         "directory groups": ("directory_groups", "identity_source_id"),
     }
     counts: dict[str, int] = {}
+    # A count that fails raises: an unknown dependency never reads as « none » (the deletion would go through)
     for label, (table_name, column_name) in checks.items():
-        try:
-            count = identity_sources_sql.identity_source_dependency_counts_1(db, {"source_id": source_key}, column_name=column_name, table_name=table_name).scalar()
-        except Exception:
-            continue
+        count = identity_sources_sql.identity_source_dependency_counts_1(db, {"source_id": source_key}, column_name=column_name, table_name=table_name).scalar()
         numeric = int(count or 0)
         if numeric > 0:
             counts[label] = numeric
@@ -379,7 +377,18 @@ def delete_identity_source(source_id: int, request: Request, db: Session = Depen
         raise HTTPException(status_code=404, detail="Identity source not found")
     secret_refs = [src.bind_password_ref, *[(a or {}).get("bind_password_ref") for a in load_accounts(db, int(src.id)).values()]]
     purge_identity_source_related_records(db, int(src.id))
-    dependency_counts = _identity_source_dependency_counts(db, int(src.id))
+    try:
+        dependency_counts = _identity_source_dependency_counts(db, int(src.id))
+    except Exception:
+        db.rollback()
+        logger.exception("IDENTITY_SOURCE_DEPENDENCY_CHECK_FAILED", extra={"identity_source_id": int(src.id)})
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "error_code": "IDENTITY_SOURCE_DEPENDENCY_CHECK_FAILED",
+                "message": "The records that depend on this identity source could not be counted: nothing was deleted",
+            },
+        ) from None
     if dependency_counts:
         db.rollback()
         raise HTTPException(

@@ -50,7 +50,9 @@ B2S_CORE_URL=http://$API:$(env_value B2S_CORE_PORT 8102)/api
 B2S_FIVES_URL=$FIVES_URL
 B2S_VERSION=${B2S_VERSION:-}
 ENV
-(umask 077; printf 'INTERNAL_TOKEN=%s\nPRINCIPAL_SIGNING_KEY=%s\n' "$(env_value INTERNAL_TOKEN)" "$(env_value PRINCIPAL_SIGNING_KEY)" > "$OUT/web.secrets")
+# B2S_SERVICE_TOKEN: the token of the web interface, by which core-service knows its calls (H4)
+(umask 077; printf 'INTERNAL_TOKEN=%s\nPRINCIPAL_SIGNING_KEY=%s\nB2S_SERVICE_TOKEN=%s\n' "$(env_value INTERNAL_TOKEN)" \
+  "$(env_value PRINCIPAL_SIGNING_KEY)" "$(env_value B2S_TOKEN_FRONTEND)" > "$OUT/web.secrets")
 cat > "$OUT/site.conf" <<CONF
 SERVER_NAME=$(env_value B2S_WEB_SERVER_NAME)
 HTTPS_PORT=$(env_value B2S_WEB_HTTPS_PORT 443)

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any, Dict, Iterable
+import os
+
 import httpx
 
 from app.core import settings
@@ -20,9 +22,11 @@ def _client() -> httpx.Client:
 
 
 def _internal_headers() -> Dict[str, str]:
-    if not settings.INTERNAL_TOKEN:
-        return {}
-    return {"X-Internal-Token": settings.INTERNAL_TOKEN}
+    headers = {"X-Internal-Token": settings.INTERNAL_TOKEN} if settings.INTERNAL_TOKEN else {}
+    own = (os.getenv("B2S_SERVICE_TOKEN") or "").strip()
+    if own:
+        headers["X-Service-Token"] = own  # its own token (H4)
+    return headers
 
 
 def resolve_secret_refs(secret_refs: Iterable[str]) -> Dict[str, str]:

@@ -15,6 +15,7 @@
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
+  import { riskSentence } from '$lib/utils/acl-preview';
   import ContextMenu, { menuPositionFor, type ContextMenuItem } from '$lib/components/ui/ContextMenu.svelte';
   import { t } from '$lib/i18n';
   import { goto, invalidateAll } from '$app/navigation';
@@ -92,6 +93,8 @@
   let decisionComment = $state('');
   let decisionRunning = $state<'approve' | 'reject' | 'revoke' | null>(null);
   let showRevokeConfirm = $state(false);
+  // Approval of a request whose dry run found risks: they are listed and confirmed first
+  let showApproveRisks = $state(false);
   let showCancelConfirm = $state(false);
   let cancelling = $state(false);
   async function cancelSelected() {
@@ -114,6 +117,7 @@
   let provisioningLog = $state<ActivityEvent[]>([]);
   // What the approval will do (reviewers), then what it did once applied
   let approvalPreview = $state<ApprovalPreview | null>(null);
+  let approvalRisks = $derived((approvalPreview?.items ?? []).flatMap((item) => (item.acl_preview?.risks ?? []).map((risk) => riskSentence(risk))));
   let appliedPreview = $state<ApprovalPreview | null>(null);
   let logTimer: ReturnType<typeof setInterval> | null = null;
   // Last failed decision: code, hint and, for a name conflict, the group an admin can adopt
@@ -1101,7 +1105,7 @@
         class="b2s-btn b2s-btn-primary"
         disabled={Boolean(decisionRunning) || approvalPreview?.can_approve === false}
         title={ownRequestBlocked ? t('This is your own request: another guardian or an administrator approves it.') : approvalPreview?.can_approve === false ? t('Fix the configuration shown above first') : undefined}
-        onclick={() => runDecision('approve')}
+        onclick={() => (approvalRisks.length ? (showApproveRisks = true) : runDecision('approve'))}
       >
         <i class="bi bi-check2" aria-hidden="true"></i>
         {decisionRunning === 'approve' ? t('Approving…') : t('Approve')}
@@ -1135,6 +1139,20 @@
   title={t('Cancel this request?')}
   impactItems={[t('The request is withdrawn: nobody will decide on it and nothing changes on the folder.')]}
   confirmLabel={t('Cancel my request')}
+/>
+
+<ConfirmActionModal
+  open={showApproveRisks}
+  onClose={() => (showApproveRisks = false)}
+  onConfirm={() => {
+    showApproveRisks = false;
+    void runDecision('approve');
+  }}
+  severity="warning"
+  title={t('Approve despite the risks?')}
+  subtitle={t('The simulation of the NTFS change found:')}
+  impactItems={approvalRisks}
+  confirmLabel={t('Approve')}
 />
 
 <ConfirmActionModal

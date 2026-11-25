@@ -12,6 +12,10 @@ from typing import Any
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
+
+logger = get_logger("core.sensitivity")
+
 ACTION = "scan_smb_sensitivity"
 CATEGORIES = ("password", "credentials_file", "password_vault", "private_key", "cloud_key")
 # What « est:mot-de-passe » means: a password written in clear, a file named after passwords, a password vault
@@ -292,6 +296,8 @@ def incremental_params(storage_root_id: int) -> dict[str, Any]:
             {"id": int(storage_root_id)},
         ).mappings().first()
     except Exception:
+        # The next scan is then a full one: slower, never wrong
+        logger.warning("SENSITIVITY_INCREMENTAL_STATE_UNREADABLE", extra={"storage_root_id": int(storage_root_id)}, exc_info=True)
         return {}
     finally:
         session.close()

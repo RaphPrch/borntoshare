@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     JOB_WATCHDOG_QUEUED_TIMEOUT_SECONDS: int = Field(default=300, ge=30)
     JOB_WATCHDOG_MAX_REPUBLISH: int = Field(default=1, ge=0)
     JOB_WATCHDOG_LIMIT: int = Field(default=200, ge=1, le=1000)
+    # A RUNNING job this long after the time limit of its worker is closed as failed (JOB_ABANDONED)
+    JOB_WATCHDOG_RUNNING_GRACE_SECONDS: int = Field(default=900, ge=60)
 
     @field_validator("LOG_LEVEL")
     @classmethod

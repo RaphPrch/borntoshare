@@ -28,6 +28,7 @@
   let data: StorageRootPermissionsData | null = $state(null);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let seq = 0;
+  let unavailable = $state(false);
 
   function schedule(next: StorageRootRow | null, element: HTMLElement | null) {
     if (timer) clearTimeout(timer);
@@ -41,11 +42,16 @@
       position = { top: Math.max(8, Math.min(rect.top - 8, window.innerHeight - 220)), left: rect.right + 12 };
       shown = next;
       data = null;
+      unavailable = false;
       const id = Number(next.storage_root_id ?? next.id ?? 0);
       const current = ++seq;
-      if (!cache.has(id)) cache.set(id, getStorageRootPermissions(fetch, id).catch(() => null));
+      // A failed read is not kept (the next hover asks again) and is said, never a spinner left turning
+      if (!cache.has(id)) cache.set(id, getStorageRootPermissions(fetch, id).catch(() => (cache.delete(id), null)));
       const result = await cache.get(id)!;
-      if (current === seq) data = result;
+      if (current === seq) {
+        data = result;
+        unavailable = result === null;
+      }
     }, 350);
   }
   onDestroy(() => {
@@ -78,6 +84,8 @@
         {data.acl_scanned_at
           ? t('{count} person(s) · {read} read · {write} modify', { count: data.summary.people, read: data.summary.read, write: data.summary.write })
           : t('ACL never read')}
+      {:else if unavailable}
+        {t('Permissions unavailable for now')}
       {:else}
         <span class="b2s-spinner b2s-spinner--sm" aria-hidden="true"></span> {t('Loading…')}
       {/if}

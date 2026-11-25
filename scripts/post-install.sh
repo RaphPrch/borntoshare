@@ -19,8 +19,9 @@ print(json.dumps(plan))
 PY
 }
 if [ "$(deploy_mode)" = native ]; then
-  # INTERNAL_TOKEN of .env, through the environment of this process only
-  payload "http://127.0.0.1:$(env_value B2S_CORE_PORT 8102)/api" | INTERNAL_TOKEN="$(env_value INTERNAL_TOKEN)" python3 scripts/post_install.py
+  # The tokens and the key of .env, through the environment of this process only (the container has them already)
+  payload "http://127.0.0.1:$(env_value B2S_CORE_PORT 8102)/api" | INTERNAL_TOKEN="$(env_value INTERNAL_TOKEN)" \
+    B2S_SERVICE_TOKEN="$(env_value B2S_TOKEN_FRONTEND)" PRINCIPAL_SIGNING_KEY="$(env_value PRINCIPAL_SIGNING_KEY)" python3 scripts/post_install.py
 else
   payload "http://127.0.0.1:8000/api" | podman exec -i core-service python -c "$(cat scripts/post_install.py)"
 fi

@@ -120,6 +120,7 @@ def derive(db: Session, root_id: int) -> bool:
         run_all(db, only_root_ids={int(root.id)}, trigger="derived_measure", allow_jobs=False)
     except Exception:
         db.rollback()
+        logger.warning("DERIVED_MEASURE_POLICIES_FAILED", extra={"storage_root_id": int(root.id)}, exc_info=True)
     logger.info("DERIVED_MEASURE", extra={"storage_root_id": int(root.id), "from": int(parent.id)})
     return True
 

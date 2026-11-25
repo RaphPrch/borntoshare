@@ -117,6 +117,25 @@ export type InfraOverview = {
 
 export const getInfraOverview = (fetchFn: FetchLike) => apiGetData<InfraOverview>(fetchFn, '/infrastructure/overview');
 
+export type DiagnosticResult = 'ok' | 'warning' | 'error' | 'unknown';
+export type DiagnosticSeverity = 'info' | 'low' | 'medium' | 'high' | 'critical';
+export type DiagnosticCheck = {
+  code: string;
+  area: string;
+  result: DiagnosticResult;
+  severity: DiagnosticSeverity;
+  values: Record<string, unknown>;
+};
+export type DiagnosticReport = {
+  checks: DiagnosticCheck[];
+  summary: Record<DiagnosticResult, number> & { total: number };
+  generated_at: string;
+};
+
+/** The checks of the installation, run now by the core (read only, never a secret) */
+export const getDiagnostics = (fetchFn: FetchLike) =>
+  apiGetData<DiagnosticReport>(fetchFn, '/infrastructure/diagnostics');
+
 
 export const testWorker = (fetchFn: FetchLike, body: WorkerInput & { worker_id?: number }) =>
   apiPostData<AgentCheck>(fetchFn, '/infrastructure/workers/test', body, { timeoutMs: 20000 });

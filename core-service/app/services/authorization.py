@@ -28,6 +28,8 @@ def _to_int(value: Any) -> int | None:
 
 
 def actor_from_request(request: Request) -> ActorContext:
+    """The person behind the call, from the identity headers. With the tokens per service, the identity middleware of
+    main.py has replaced them by those of the signed assertion (X-B2S-Actor): never what a caller declares."""
     raw_roles = str(request.headers.get("x-roles") or "").strip()
     roles = frozenset(part.strip().lower() for part in raw_roles.split(",") if part.strip())
     return ActorContext(

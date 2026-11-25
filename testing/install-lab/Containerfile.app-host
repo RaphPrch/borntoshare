@@ -1,7 +1,7 @@
 # Simulated application host of the install lab: its own Podman (nested, rootless outside), podman-compose, make,
 # the MariaDB client tools of scripts/lib.sh run in containers. Test only: never part of an installation.
 FROM quay.io/podman/stable:v5.6
-RUN dnf -y install podman-compose make git jq python3 openssh-clients findutils procps-ng curl iproute hostname \
+RUN dnf -y install podman-compose make git jq python3 openssh-clients findutils procps-ng curl iproute hostname openssl \
     && dnf clean all
 # The product images are loaded from the build host (same versions as the code under test): no image is built
 # inside the lab. This wrapper drops « build » and « --build » and runs the real podman-compose otherwise.

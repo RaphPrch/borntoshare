@@ -13,11 +13,16 @@ def _headers() -> Dict[str, str]:
     if not internal_token:
         raise RuntimeError("Missing INTERNAL_TOKEN for core-service internal calls")
 
-    return {
+    headers = {
         "X-Internal-Token": internal_token,
         "X-Service-Name": "capsule",
         "X-Service-Scope": "jobs:read,jobs:write,events:write,profiles:write",
     }
+    # Its own token (H4): core-service knows the worker by it and gives it its routes and scopes, whatever it declares
+    own = (os.getenv("B2S_SERVICE_TOKEN") or "").strip()
+    if own:
+        headers["X-Service-Token"] = own
+    return headers
 
 
 def _request(method: str, path: str, payload: Optional[Dict[str, Any]] = None, timeout: int = 10) -> Any:

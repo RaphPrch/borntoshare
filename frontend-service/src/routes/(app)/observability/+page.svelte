@@ -10,6 +10,7 @@
   import ObsEvents from '$lib/components/observability/ObsEvents.svelte';
   import ObsJobs from '$lib/components/observability/ObsJobs.svelte';
   import InfraOverview from '$lib/components/infrastructure/InfraOverview.svelte';
+  import InfraDiagnostics from '$lib/components/infrastructure/InfraDiagnostics.svelte';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import { getObservabilityOverview, type ObsOverview as Overview, type ObsPeriod } from '$lib/api/observability';
@@ -141,6 +142,7 @@
       {/key}
     {:else if infra}
       <InfraOverview overview={infra} running={checking} onRunHealthCheck={runHealthCheck} />
+      <InfraDiagnostics />
       <p class="obs-note">
         {t('Database, workers, schedules and monitored components are set in')}
         <a href="/admin/advanced-settings/infrastructure">{t('Advanced Settings › Infrastructure')}</a>.

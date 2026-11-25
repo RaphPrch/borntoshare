@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hmac
-import os
 
 import asyncio
 from contextlib import asynccontextmanager
@@ -93,7 +91,7 @@ async def _access_requests_read_model_contract_handler(request: Request, exc: Ac
 # ============================================================
 # core-service trusts the identity headers that the BFF sets (x-identity-id, x-roles): only a caller holding the
 # token shared by the services may send them. Registered first, so it runs after the request ID middleware.
-_OPEN_PATHS = {"/health"}
+_OPEN_PATHS = {"/health", "/health/live"}
 
 
 @app.middleware("http")
@@ -105,7 +103,7 @@ async def otel_span_middleware(request: Request, call_next):
 
     started = _time.time_ns()
     response = await call_next(request)
-    if request.url.path != "/health":
+    if not request.url.path.startswith("/health"):
         route = getattr(request.scope.get("route"), "path", None) or request.url.path
         record_span(request.method, route, response.status_code, started, _time.time_ns(), request.headers.get("traceparent"))
     return response
@@ -113,15 +111,27 @@ async def otel_span_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def internal_token_middleware(request: Request, call_next):
+    """The caller is the service whose token is given (app.core.service_identity); a narrow service (worker, 5S
+    module) only reaches its own routes."""
+    from app.core.service_identity import TOKEN_HEADER, caller_of, path_allowed
+
     if request.url.path not in _OPEN_PATHS:
-        expected = os.getenv("INTERNAL_TOKEN", "")
-        provided = request.headers.get("x-internal-token", "")
-        if not expected or not provided or not hmac.compare_digest(provided, expected):
+        provided = request.headers.get(TOKEN_HEADER) or request.headers.get("x-internal-token")
+        caller = caller_of(request.headers.get(TOKEN_HEADER), request.headers.get("x-internal-token"))
+        if caller is None:
             return json_error_response(
                 status_code=401 if not provided else 403,
                 request_id=ensure_request_id(request),
                 code="INTERNAL_TOKEN_REQUIRED",
                 message="This service only answers the other services of BornToShare",
+            )
+        if not path_allowed(caller, request.method, request.url.path):
+            logger.warning("SERVICE_PATH_FORBIDDEN", extra={"caller": caller, "method": request.method, "path": request.url.path})
+            return json_error_response(
+                status_code=403,
+                request_id=ensure_request_id(request),
+                code="SERVICE_PATH_FORBIDDEN",
+                message="This service may not call this route",
             )
     return await call_next(request)
 
@@ -151,6 +161,36 @@ async def request_id_middleware(request: Request, call_next):
 
 
 # ============================================================
+# Identity of the person (outermost: registered last)
+# ============================================================
+
+_IDENTITY_HEADERS = (b"x-identity-id", b"x-roles", b"x-actor-display")
+
+
+@app.middleware("http")
+async def identity_middleware(request: Request, call_next):
+    """With the tokens per service, the person is only the one of a valid signed assertion (X-B2S-Actor): the
+    identity headers received are dropped and replaced by its values, before any other code reads them."""
+    from app.core.service_identity import ACTOR_HEADER, per_service_mode, verify_actor
+
+    if per_service_mode():
+        verified = verify_actor(request.headers.get(ACTOR_HEADER))
+        headers = [(k, v) for k, v in request.scope["headers"] if k.lower() not in _IDENTITY_HEADERS]
+        if verified is not None:
+            if verified.identity_id is not None:
+                headers.append((b"x-identity-id", str(verified.identity_id).encode()))
+            if verified.roles:
+                headers.append((b"x-roles", ",".join(sorted(verified.roles)).encode()))
+            if verified.display_name:
+                headers.append((b"x-actor-display", verified.display_name.encode("utf-8")))
+        request.scope["headers"] = headers
+        # Starlette keeps the headers it already read in _headers: read again from the scope
+        if hasattr(request, "_headers"):
+            del request._headers
+    return await call_next(request)
+
+
+# ============================================================
 # Error handlers (normalized, no leakage)
 # ============================================================
 
@@ -163,6 +203,12 @@ register_exception_handlers(app, logger)
 # ============================================================
 # Health (internal)
 # ============================================================
+
+@app.get("/health/live", tags=["health"])
+def health_live():
+    """Liveness: the process answers, whatever its dependencies (a monitor tells « stopped » from « degraded »)."""
+    return {"status": "ok", "service": settings.SERVICE_NAME}
+
 
 @app.get("/health", tags=["health"])
 def health():

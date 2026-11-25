@@ -29,3 +29,14 @@ def test_headers_send_internal_token_and_caller_identity(monkeypatch) -> None:
     assert headers["X-Internal-Token"] == "internal-token"
     assert headers["X-Service-Name"] == "capsule"
     assert headers["X-Service-Scope"] == "jobs:read,jobs:write,events:write,profiles:write"
+
+
+def test_headers_carry_the_own_token_of_the_worker(monkeypatch) -> None:
+    from app.services import secret_client
+
+    monkeypatch.setenv("INTERNAL_TOKEN", "shared")
+    monkeypatch.setenv("B2S_SERVICE_TOKEN", "c" * 48)
+    assert core_client._headers()["X-Service-Token"] == "c" * 48
+    assert secret_client._internal_headers().get("X-Service-Token") == "c" * 48
+    monkeypatch.delenv("B2S_SERVICE_TOKEN")
+    assert "X-Service-Token" not in core_client._headers()

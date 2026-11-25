@@ -108,6 +108,12 @@
             <small title={item.message ?? ''}>
               {#if item.stale}{t('No recent result')} · {/if}{item.message ?? '—'}
             </small>
+            {#if item.status === 'healthy' && typeof item.details?.last_error === 'string' && item.details.last_error}
+              <small class="row__last-error" title={item.details.last_error}>
+                <i class="bi bi-clock-history" aria-hidden="true"></i>
+                {t('Last error {ago}: {message}', { ago: timeAgo(String(item.details.last_error_at ?? '')), message: item.details.last_error })}
+              </small>
+            {/if}
           </div>
           <div class="row__bar">
             <AvailabilityBar points={item.history} />
@@ -124,6 +130,10 @@
 {/each}
 
 <style>
+  .row__last-error {
+    color: var(--b2s-color-warning-strong);
+  }
+
   .hero {
     display: grid;
     grid-template-columns: auto 1fr auto;

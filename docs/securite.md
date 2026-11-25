@@ -15,14 +15,19 @@
 
 | Élément | Où | Rôle | Protection |
 |---|---|---|---|
-| `INTERNAL_TOKEN` | Tous les services | En-tête `X-Internal-Token` sur chaque appel entre services | Comparaison à temps constant ; refusé si absent ; jamais exposé au navigateur |
+| Jeton de chaque service (`B2S_TOKEN_FRONTEND`, `_AUTH`, `_CAPSULE`, `_FIVES`) | Appels vers core-service | En-tête `X-Service-Token` : core-service reconnaît son appelant à son jeton, jamais à un nom déclaré, et lui fixe ses droits (routes, portées) | Créés par `make deploy` dans `.env` ; le worker et le module 5S n'atteignent que leurs routes (`SERVICE_PATH_FORBIDDEN` sinon) ; l'interface n'est jamais un « service interne » |
+| `INTERNAL_TOKEN` | Appels vers auth-service, le worker et le module 5S | En-tête `X-Internal-Token` | Comparaison à temps constant ; n'ouvre plus core-service une fois les jetons par service en place ; jamais exposé au navigateur |
 | Cookie `b2s_session` | Navigateur ↔ frontend | Session de l'utilisateur, stockée dans Redis (base 1) | `HttpOnly`, `Secure` en HTTPS, `SameSite=Lax` ; durées réglables (Settings › Sessions utilisateur) ; révocable |
 | Cookie `b2s_principal` | Navigateur ↔ frontend | Identité et rôles de l'utilisateur, signés par `PRINCIPAL_SIGNING_KEY` | Signature vérifiée à chaque requête ; durée de 60 s : un changement de droits ou une révocation s'applique en une minute |
-| Identité de l'utilisateur | frontend → core | En-têtes `X-Identity-Id`, `X-Roles`, posés par le BFF | core-service exige le jeton interne sur **toutes** ses requêtes (sauf `/health`) : sans lui, ces en-têtes ne sont pas lus (401). Le navigateur ne peut pas les forger |
+| Identité de l'utilisateur | frontend, auth-service → core (relayée par le module 5S) | Assertion signée `X-B2S-Actor` (identité, rôles, nom, audience « core », 60 s), par `PRINCIPAL_SIGNING_KEY` | core-service ne croit qu'elle : les en-têtes `X-Identity-Id` / `X-Roles` reçus sont remplacés par ses valeurs ; le worker et le module 5S n'ont pas la clé et ne peuvent se faire passer pour personne ; le navigateur ne peut rien poser (le BFF les retire) |
 | Clé `b2s_master_key` | core-service | Chiffre les mots de passe stockés (AES-256-GCM, la référence du secret comme donnée associée) | Secret podman (fichier 0400 dans core-service seul, ni dans `.env` ni dans l'environnement) ; jamais en base ; à sauvegarder à part |
 | Identifiants d'agent | core → worker | Vérification de la santé du worker | HTTPS avec `certs/agent.crt` et `agent.key` ; autorité privée `certs/agent-ca.pem` |
 | Mot de passe Redis | auth, core, worker | Accès à la file et aux sessions | Secret podman `b2s_redis` ; réseau `b2s-jobs` interne |
 | Comptes SQL | core, module 5S, `make deploy` | Un compte par usage : `b2s_core` et `b2s_fives` lisent et écrivent leurs bases seulement (aucun changement de schéma), `b2s_migrate` change le schéma (déploiement, sauvegarde) | Mots de passe générés par le wizard, secrets podman ; le compte administrateur MariaDB ne sert qu'au wizard, jamais enregistré |
+
+Une installation d'avant ces jetons garde le jeton partagé et les en-têtes d'identité jusqu'à `make deploy` (Santé ›
+Diagnostic › « Identité des services » le signale). Reste partagé : `INTERNAL_TOKEN` pour les appels vers auth-service,
+le worker et le module 5S.
 
 Le BFF vérifie l'origine des requêtes qui modifient des données (contrôle CSRF de SvelteKit contre
 `FRONTEND_PUBLIC_ORIGIN`). La connexion est limitée à 5 échecs par compte et 50 par adresse en 15 minutes.

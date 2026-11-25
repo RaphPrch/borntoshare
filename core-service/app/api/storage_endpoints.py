@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import contextmanager, nullcontext
 from datetime import datetime
 from typing import Any
 
@@ -45,6 +46,9 @@ from app.services.storage_endpoint_provisioning import (
     build_storage_endpoint_provisioning_payload,
     normalize_storage_endpoint_provisioning_update,
 )
+from app.core.logging import get_logger
+
+logger = get_logger("core.storage_endpoints")
 
 router = APIRouter(
     prefix="/storage-endpoints",
@@ -266,6 +270,46 @@ def _resolved(host: str) -> set[str]:
         return set()
 
 
+@contextmanager
+def _declaration_lock():
+    """One declaration of a file server at a time (a MariaDB named lock, app.services.named_lock)."""
+    from app.services.named_lock import LockBusy, named_lock
+
+    try:
+        with named_lock("b2s_storage_endpoint_declaration", 30):
+            yield
+    except LockBusy:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"code": "STORAGE_ENDPOINT_DECLARATION_BUSY", "message": "Another file server is being declared: try again in a moment"},
+        ) from None
+
+
+# Resolving the declared servers one by one waited for each one the DNS does not know (a decommissioned server, a
+# name of another site): 43 of them took minutes, and the declaration of a server timed out
+_RESOLVE_WORKERS = 16
+_RESOLVE_DEADLINE_SECONDS = 15
+
+
+def _resolved_many(hosts: list[str]) -> dict[str, set[str]]:
+    """The addresses of each host, resolved together within _RESOLVE_DEADLINE_SECONDS; a host not resolved by then
+    counts as unknown (it is compared by its name only, as when the DNS does not know it)."""
+    from concurrent.futures import ThreadPoolExecutor, wait
+
+    unique = sorted({str(host or "").strip() for host in hosts if str(host or "").strip()})
+    if not unique:
+        return {}
+    pool = ThreadPoolExecutor(max_workers=min(_RESOLVE_WORKERS, len(unique)))
+    futures = {host: pool.submit(_resolved, host) for host in unique}
+    wait(futures.values(), timeout=_RESOLVE_DEADLINE_SECONDS)
+    pool.shutdown(wait=False, cancel_futures=True)
+    out = {host: future.result() if future.done() else set() for host, future in futures.items()}
+    late = [host for host, future in futures.items() if not future.done()]
+    if late:
+        logger.warning("STORAGE_ENDPOINT_HOSTS_NOT_RESOLVED", extra={"hosts": len(late), "deadline_seconds": _RESOLVE_DEADLINE_SECONDS})
+    return out
+
+
 def _same_server(db: Session, host: str | None, *, exclude_id: int | None = None) -> list[dict]:
     """Every endpoint declared on this server (its namespaces for a DFS server)."""
     from app.services.storage_guards import same_host
@@ -301,10 +345,9 @@ def _assert_host_free(db: Session, host: str | None, *, exclude_id: int | None =
     if taken is None:
         # The same server by its name and by its address (or two names): compared by what they resolve to
         wanted_ips = _resolved(wanted)
-        taken = next(
-            (row for row in rows if row["id"] != exclude_id and wanted_ips & _resolved(str(row["host"]))),
-            None,
-        ) if wanted_ips else None
+        others = [row for row in rows if row["id"] != exclude_id]
+        addresses = _resolved_many([str(row["host"]) for row in others]) if wanted_ips else {}
+        taken = next((row for row in others if wanted_ips & addresses.get(str(row["host"]).strip(), set())), None) if wanted_ips else None
     if taken:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -591,41 +634,44 @@ def create_endpoint(
 
     _require_platform_admin(request)
     data = _sync_endpoint_lifecycle(payload.model_dump())
-    if str(data.get("endpoint_type") or "").lower() == "dfs":
-        # Several namespaces share their DFS server: one namespace is declared once
-        _assert_namespace_free(db, ((data.get("capabilities") or {}).get("dfs_snapshot") or {}).get("path"))
-    else:
-        _assert_host_free(db, data.get("host"))
-    _assert_zone_of_server(db, data.get("host"), int(data.get("zone_id") or 0) or None)
+    # The check « this server is not declared yet » and the insert, one declaration at a time: two at the same
+    # moment (a slow answer sent again) both passed the check and declared the same server twice
+    with _declaration_lock():
+        if str(data.get("endpoint_type") or "").lower() == "dfs":
+            # Several namespaces share their DFS server: one namespace is declared once
+            _assert_namespace_free(db, ((data.get("capabilities") or {}).get("dfs_snapshot") or {}).get("path"))
+        else:
+            _assert_host_free(db, data.get("host"))
+        _assert_zone_of_server(db, data.get("host"), int(data.get("zone_id") or 0) or None)
 
-    if data.get("bind_dn") and not data.get("bind_password_ref"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="bind_password_ref is required when bind_dn is provided",
+        if data.get("bind_dn") and not data.get("bind_password_ref"):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bind_password_ref is required when bind_dn is provided",
+            )
+
+        require_ad = _requires_ad_identity_source(
+            endpoint_type=str(data.get("endpoint_type") or ""),
+            protocol=str(data.get("protocol") or ""),
+        )
+        _validate_identity_source_for_endpoint(
+            db,
+            identity_source_id=int(data.get("identity_source_id") or 0) or None,
+            require_ad=require_ad,
         )
 
-    require_ad = _requires_ad_identity_source(
-        endpoint_type=str(data.get("endpoint_type") or ""),
-        protocol=str(data.get("protocol") or ""),
-    )
-    _validate_identity_source_for_endpoint(
-        db,
-        identity_source_id=int(data.get("identity_source_id") or 0) or None,
-        require_ad=require_ad,
-    )
+        endpoint = StorageEndpoint(**data)
 
-    endpoint = StorageEndpoint(**data)
+        db.add(endpoint)
 
-    db.add(endpoint)
-
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Storage endpoint conflict",
-        )
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Storage endpoint conflict",
+            )
 
     db.refresh(endpoint)
     zone_ctx = _resolve_zone_context(
@@ -789,118 +835,120 @@ def update_endpoint(
     )
 
     updates = _sync_endpoint_lifecycle(payload.model_dump(exclude_unset=True))
-    if "host" in updates:
-        _assert_host_free(db, updates.get("host"), exclude_id=int(endpoint.id))
-    rewrite_root_paths = bool(updates.pop("rewrite_root_paths", False))
-    root_path_rewrites = _guard_endpoint_change(db, endpoint, updates, rewrite_root_paths=rewrite_root_paths)
+    # A new address is checked and saved under the lock of the declarations (two at once declared a server twice)
+    with (_declaration_lock() if "host" in updates else nullcontext()):
+        if "host" in updates:
+            _assert_host_free(db, updates.get("host"), exclude_id=int(endpoint.id))
+        rewrite_root_paths = bool(updates.pop("rewrite_root_paths", False))
+        root_path_rewrites = _guard_endpoint_change(db, endpoint, updates, rewrite_root_paths=rewrite_root_paths)
 
-    next_bind_dn = updates.get("bind_dn", endpoint.bind_dn)
-    next_bind_ref = updates.get("bind_password_ref", endpoint.bind_password_ref)
-    if next_bind_dn and not next_bind_ref:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="bind_password_ref is required when bind_dn is provided",
-        )
-
-    next_endpoint_type = updates.get("endpoint_type", endpoint.endpoint_type)
-    next_protocol = updates.get("protocol", endpoint.protocol)
-    require_ad = _requires_ad_identity_source(
-        endpoint_type=str(next_endpoint_type or ""),
-        protocol=str(next_protocol or ""),
-    )
-
-    should_validate_identity_source = (
-        "identity_source_id" in updates
-        or "endpoint_type" in updates
-        or "protocol" in updates
-    )
-    if should_validate_identity_source:
-        _validate_identity_source_for_endpoint(
-            db,
-            identity_source_id=(
-                int(updates.get("identity_source_id") or 0)
-                if "identity_source_id" in updates
-                else int(getattr(endpoint, "identity_source_id", 0) or 0)
+        next_bind_dn = updates.get("bind_dn", endpoint.bind_dn)
+        next_bind_ref = updates.get("bind_password_ref", endpoint.bind_password_ref)
+        if next_bind_dn and not next_bind_ref:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="bind_password_ref is required when bind_dn is provided",
             )
-            or None,
-            require_ad=require_ad,
+
+        next_endpoint_type = updates.get("endpoint_type", endpoint.endpoint_type)
+        next_protocol = updates.get("protocol", endpoint.protocol)
+        require_ad = _requires_ad_identity_source(
+            endpoint_type=str(next_endpoint_type or ""),
+            protocol=str(next_protocol or ""),
         )
 
-    host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
-    zone_moved = "zone_id" in updates and int(updates.get("zone_id") or 0) != int(endpoint.zone_id or 0)
-    for field, value in updates.items():
-        setattr(endpoint, field, value)
-    if zone_moved or host_moved:
-        # A server belongs to one zone: its other namespaces follow (a new host joins the zone of that server)
-        siblings = _same_server(db, endpoint.host, exclude_id=int(endpoint.id))
-        if host_moved and not zone_moved and siblings:
-            endpoint.zone_id = siblings[0]["zone_id"]
-        elif siblings:
-            storage_endpoints_sql.update_endpoint_1(db, {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
-    if {"bind_dn", "bind_password_ref"} & set(updates):
-        # Another account: its right to manage a DFS namespace is not known yet
-        _remember_dfs_delegation(endpoint, denied=False)
-    capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
-    # Another account (or password) may hold the delegation: the refusal of the previous one no longer tells anything
-    account_changed = "bind_dn" in updates or "bind_password_ref" in updates
-    if account_changed and ("dfs_manage_denied" in capabilities or "dfs_manage_ok" in capabilities):
-        capabilities = {key: value for key, value in capabilities.items() if key not in ("dfs_manage_denied", "dfs_manage_ok")}
-        endpoint.capabilities = capabilities
-    if host_moved and "discovered_roots_snapshot" in capabilities:
-        # The shares found on the previous host carry its address: the next search lists them again
-        endpoint.capabilities = {key: value for key, value in capabilities.items() if key != "discovered_roots_snapshot"}
-    for root, new_path in root_path_rewrites:
-        root.root_path = new_path
-        root.normalized_root_path = normalize_root_path(new_path)
-
-    probe_status = str(updates.get("last_probe_status") or "").strip().lower()
-    probe_failed_roots: list[dict[str, object]] = []
-    if probe_status:
-        probe_message = str(updates.get("last_probe_message") or "").strip() or None
-        impacted_roots = ProbeResultService(db).record_storage_endpoint_probe(
-            endpoint,
-            status_value=probe_status,
-            checked_at=_coerce_probe_datetime(updates.get("last_probe_at")),
-            message=probe_message,
-            source_type="storage_endpoint_update",
-            source_id=str(int(endpoint.id)),
-            job_id=int(updates.get("last_probe_job_id") or 0) or None,
-            correlation_id=(request.headers.get("x-request-id") or None),
-            cascade_to_roots=True,
+        should_validate_identity_source = (
+            "identity_source_id" in updates
+            or "endpoint_type" in updates
+            or "protocol" in updates
         )
-        if probe_status == "failed":
-            probe_failed_roots = impacted_roots
+        if should_validate_identity_source:
+            _validate_identity_source_for_endpoint(
+                db,
+                identity_source_id=(
+                    int(updates.get("identity_source_id") or 0)
+                    if "identity_source_id" in updates
+                    else int(getattr(endpoint, "identity_source_id", 0) or 0)
+                )
+                or None,
+                require_ad=require_ad,
+            )
 
-    critical_fields = {
-        "host",
-        "port",
-        "protocol",
-        "endpoint_type",
-        "identity_source_id",
-        "bind_dn",
-        "bind_password_ref",
-    }
-    changed_critical_fields = [
-        field
-        for field in sorted(critical_fields)
-        if field in updates and critical_before.get(field) != getattr(endpoint, field, None)
-    ]
-    revalidation_roots: list[dict[str, object]] = []
-    if changed_critical_fields and probe_status != "failed":
-        revalidation_roots = ProbeResultService(db).mark_roots_need_revalidation(
-            endpoint=endpoint,
-            reason=f"storage_endpoint_configuration_changed:{','.join(changed_critical_fields)}",
-            correlation_id=(request.headers.get("x-request-id") or None),
-        )
+        host_moved = "host" in updates and not same_host(str(updates.get("host") or ""), endpoint.host)
+        zone_moved = "zone_id" in updates and int(updates.get("zone_id") or 0) != int(endpoint.zone_id or 0)
+        for field, value in updates.items():
+            setattr(endpoint, field, value)
+        if zone_moved or host_moved:
+            # A server belongs to one zone: its other namespaces follow (a new host joins the zone of that server)
+            siblings = _same_server(db, endpoint.host, exclude_id=int(endpoint.id))
+            if host_moved and not zone_moved and siblings:
+                endpoint.zone_id = siblings[0]["zone_id"]
+            elif siblings:
+                storage_endpoints_sql.update_endpoint_1(db, {"zone": int(endpoint.zone_id), "ids": [row["id"] for row in siblings]})
+        if {"bind_dn", "bind_password_ref"} & set(updates):
+            # Another account: its right to manage a DFS namespace is not known yet
+            _remember_dfs_delegation(endpoint, denied=False)
+        capabilities = endpoint.capabilities if isinstance(endpoint.capabilities, dict) else {}
+        # Another account (or password) may hold the delegation: the refusal of the previous one no longer tells anything
+        account_changed = "bind_dn" in updates or "bind_password_ref" in updates
+        if account_changed and ("dfs_manage_denied" in capabilities or "dfs_manage_ok" in capabilities):
+            capabilities = {key: value for key, value in capabilities.items() if key not in ("dfs_manage_denied", "dfs_manage_ok")}
+            endpoint.capabilities = capabilities
+        if host_moved and "discovered_roots_snapshot" in capabilities:
+            # The shares found on the previous host carry its address: the next search lists them again
+            endpoint.capabilities = {key: value for key, value in capabilities.items() if key != "discovered_roots_snapshot"}
+        for root, new_path in root_path_rewrites:
+            root.root_path = new_path
+            root.normalized_root_path = normalize_root_path(new_path)
 
-    try:
-        db.commit()
-    except IntegrityError:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Storage endpoint conflict",
-        )
+        probe_status = str(updates.get("last_probe_status") or "").strip().lower()
+        probe_failed_roots: list[dict[str, object]] = []
+        if probe_status:
+            probe_message = str(updates.get("last_probe_message") or "").strip() or None
+            impacted_roots = ProbeResultService(db).record_storage_endpoint_probe(
+                endpoint,
+                status_value=probe_status,
+                checked_at=_coerce_probe_datetime(updates.get("last_probe_at")),
+                message=probe_message,
+                source_type="storage_endpoint_update",
+                source_id=str(int(endpoint.id)),
+                job_id=int(updates.get("last_probe_job_id") or 0) or None,
+                correlation_id=(request.headers.get("x-request-id") or None),
+                cascade_to_roots=True,
+            )
+            if probe_status == "failed":
+                probe_failed_roots = impacted_roots
+
+        critical_fields = {
+            "host",
+            "port",
+            "protocol",
+            "endpoint_type",
+            "identity_source_id",
+            "bind_dn",
+            "bind_password_ref",
+        }
+        changed_critical_fields = [
+            field
+            for field in sorted(critical_fields)
+            if field in updates and critical_before.get(field) != getattr(endpoint, field, None)
+        ]
+        revalidation_roots: list[dict[str, object]] = []
+        if changed_critical_fields and probe_status != "failed":
+            revalidation_roots = ProbeResultService(db).mark_roots_need_revalidation(
+                endpoint=endpoint,
+                reason=f"storage_endpoint_configuration_changed:{','.join(changed_critical_fields)}",
+                correlation_id=(request.headers.get("x-request-id") or None),
+            )
+
+        try:
+            db.commit()
+        except IntegrityError:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Storage endpoint conflict",
+            )
 
     after = {
         "name": endpoint.name,
