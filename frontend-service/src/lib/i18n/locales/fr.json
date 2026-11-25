@@ -5918,5 +5918,6 @@
   "Risks before approving": "Risques avant d'approuver",
   "Inherited from the parent": "héritée du parent",
   "Approve despite the risks?": "Approuver malgré les risques ?",
-  "The simulation of the NTFS change found:": "La simulation du changement NTFS a trouvé :"
+  "The simulation of the NTFS change found:": "La simulation du changement NTFS a trouvé :",
+  "Permissions unavailable for now": "Permissions indisponibles pour le moment"
 }
