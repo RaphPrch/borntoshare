@@ -118,6 +118,8 @@ up() {
   # The code under test: the committed tree (the report gives its commit)
   git -C "$REPO" archive HEAD | tar -x -C "$RUN/repo"
   git -C "$REPO" describe --always --dirty > "$RUN/commit"
+  # Native: the wizard as its single executable when it is built (make wizard-binary), as a customer may receive it
+  if [ "$TOPO" = native ] && [ -x "$REPO/dist/b2s-wizard" ]; then install -D -m 0755 "$REPO/dist/b2s-wizard" "$RUN/repo/dist/b2s-wizard"; fi
   local origin="http://lab-app:3000"
   [ "$TOPO" = hybrid ] && origin="https://lab-web"
   [ "$TOPO" = native ] && origin="https://lab-app"

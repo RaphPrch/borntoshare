@@ -20,21 +20,21 @@
       <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#123b49" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="18" y="86" width="164" height="14" rx="4" fill="#eaeff3"/><rect x="28" y="50" width="44" height="36" rx="4" fill="#fff"/><path d="M38 50v36M48 50v36M58 50v36"/><rect x="78" y="50" width="44" height="36" rx="4" fill="#079c9c"/><path d="M88 50v36M98 50v36M108 50v36" stroke="#fff"/><rect x="128" y="50" width="44" height="36" rx="4" fill="#fff"/><path d="M138 50v36M148 50v36M158 50v36"/><rect x="53" y="14" width="44" height="36" rx="4" fill="#fff"/><path d="M63 14v36M73 14v36M83 14v36"/><rect x="103" y="14" width="44" height="36" rx="4" fill="#fff"/><path d="M113 14v36M123 14v36M133 14v36"/></svg></span>
       <span class="mode__title"><b>Tout en conteneurs</b><em class="chip is-dark">Recommandé</em></span>
       <span class="mode__text">Tous les services et l’interface dans Podman, sur ce serveur. Une mise à jour remplace les images ; un retour arrière est une commande.</span>
-      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis, interface</dd><dt>Publication</dt><dd>un port, ou votre reverse proxy</dd><dt>Demande</dt><dd>podman, podman-compose</dd><dt>Mises à jour</dt><dd>make deploy</dd></dl>
+      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis, interface</dd><dt>Publication</dt><dd>un port, ou votre reverse proxy</dd><dt>Demande</dt><dd>Podman</dd><dt>Mises à jour</dt><dd>nouvelles images, retour arrière possible</dd></dl>
       <span class="mode__go">Choisir →</span>
     </button>
     <button type="button" class="mode" data-mode="hybrid">
       <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#123b49" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="10" y="80" width="96" height="14" rx="4" fill="#eaeff3"/><rect x="16" y="44" width="40" height="36" rx="4" fill="#fff"/><path d="M26 44v36M36 44v36M46 44v36"/><rect x="60" y="44" width="40" height="36" rx="4" fill="#079c9c"/><path d="M70 44v36M80 44v36M90 44v36" stroke="#fff"/><rect x="38" y="8" width="40" height="36" rx="4" fill="#fff"/><path d="M48 8v36M58 8v36M68 8v36"/><path d="M108 62h20" stroke-dasharray="4 4"/><rect x="132" y="12" width="56" height="84" rx="6" fill="#fff"/><rect x="141" y="24" width="38" height="12" rx="3" fill="#079c9c"/><rect x="141" y="42" width="38" height="12" rx="3"/><rect x="141" y="60" width="38" height="12" rx="3"/><circle cx="160" cy="84" r="3.5"/></svg></span>
       <span class="mode__title"><b>Hybride</b><em class="chip">httpd</em></span>
       <span class="mode__text">Les services en conteneurs ; l’interface en service Node.js publiée par votre Apache httpd, ici ou sur un serveur web annexe.</span>
-      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>podman ; httpd, mod_ssl, Node.js 26+</dd><dt>Mises à jour</dt><dd>make deploy (pousse l’annexe)</dd></dl>
+      <dl><dt>Ce serveur</dt><dd>Podman : services, Redis</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>podman ; httpd, mod_ssl, Node.js 26+</dd><dt>Mises à jour</dt><dd>services et interface ensemble</dd></dl>
       <span class="mode__go">Choisir →</span>
     </button>
     <button type="button" class="mode" data-mode="native">
       <span class="mode__art"><svg width="200" height="110" viewBox="0 0 200 110" fill="none" stroke="#123b49" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><rect x="40" y="8" width="56" height="94" rx="6" fill="#fff"/><rect x="49" y="20" width="38" height="12" rx="3" fill="#079c9c"/><rect x="49" y="38" width="38" height="12" rx="3"/><rect x="49" y="56" width="38" height="12" rx="3"/><rect x="49" y="74" width="38" height="12" rx="3"/><rect x="104" y="8" width="56" height="94" rx="6" fill="#fff"/><rect x="113" y="20" width="38" height="12" rx="3"/><rect x="113" y="38" width="38" height="12" rx="3" fill="#079c9c"/><rect x="113" y="56" width="38" height="12" rx="3"/><rect x="113" y="74" width="38" height="12" rx="3"/></svg></span>
       <span class="mode__title"><b>Sans conteneur</b><em class="chip">systemd</em></span>
       <span class="mode__text">Chaque service en unité systemd avec son environnement Python ; Redis du système ; l’interface publiée par httpd.</span>
-      <dl><dt>Ce serveur</dt><dd>services systemd, Redis système</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>Python 3.12, Node.js 26+, Redis, httpd, root</dd><dt>Mises à jour</dt><dd>sudo make deploy</dd></dl>
+      <dl><dt>Ce serveur</dt><dd>services systemd, Redis système</dd><dt>Interface</dt><dd>Node.js + httpd, ici ou en annexe</dd><dt>Demande</dt><dd>Python 3.12, Node.js 26+, Redis, httpd, droits root</dd><dt>Mises à jour</dt><dd>avec les droits root</dd></dl>
       <span class="mode__go">Choisir →</span>
     </button>
   </div>
@@ -56,18 +56,18 @@
 
         <!-- Prerequisites -->
         <section data-id="prereq" hidden>
-          <header><h2>Prérequis</h2><p class="lead">Lus sur ce serveur par <code>make wizard</code> (<span id="p_when"></span>). Un point rouge bloque la suite ; un orange se règle pendant le déploiement.</p></header>
+          <header><h2>Prérequis</h2><p class="lead">Ce que ce serveur offre (<span id="p_when"></span>). Un point rouge bloque la suite ; un orange se règle pendant le déploiement.</p></header>
           <div class="stack-sm" id="p_where"><span class="label">L’interface web sera publiée par httpd</span>
             <span class="seg" role="group" aria-label="Serveur de l'interface"><button type="button" data-web="local" class="is-on">sur ce serveur</button><button type="button" data-web="annex">sur un serveur web annexe</button></span></div>
           <div class="list" id="p_list"></div>
-          <div class="inline"><button type="button" class="btn is-sm" id="p_reload">Relire</button><span class="hint">Après une correction sur le serveur : <code>make wizard-check</code>, puis Relire.</span></div>
+          <div class="inline"><button type="button" class="btn is-sm" id="p_reload">Relire</button><span class="hint" id="p_reload_hint">Après une correction sur le serveur : Relire.</span></div>
         </section>
 
         <!-- MariaDB -->
         <section data-id="db" hidden>
           <header><h2>Serveur MariaDB</h2><p class="lead">Un compte qui peut créer des bases et des comptes (root, en général). Il sert à cette installation seulement, jamais écrit.</p></header>
-          <div class="grid g-host"><label class="fl"><span>Serveur <small>DB_HOST</small></span><input id="s_host" placeholder="mariadb.corp.local" spellcheck="false" /></label>
-            <label class="fl"><span>Port <small>DB_PORT</small></span><input id="s_port" type="number" min="1" max="65535" value="3306" /></label></div>
+          <div class="grid g-host"><label class="fl"><span>Serveur</span><input id="s_host" placeholder="mariadb.corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Port</span><input id="s_port" type="number" min="1" max="65535" value="3306" /></label></div>
           <div class="grid g-2"><label class="fl">Compte administrateur<input id="s_user" value="root" spellcheck="false" /></label>
             <label class="fl">Mot de passe<span class="pw"><input id="s_password" type="password" autocomplete="off" /><button type="button" class="eye" aria-label="Afficher le mot de passe"></button></span></label></div>
           <div class="inline"><button type="button" class="btn" id="s_test">Tester la connexion</button><span class="hint">Obligatoire pour continuer.</span></div>
@@ -78,10 +78,10 @@
         <section data-id="bases" hidden>
           <header><h2>Bases et comptes SQL</h2><p class="lead">Chaque usage a son compte, avec le minimum de droits ; les mots de passe sont générés et ne sont jamais affichés.</p></header>
           <div class="grid g-2">
-            <label class="fl"><span>Base des données <small>DB_NAME</small></span><input id="a_db" spellcheck="false" /></label>
-            <label class="fl"><span>Base des journaux <small>LOGGING_DB_NAME</small></span><input id="a_log" spellcheck="false" /></label>
-            <label class="fl"><span>Compte de l’application <small>DB_USER</small></span><input id="a_user" spellcheck="false" /></label>
-            <label class="fl"><span>Compte de migration <small>DB_MIGRATE_USER</small></span><input id="a_migrate" spellcheck="false" /></label>
+            <label class="fl"><span>Base des données</span><input id="a_db" spellcheck="false" /></label>
+            <label class="fl"><span>Base des journaux</span><input id="a_log" spellcheck="false" /></label>
+            <label class="fl"><span>Compte de l’application</span><input id="a_user" spellcheck="false" /></label>
+            <label class="fl"><span>Compte de migration</span><input id="a_migrate" spellcheck="false" /></label>
           </div>
           <div id="a_exists" class="callout is-warn" hidden></div>
           <div class="table">
@@ -96,8 +96,8 @@
         <section data-id="web" hidden>
           <div data-for-mode="containers">
             <header><h2>Accès à l’interface</h2><p class="lead">Le conteneur de l’interface est publié sur un port de ce serveur. L’adresse publique est celle que les utilisateurs taperont : elle sert aux liens des e-mails et à la protection des formulaires.</p></header>
-            <div class="grid g-host"><label class="fl"><span>Adresse publique <small>FRONTEND_PUBLIC_ORIGIN</small></span><input id="c_origin" placeholder="https://borntoshare.corp.local" spellcheck="false" /></label>
-              <label class="fl"><span>Port publié <small>FRONTEND_PUBLISHED_PORT</small></span><input id="c_port" type="number" min="1" max="65535" value="3000" /></label></div>
+            <div class="grid g-host"><label class="fl"><span>Adresse publique</span><input id="c_origin" placeholder="https://borntoshare.corp.local" spellcheck="false" /></label>
+              <label class="fl"><span>Port publié</span><input id="c_port" type="number" min="1" max="65535" value="3000" /></label></div>
             <div class="callout">Un reverse proxy de l’entreprise (F5, HAProxy, httpd existant) peut se placer devant ce port : l’adresse publique est alors la sienne. Pour que BornToShare le publie lui-même avec httpd, choisissez le mode Hybride.</div>
           </div>
           <div data-for-mode="httpd">
@@ -106,12 +106,11 @@
               <span class="seg" role="group" aria-label="Serveur de l'interface"><button type="button" data-web="local" class="is-on">Ce serveur</button><button type="button" data-web="annex">Un serveur web annexe</button></span>
               <span class="hint" id="w_hint"></span></div>
             <div class="grid g-2">
-              <label class="fl"><span>Nom d’hôte <small>ServerName</small></span><input id="h_name" placeholder="borntoshare.corp.local" spellcheck="false" /></label>
-              <label class="fl"><span>Port HTTPS <small>Listen</small></span><input id="h_port" type="number" min="1" max="65535" value="443" /></label>
-              <label class="fl"><span>Certificat <span data-on-annex>(sur l’annexe) </span><small>SSLCertificateFile</small></span><input id="h_cert" spellcheck="false" /></label>
-              <label class="fl"><span>Clé privée <span data-on-annex>(sur l’annexe) </span><small>SSLCertificateKeyFile</small></span><input id="h_key" spellcheck="false" /></label>
+              <label class="fl"><span>Nom d’hôte</span><input id="h_name" placeholder="borntoshare.corp.local" spellcheck="false" /></label>
+              <label class="fl"><span>Port HTTPS</span><input id="h_port" type="number" min="1" max="65535" value="443" /></label>
+              <label class="fl"><span>Certificat <span data-on-annex>(sur l’annexe) </span></span><input id="h_cert" spellcheck="false" /></label>
+              <label class="fl"><span>Clé privée <span data-on-annex>(sur l’annexe) </span></span><input id="h_key" spellcheck="false" /></label>
             </div>
-            <div class="stack-sm"><span class="label">Écrit dans /etc/httpd/conf.d/borntoshare.conf</span><pre class="code" id="h_vhost"></pre></div>
           </div>
         </section>
 
@@ -124,22 +123,22 @@
             <div class="node"><b>Ce serveur</b><span class="mono" id="n_here"></span></div>
           </div>
           <div class="grid g-3">
-            <label class="fl"><span>Serveur annexe <small>B2S_WEB_HOST</small></span><input id="n_host" placeholder="web01.corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Serveur annexe</span><input id="n_host" placeholder="web01.corp.local" spellcheck="false" /></label>
             <label class="fl"><span>Son adresse IP <small>pare-feu</small></span><input id="n_ip" placeholder="10.0.0.21" spellcheck="false" /></label>
-            <label class="fl"><span>Ce serveur, vu de l’annexe <small>B2S_API_HOST</small></span><input id="n_api" placeholder="b2s01.corp.local" spellcheck="false" /></label>
-            <label class="fl"><span>Port de l’authentification <small>B2S_AUTH_PORT</small></span><input id="n_auth" type="number" value="8101" /></label>
-            <label class="fl"><span>Port du core <small>B2S_CORE_PORT</small></span><input id="n_core" type="number" value="8102" /></label>
-            <label class="fl" data-if-fives><span>Port du module 5S <small>B2S_FIVES_PORT</small></span><input id="n_fives" type="number" value="8105" /></label>
+            <label class="fl"><span>Ce serveur, vu de l’annexe</span><input id="n_api" placeholder="b2s01.corp.local" spellcheck="false" /></label>
+            <label class="fl"><span>Port de l’authentification</span><input id="n_auth" type="number" value="8101" /></label>
+            <label class="fl"><span>Port du core</span><input id="n_core" type="number" value="8102" /></label>
+            <label class="fl" data-if-fives><span>Port du module 5S</span><input id="n_fives" type="number" value="8105" /></label>
           </div>
           <div class="panel">
             <span class="label">Installer l’interface sur le serveur annexe</span>
             <span class="seg" role="group" aria-label="Méthode"><button type="button" data-push="ssh" class="is-on">Pousser par SSH</button><button type="button" data-push="bundle">Paquet à copier</button></span>
             <div data-push-for="ssh" class="grid g-2">
-              <label class="fl"><span>Compte SSH (sudo sans mot de passe) <small>B2S_WEB_SSH_USER</small></span><input id="n_user" value="b2s-deploy" spellcheck="false" /></label>
-              <label class="fl"><span>Clé, sur ce serveur <small>B2S_WEB_SSH_KEY</small></span><input id="n_key" value="~/.ssh/id_ed25519" spellcheck="false" /></label>
+              <label class="fl"><span>Compte SSH (sudo sans mot de passe)</span><input id="n_user" value="b2s-deploy" spellcheck="false" /></label>
+              <label class="fl"><span>Clé, sur ce serveur</span><input id="n_key" value="~/.ssh/id_ed25519" spellcheck="false" /></label>
             </div>
             <span data-push-for="ssh" class="hint">Clé seulement, jamais de mot de passe. Le déploiement copie l’interface, installe son service, le vhost et la règle SELinux sur l’annexe, puis vérifie qu’elle joint ce serveur.</span>
-            <span data-push-for="bundle" class="hint" hidden>Le déploiement prépare <code>dist/borntoshare-web.tar.gz</code> : à copier sur l’annexe, puis <code>sudo borntoshare-web/install-web.sh</code>. Il contient le jeton des services (fichier 0600) : à transférer par un canal sûr, puis à supprimer.</span>
+            <span data-push-for="bundle" class="hint" hidden>Le déploiement prépare un paquet à copier sur l’annexe et à y installer en root ; il dit comment. Il contient le jeton des services : à transférer par un canal sûr, puis à supprimer.</span>
           </div>
           <p class="hint" id="n_fw"></p>
         </section>
@@ -160,9 +159,9 @@
             <div class="inline"><button type="button" id="l_check" class="btn is-sm">Vérifier la clé</button><span class="hint">Vérifiée ici, sans connexion : rien ne sort de ce serveur.</span></div>
             <div id="l_result" hidden></div>
             <div id="m_fields" class="grid g-3" hidden>
-              <label class="fl"><span>Base <small>FIVES_DB_NAME</small></span><input id="m_db" spellcheck="false" /></label>
-              <label class="fl"><span>Inventaire <small>FIVES_INVENTORY_DB_NAME</small></span><input id="m_inv" spellcheck="false" /></label>
-              <label class="fl"><span>Compte <small>FIVES_DB_USER</small></span><input id="m_user" spellcheck="false" /></label>
+              <label class="fl"><span>Base</span><input id="m_db" spellcheck="false" /></label>
+              <label class="fl"><span>Inventaire</span><input id="m_inv" spellcheck="false" /></label>
+              <label class="fl"><span>Compte</span><input id="m_user" spellcheck="false" /></label>
             </div>
           </div>
         </section>
@@ -180,7 +179,7 @@
           </div>
           <div class="inline is-end"><label class="fl w-320">Envoyer un test à<input id="e_to" type="email" placeholder="vous@corp.local" /></label><button type="button" class="btn" id="e_test">Envoyer le test</button></div>
           <div id="e_result" hidden></div>
-          <p class="hint">Le mot de passe est chiffré par BornToShare au premier démarrage, avec sa clé ; d’ici là il attend dans <code>secrets/</code> (0600), jamais dans <code>.env</code>.</p>
+          <p class="hint">Le mot de passe est conservé sur ce serveur, lisible par root seulement, puis chiffré par BornToShare à son premier démarrage.</p>
         </section>
 
         <!-- Syslog -->
@@ -220,7 +219,6 @@
         <section data-id="p1" hidden>
           <header><h2 id="p1_title">Préparation</h2><p class="lead" id="p1_lead">Bases, comptes et configuration, depuis l’installateur.</p></header>
           <ol class="phases" id="p1_list"></ol>
-          <details class="details" id="p1_env" hidden><summary>Ajouté à <code>.env</code></summary><p class="hint">Aucun mot de passe.</p><pre class="code" id="p1_env_text"></pre></details>
         </section>
 
         <!-- Stage 1 done -->
@@ -228,16 +226,16 @@
           <div class="center">
             <span class="big-check is-ok"><svg width="30" height="30" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 8.5 3 3 7-7"/></svg></span>
             <h2>Étape 1 terminée</h2>
-            <p class="lead">Bases, comptes, administrateur et configuration sont prêts. Le déploiement a démarré <span id="d1_where">sur ce serveur</span>. Fenêtre fermée ? <code>make deploy</code> reprend au même point.</p>
+            <p class="lead">Bases, comptes, administrateur et configuration sont prêts. Le déploiement a démarré <span id="d1_where">sur ce serveur</span>.</p>
           </div>
         </section>
 
         <!-- Stage 2 -->
         <section data-id="p2" hidden>
-          <header><h2 id="p2_title">Déploiement</h2><p class="lead" id="p2_lead">Depuis ce serveur, sans commande à taper. En cas d’arrêt : corriger, puis <code>make deploy</code> reprend tout, sans rien effacer.</p></header>
+          <header><h2 id="p2_title">Déploiement</h2><p class="lead" id="p2_lead">Depuis ce serveur, sans commande à taper. Rien n’est effacé : tout peut être rejoué.</p></header>
           <div class="bar"><div class="bar__head"><b id="p2_phase">En attente du déploiement…</b><span class="mono" id="p2_pct">0 %</span></div><div class="bar__track"><div id="p2_fill"></div></div></div>
           <ol class="phases" id="p2_list"></ol>
-          <div id="p2_waiting" class="callout is-warn" hidden><b>Le déploiement ne démarre pas.</b> Il est lancé par <code>make wizard</code> sur le serveur. Sinon : <code>make deploy</code>.</div>
+          <div id="p2_waiting" class="callout is-warn" hidden><b>Le déploiement ne démarre pas.</b> Sur le serveur, lancer <code>make deploy</code> : il reprend au même point.</div>
           <div id="p2_failed" class="result is-error" hidden><div class="result__head"><b>Le déploiement s’est arrêté</b></div><pre class="code" id="p2_log"></pre><p class="hint">Corriger, puis <code>make deploy</code> sur le serveur : il reprend tout, sans rien effacer.</p></div>
         </section>
 

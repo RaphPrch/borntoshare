@@ -9,6 +9,7 @@
 #   .deploy-status   written here: {"state": "running|done|failed", "phase": "<last phase of deploy.sh>"}
 #   .deploy.log      the output of deploy.sh (it never prints a password)
 #   .deploy-phases   the phases deploy.sh announces (« PHASES: … »), shown by the wizard
+#   .host-check.request  written by the wizard (« Relire » of the prerequisites): the server is read again here
 # (.smtp-password, written by the wizard when an SMTP password is given, is read by scripts/post-install.sh only)
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -40,7 +41,12 @@ rm -f "$DIR/.installed" "$DIR/.deploy-status" "$DIR/.deploy.log" "$DIR/.deploy-p
 # Wait for the installation (the wizard may stay open for a long time)
 until [ -f "$DIR/.installed" ]; do
   running || exit 0
-  sleep 3
+  # « Relire » in the prerequisites: the wizard cannot read the server from its container, this script can
+  if [ -f "$DIR/.host-check.request" ]; then
+    rm -f "$DIR/.host-check.request"
+    scripts/host-check.sh >/dev/null 2>&1 || true
+  fi
+  sleep 2
 done
 
 status running "Lignes de .env"

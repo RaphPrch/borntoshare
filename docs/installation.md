@@ -63,9 +63,13 @@ s'il existe :
 ## 2. L'installateur : trois façons d'installer
 
 ```bash
-make wizard          # http://<hôte>:8080 (sans podman : le wizard tourne dans son propre environnement Python)
-make wizard-check    # relire les prérequis du serveur, puis « Relire » dans l'installateur
+make wizard          # http://<hôte>:8080, le wizard dans un conteneur (sans Podman : le binaire ou un environnement Python)
+make wizard-binary   # construit le wizard en un seul exécutable, dist/b2s-wizard (ni Python ni Podman pour le lancer)
+WIZARD=binary make wizard   # lance ce binaire, même quand Podman est présent
 ```
+
+Le binaire `dist/b2s-wizard` (Linux x86_64, RHEL 9 ou plus récent) contient le wizard complet, ses écrans et ses
+paquets SQL ; il peut être livré seul à côté du dépôt. 
 
 `make wizard` lit d'abord ce que le serveur offre (`scripts/host-check.sh` → `secrets/.host-check.json` : podman,
 Python, Node.js, httpd, mod_ssl, Redis, client MariaDB, SELinux, firewalld, sudo, disque, ports). L'installateur

@@ -339,3 +339,25 @@ def test_defaults_carry_the_way_of_installing_and_the_host_check(tmp_path, monke
     data = client.get("/api/defaults").json()
     assert data["deploy"]["mode"] == "hybrid" and data["deploy"]["web"]["location"] == "annex"
     assert data["host"]["node"] == "22.1.0"
+
+
+def test_relire_asks_the_host_and_returns_what_it_read(tmp_path, monkeypatch):
+    import threading
+    import time
+
+    monkeypatch.setenv("SECRETS_DIR", str(tmp_path))
+    (tmp_path / ".host-check.json").write_text('{"node": "22.1.0"}')
+
+    def host_reads_again():
+        # What scripts/after-wizard.sh does on the host: sees the request, runs host-check.sh
+        for _ in range(100):
+            if (tmp_path / ".host-check.request").exists():
+                (tmp_path / ".host-check.request").unlink()
+                time.sleep(0.05)
+                (tmp_path / ".host-check.json").write_text('{"node": "26.0.1"}')
+                return
+            time.sleep(0.05)
+
+    threading.Thread(target=host_reads_again).start()
+    response = client.post("/api/host-check/refresh", json={})
+    assert response.status_code == 200 and response.json()["node"] == "26.0.1"
