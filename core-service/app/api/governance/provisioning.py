@@ -24,7 +24,9 @@ from app.services.audit_logger import log_event
 from app.services.authorization import actor_from_request, admin_only, require_admin
 from app.services.provisioning_context import build_provisioning_context
 from app.services.provisioning_jobs import create_and_publish_job
+from app.core.logging import get_logger
 
+logger = get_logger("core.jobs")
 
 router = APIRouter(tags=["provisioning"])
 
@@ -457,6 +459,35 @@ async def run_queued_jobs_watchdog_once(
         "failed_job_ids": failed,
         "skipped": skipped,
     }
+
+
+async def close_abandoned_jobs_once(*, grace_seconds: int, limit: int, correlation_id: str) -> list[int]:
+    """The RUNNING jobs no worker holds any more (beyond the time limit of their worker plus grace_seconds) are
+    closed as failed, like a flush, so that their folder, server or directory stops waiting. Each one is logged."""
+    rows = await call_route(provisioning_internal.list_provisioning_jobs, status="RUNNING", active_only=True,
+                            limit=max(1, min(int(limit), 1000)), job_type=queue_job_types_csv())
+    closed: list[int] = []
+    for row in rows if isinstance(rows, list) else []:
+        row = dict(row)
+        if not job_board.abandoned(row, grace_seconds):
+            continue
+        job_id = int(row["id"])
+        message = (f"No result from the worker {int(row.get('run_seconds') or 0)} s after the start, beyond its time limit "
+                   f"of {job_board.worker_time_limit(row.get('job_type'))} s: closed by the watchdog")
+        try:
+            await call_route(provisioning_internal.fail_provisioning_job, job_id=job_id, payload={
+                "action": row.get("action"), "error_code": "JOB_ABANDONED", "error_message": message,
+                "result_json": {"success": False, "message": message}, "metrics_json": job_board._load(row.get("metrics_json")),
+                "error_json": {"code": "JOB_ABANDONED", "message": message, "watchdog": True},
+                "correlation_id": correlation_id,
+            })
+        except Exception:
+            logger.exception("JOB_ABANDONED_CLOSE_FAILED", extra={"job_id": job_id, "correlation_id": correlation_id})
+            continue
+        closed.append(job_id)
+        logger.warning("JOB_ABANDONED_CLOSED", extra={"job_id": job_id, "job_type": row.get("job_type"),
+                                                       "run_seconds": row.get("run_seconds"), "correlation_id": correlation_id})
+    return closed
 
 
 @router.get("/admin/jobs", dependencies=[Depends(admin_only)])

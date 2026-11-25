@@ -1,4 +1,6 @@
 import json
+import re
+from pathlib import Path
 
 from app.services import job_board
 
@@ -63,3 +65,28 @@ def test_the_purge_never_touches_a_job_in_progress() -> None:
     assert job_board.purge_history(_PurgeDb()) == 6
     for statement, params in seen:
         assert "QUEUED" not in statement and "RUNNING" not in statement and params["days"] >= 2
+
+
+# ---- jobs abandoned by their worker (watchdog) ----
+def test_a_running_job_is_abandoned_only_beyond_the_time_limit_of_its_worker() -> None:
+    def running(job_type, seconds):
+        return {"status": "RUNNING", "job_type": job_type, "run_seconds": seconds}
+
+    assert job_board.abandoned(running("AD_GROUP_ENSURE", 600 + 900 + 1), 900)
+    assert not job_board.abandoned(running("AD_GROUP_ENSURE", 1400), 900)
+    # An ACL propagation may run for hours: never closed before its own limit
+    assert not job_board.abandoned(running("ACL_APPLY", 4 * 3600), 900)
+    assert job_board.abandoned(running("ACL_APPLY", 5 * 3600 + 901), 900)
+    assert not job_board.abandoned(running("NOT_A_JOB_TYPE", 10**6), 900)
+    assert not job_board.abandoned({"status": "QUEUED", "job_type": "AD_GROUP_ENSURE", "run_seconds": 10**6}, 900)
+
+
+def test_the_time_limits_are_those_of_the_actors_of_the_worker() -> None:
+    """Both sides of the contract: capsule-runner's actors give the limits the core reads."""
+    actors = (Path(__file__).resolve().parents[3] / "capsule-runner/app/shared/b2s_job_contracts/actors.py").read_text()
+    from app.jobs.b2s_job_contracts import contracts
+
+    found = {}
+    for queue, limit in re.findall(r"@dramatiq\.actor\(queue_name=(QUEUE_\w+)[^)]*?time_limit=([\d\s*]+)\)", actors):
+        found[getattr(contracts, queue)] = eval(limit) // 1000  # noqa: S307 (digits and * only)
+    assert found == job_board.WORKER_TIME_LIMIT_SECONDS

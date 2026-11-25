@@ -1,16 +1,19 @@
-"""Republishes provisioning jobs stuck in QUEUED (JOB_WATCHDOG_* settings)."""
+"""Jobs nobody will finish (JOB_WATCHDOG_* settings): republishes those stuck in QUEUED, closes as failed those
+RUNNING beyond the time limit of their worker (JOB_ABANDONED)."""
 from __future__ import annotations
 
 import asyncio
 import uuid
 
 from app.core.config import get_settings
+from app.core.logging import get_logger
 
 settings = get_settings()
+logger = get_logger("core.jobs.watchdog")
 
 
 async def _jobs_watchdog_loop() -> None:
-    from app.api.governance.provisioning import run_queued_jobs_watchdog_once
+    from app.api.governance.provisioning import close_abandoned_jobs_once, run_queued_jobs_watchdog_once
 
     while True:
         await asyncio.sleep(settings.JOB_WATCHDOG_INTERVAL_SECONDS)
@@ -23,8 +26,16 @@ async def _jobs_watchdog_loop() -> None:
                 correlation_id=correlation_id,
             )
         except Exception:
-            # Watchdog must never crash the service loop.
-            continue
+            # Never stops the loop; never silent either
+            logger.exception("JOB_WATCHDOG_QUEUED_FAILED", extra={"correlation_id": correlation_id})
+        try:
+            await close_abandoned_jobs_once(
+                grace_seconds=settings.JOB_WATCHDOG_RUNNING_GRACE_SECONDS,
+                limit=settings.JOB_WATCHDOG_LIMIT,
+                correlation_id=correlation_id,
+            )
+        except Exception:
+            logger.exception("JOB_WATCHDOG_RUNNING_FAILED", extra={"correlation_id": correlation_id})
 
 
 def start_jobs_watchdog() -> asyncio.Task | None:

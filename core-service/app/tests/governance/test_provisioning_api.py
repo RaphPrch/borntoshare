@@ -206,3 +206,29 @@ def test_cancel_admin_job_uses_request_context_defaults(monkeypatch) -> None:
     assert post_calls[0][1]["reason"] == "Stop now"
     assert post_calls[0][1]["source"] == "ui"
 
+
+
+def test_watchdog_closes_only_the_jobs_abandoned_by_their_worker(monkeypatch) -> None:
+    post_calls: list[tuple[str, dict]] = []
+
+    async def _fake_internal_get(path: str):
+        assert "status=RUNNING" in path
+        return [
+            {"id": 201, "status": "RUNNING", "job_type": "AD_GROUP_ENSURE", "run_seconds": 3600, "action": "ensure_ad_group"},
+            {"id": 202, "status": "RUNNING", "job_type": "AD_GROUP_ENSURE", "run_seconds": 120, "action": "ensure_ad_group"},
+            {"id": 203, "status": "RUNNING", "job_type": "ACL_APPLY", "run_seconds": 3600, "action": "apply_acl_via_group"},
+        ]
+
+    async def _fake_internal_post(path: str, payload: dict):
+        post_calls.append((path, dict(payload)))
+        return {"ok": True}
+
+    fake_routes(monkeypatch, api, get=_fake_internal_get)
+    fake_routes(monkeypatch, api, post=_fake_internal_post)
+
+    closed = asyncio.run(api.close_abandoned_jobs_once(grace_seconds=900, limit=200, correlation_id="corr_abandoned"))
+
+    assert closed == [201]
+    assert [path for path, _ in post_calls] == ["/api/internal/provisioning/jobs/201/fail"]
+    assert post_calls[0][1]["error_code"] == "JOB_ABANDONED"
+    assert "time limit of 600 s" in post_calls[0][1]["error_message"]

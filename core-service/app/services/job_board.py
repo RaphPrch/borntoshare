@@ -70,6 +70,32 @@ def stuck_reason(row: dict[str, Any]) -> str | None:
     return None
 
 
+# The time Dramatiq gives one attempt of a job, by queue (time_limit of the actors of capsule-runner,
+# app/shared/b2s_job_contracts/actors.py; its default, 10 min, for the others). It stops the attempt then: a job still
+# RUNNING well beyond has no worker any more (worker killed, container restarted) and nothing will ever close it.
+WORKER_TIME_LIMIT_SECONDS = {"capsule_acl": 5 * 3600, "capsule_scans": 6 * 3600}
+DRAMATIQ_DEFAULT_TIME_LIMIT_SECONDS = 600
+
+
+def worker_time_limit(job_type: Any) -> int | None:
+    """The time limit of one attempt of the job; None for a type without contract (never closed by the watchdog)."""
+    from app.jobs.b2s_job_contracts.contracts import queue_for_job_type
+
+    try:
+        queue = queue_for_job_type(str(job_type or ""))
+    except Exception:
+        return None
+    return WORKER_TIME_LIMIT_SECONDS.get(queue, DRAMATIQ_DEFAULT_TIME_LIMIT_SECONDS)
+
+
+def abandoned(row: dict[str, Any], grace_seconds: int) -> bool:
+    """RUNNING beyond the time limit of its worker plus a margin: no worker holds it any more."""
+    if str(row.get("status") or "").upper() != "RUNNING":
+        return False
+    limit = worker_time_limit(row.get("job_type"))
+    return limit is not None and int(row.get("run_seconds") or 0) > limit + max(0, int(grace_seconds))
+
+
 def _int(value: Any) -> int | None:
     try:
         number = int(value)
