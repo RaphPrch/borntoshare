@@ -33,7 +33,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "test:pilot-engine": "npx tsx ./src/lib/components/pilot/pilot-engine.test.ts",
     "test:diagnostics": "npx tsx ./src/lib/utils/diagnostics.test.ts",
-    "test:acl-preview": "npx tsx ./src/lib/utils/acl-preview.test.ts"
+    "test:acl-preview": "npx tsx ./src/lib/utils/acl-preview.test.ts",
+    "test:error-messages": "npx tsx ./src/lib/errors/presenters.test.ts"
   },
   "overrides": {
     "cookie": "0.7.2"

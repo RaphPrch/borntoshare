@@ -27,7 +27,11 @@ const CODE_MESSAGES: Record<string, () => string> = {
   CONFIRM_NAME_MISMATCH: () => t('Type the exact name of the storage root to confirm.'),
   FOLDER_CONTEXT_INCOMPLETE: () => t('The folder, its share or the file server account is missing.'),
   FOLDER_NAME_INVALID: () => t('These characters are refused by Windows: \\ / : * ? " < > |'),
-  STORAGE_ROOT_HAS_CHILDREN: () => t('Child storage roots are attached to this storage root: remove them first.')
+  STORAGE_ROOT_HAS_CHILDREN: () => t('Child storage roots are attached to this storage root: remove them first.'),
+  STORAGE_ENDPOINT_HOST_TAKEN: () => t('This file server is already declared, under this address or another name of the same server.'),
+  STORAGE_ENDPOINT_DECLARATION_BUSY: () => t('Another file server is being declared: try again in a moment.'),
+  IDENTITY_SOURCE_DEPENDENCY_CHECK_FAILED: () =>
+    t('What depends on this identity source could not be counted: nothing was deleted. Try again in a moment.')
 };
 
 /** Translated message of a known business code, for toasts and inline errors alike. */

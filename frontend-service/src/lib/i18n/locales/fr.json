@@ -5919,5 +5919,9 @@
   "Inherited from the parent": "héritée du parent",
   "Approve despite the risks?": "Approuver malgré les risques ?",
   "The simulation of the NTFS change found:": "La simulation du changement NTFS a trouvé :",
-  "Permissions unavailable for now": "Permissions indisponibles pour le moment"
+  "Permissions unavailable for now": "Permissions indisponibles pour le moment",
+  "This file server is already declared, under this address or another name of the same server.": "Ce serveur de fichiers est déjà déclaré, à cette adresse ou sous un autre nom du même serveur.",
+  "Another file server is being declared: try again in a moment.": "Un autre serveur de fichiers est en cours de déclaration : réessayez dans un instant.",
+  "What depends on this identity source could not be counted: nothing was deleted. Try again in a moment.": "Ce qui dépend de cet annuaire n'a pas pu être compté : rien n'a été supprimé. Réessayez dans un instant.",
+  "These characters are refused by Windows: \\ / : * ? \" < > |": "Ces caractères sont refusés par Windows : \\ / : * ? \" < > |"
 }
