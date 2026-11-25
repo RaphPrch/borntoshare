@@ -10,7 +10,6 @@ from app.core.internal_auth import require_internal
 from app.data.models.identity_sources import IdentitySource
 from app.services.identity_source_accounts import load_accounts
 from app.services.identity_source_fields import (
-    identity_source_columns,
     source_auth_enabled,
     source_auth_priority,
     source_capabilities,
