@@ -175,3 +175,35 @@ def test_bulk_tags_answers_for_each_root(monkeypatch) -> None:
     assert data["updated"] == [3]
     assert [f["storage_root_id"] for f in data["failed"]] == [5, 8]
     assert attached == [(3, 1), (3, 2)]
+
+
+def test_servers_unknown_to_the_dns_do_not_add_up(monkeypatch) -> None:
+    """Each declared server the DNS does not answer for waited its timeout in turn: they are resolved together,
+    within a deadline, and a late one counts as unknown."""
+    import time as _time
+
+    from app.api import storage_endpoints as endpoints
+
+    rows = [{"id": i, "name": f"FS{i}", "host": f"fs{i}.site.invalid"} for i in range(20)]
+    db = SimpleNamespace(execute=lambda *_a, **_k: SimpleNamespace(mappings=lambda: SimpleNamespace(all=lambda: rows)))
+
+    def slow(host):
+        if host == "new.example.test":
+            return {"10.0.0.9"}
+        _time.sleep(0.5)
+        return set()
+
+    monkeypatch.setattr(endpoints, "_resolved", slow)
+    started = _time.monotonic()
+    endpoints._assert_host_free(db, "new.example.test")
+    assert _time.monotonic() - started < 3  # 20 × 0.5 s one by one
+
+
+def test_a_server_not_resolved_before_the_deadline_counts_as_unknown(monkeypatch) -> None:
+    import time as _time
+
+    from app.api import storage_endpoints as endpoints
+
+    monkeypatch.setattr(endpoints, "_RESOLVE_DEADLINE_SECONDS", 0.2)
+    monkeypatch.setattr(endpoints, "_resolved", lambda host: (_time.sleep(1), {"10.0.0.9"})[1] if host == "slow" else {"10.0.0.1"})
+    assert endpoints._resolved_many(["slow", "fast"]) == {"fast": {"10.0.0.1"}, "slow": set()}

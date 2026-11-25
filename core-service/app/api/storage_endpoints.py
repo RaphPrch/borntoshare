@@ -45,6 +45,9 @@ from app.services.storage_endpoint_provisioning import (
     build_storage_endpoint_provisioning_payload,
     normalize_storage_endpoint_provisioning_update,
 )
+from app.core.logging import get_logger
+
+logger = get_logger("core.storage_endpoints")
 
 router = APIRouter(
     prefix="/storage-endpoints",
@@ -266,6 +269,31 @@ def _resolved(host: str) -> set[str]:
         return set()
 
 
+# Resolving the declared servers one by one waited for each one the DNS does not know (a decommissioned server, a
+# name of another site): 43 of them took minutes, and the declaration of a server timed out
+_RESOLVE_WORKERS = 16
+_RESOLVE_DEADLINE_SECONDS = 15
+
+
+def _resolved_many(hosts: list[str]) -> dict[str, set[str]]:
+    """The addresses of each host, resolved together within _RESOLVE_DEADLINE_SECONDS; a host not resolved by then
+    counts as unknown (it is compared by its name only, as when the DNS does not know it)."""
+    from concurrent.futures import ThreadPoolExecutor, wait
+
+    unique = sorted({str(host or "").strip() for host in hosts if str(host or "").strip()})
+    if not unique:
+        return {}
+    pool = ThreadPoolExecutor(max_workers=min(_RESOLVE_WORKERS, len(unique)))
+    futures = {host: pool.submit(_resolved, host) for host in unique}
+    wait(futures.values(), timeout=_RESOLVE_DEADLINE_SECONDS)
+    pool.shutdown(wait=False, cancel_futures=True)
+    out = {host: future.result() if future.done() else set() for host, future in futures.items()}
+    late = [host for host, future in futures.items() if not future.done()]
+    if late:
+        logger.warning("STORAGE_ENDPOINT_HOSTS_NOT_RESOLVED", extra={"hosts": len(late), "deadline_seconds": _RESOLVE_DEADLINE_SECONDS})
+    return out
+
+
 def _same_server(db: Session, host: str | None, *, exclude_id: int | None = None) -> list[dict]:
     """Every endpoint declared on this server (its namespaces for a DFS server)."""
     from app.services.storage_guards import same_host
@@ -301,10 +329,9 @@ def _assert_host_free(db: Session, host: str | None, *, exclude_id: int | None =
     if taken is None:
         # The same server by its name and by its address (or two names): compared by what they resolve to
         wanted_ips = _resolved(wanted)
-        taken = next(
-            (row for row in rows if row["id"] != exclude_id and wanted_ips & _resolved(str(row["host"]))),
-            None,
-        ) if wanted_ips else None
+        others = [row for row in rows if row["id"] != exclude_id]
+        addresses = _resolved_many([str(row["host"]) for row in others]) if wanted_ips else {}
+        taken = next((row for row in others if wanted_ips & addresses.get(str(row["host"]).strip(), set())), None) if wanted_ips else None
     if taken:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
