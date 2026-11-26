@@ -95,6 +95,9 @@ def get_user_dashboard_me(
         },
         "my_requests": [_card(row) for row in sorted(mine, key=lambda r: str(r.get("created_at") or ""), reverse=True)[:8]],
         "my_ending": [_card(row) for row in mine if _status(row) == "approved" and _ends_soon(row, now)][:8],
+        # Requests the server or the directory refused (the rule of mine.failed): My Tasks lists them, whatever their age
+        "my_failed": [_card(row) for row in sorted(mine, key=lambda r: str(r.get("updated_at") or r.get("created_at") or ""), reverse=True)
+                      if _status(row) in {"pending", "approved"} and _is_failed(row)][:8],
     }
     if guardian_root_ids:
         alerts = lookups_repo.folders_with_open_alerts(db, sorted(guardian_root_ids))

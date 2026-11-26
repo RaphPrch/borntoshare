@@ -61,7 +61,7 @@
     </div>
   </div>
 
-  <div class="v2-sec">
+  <div class="v2-sec" id="reports">
     <div class="v2-sh"><h2>{t('Reports')}</h2>{#if reports?.length}<span class="v2-tag is-mut">{reports.length}</span>{/if}</div>
     {#if !reports}
       <LoadingState block skeleton="rows" rows={2} />

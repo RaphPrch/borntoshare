@@ -41,3 +41,10 @@ def test_a_guardian_also_sees_what_to_decide_on_their_folders(monkeypatch) -> No
     assert data["role"] == "guardian"
     assert data["guardian"]["to_decide"] == 1 and data["guardian"]["overdue"] == 1 and data["guardian"]["folders"] == 1
     assert [row["request_id"] for row in data["to_decide"]] == [3]
+
+
+def test_my_failed_requests_follow_the_rule_of_the_count(monkeypatch) -> None:
+    # The list My Tasks shows and the « failed » figure come from the same rule (FAILED, ERROR, TIMED_OUT)
+    data = _run(monkeypatch, [])
+    assert [row["request_id"] for row in data["my_failed"]] == [2]
+    assert len(data["my_failed"]) == data["mine"]["failed"]

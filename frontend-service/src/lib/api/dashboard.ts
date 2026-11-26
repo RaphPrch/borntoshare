@@ -27,6 +27,8 @@ export type UserDashboardMePayload = {
   mine: { pending: number; active: number; ending_30d: number; failed: number; refused_30d: number };
   my_requests: DashboardRequest[];
   my_ending: DashboardRequest[];
+  /** Their requests the server or the directory refused (FAILED, ERROR, TIMED_OUT), newest first */
+  my_failed: DashboardRequest[];
   guardian?: {
     folders: number;
     folders_with_alerts: number;
@@ -105,6 +107,7 @@ export async function getUserDashboardMe(fetchFn: FetchLike): Promise<UserDashbo
     mine: { pending: 0, active: 0, ending_30d: 0, failed: 0, refused_30d: 0, ...(raw?.mine ?? {}) },
     my_requests: list(raw?.my_requests),
     my_ending: list(raw?.my_ending),
+    my_failed: list(raw?.my_failed),
     ...(raw?.guardian ? { guardian: raw.guardian, to_decide: list(raw?.to_decide), guarded_failed: list(raw?.guarded_failed) } : {})
   };
 }

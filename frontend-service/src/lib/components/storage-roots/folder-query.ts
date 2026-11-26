@@ -96,6 +96,8 @@ const STATES: Record<string, (row: Row) => boolean> = {
   'non-analyse': (row) => row?.sensitive_files == null,
   'mot-de-passe': (row) => Number(row?.password_files ?? 0) > 0,
   'cle-ou-jeton': (row) => Number(row?.key_files ?? 0) > 0,
+  // Passwords or keys: what « Passwords and keys in files » counts (Insights, Dashboard)
+  secret: (row) => Number(row?.password_files ?? 0) + Number(row?.key_files ?? 0) > 0,
   'donnees-personnelles': (row) => Number(row?.personal_files ?? 0) > 0,
   bancaire: (row) => Number(row?.bank_files ?? 0) > 0,
   'fichiers-a-risque': (row) => Number(row?.risky_files ?? 0) > 0,
@@ -168,6 +170,13 @@ function test(row: Row, filter: QueryFilter): boolean {
 export const matchesFolderQuery = (row: Row, filters: QueryFilter[]): boolean =>
   filters.every((filter) => test(row, filter) !== filter.neg);
 
+/** The folders an express search lists: what a figure must count when its « See » opens that search (Insights,
+ * Dashboard, My Tasks), so that the figure and the list never differ. */
+export function foldersMatching<T extends Row>(rows: T[], query: string): T[] {
+  const { filters } = parseFolderQuery(query);
+  return rows.filter((row) => matchesFolderQuery(row, filters));
+}
+
 const quote = (value: string) => (/\s/.test(value) ? `"${value}"` : value);
 const STATE_LABELS = (): Array<[string, string]> => [
   ['alerte', t('with open alerts')],
@@ -188,6 +197,7 @@ const STATE_LABELS = (): Array<[string, string]> => [
   ['non-analyse', t('never scanned for sensitivity')],
   ['mot-de-passe', t('with passwords stored')],
   ['cle-ou-jeton', t('with keys or tokens')],
+  ['secret', t('with passwords, keys or tokens')],
   ['donnees-personnelles', t('with personal data')],
   ['bancaire', t('with bank data')],
   ['fichiers-a-risque', t('with risky files')],
