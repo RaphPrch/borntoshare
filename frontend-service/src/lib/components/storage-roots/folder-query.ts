@@ -28,7 +28,7 @@ const ALIASES: Record<string, string> = {
 };
 
 const fold = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-const TOKEN = /(-?)([a-zA-Zéèêà]+)([:<>])("[^"]*"?|\S*)/y;
+const TOKEN = /(-?)([a-zA-Zéèêà]{1,32})([:<>])("[^"]*"?|\S*)/y;
 
 export function parseFolderQuery(query: string): { filters: QueryFilter[]; text: string } {
   const filters: QueryFilter[] = [];
