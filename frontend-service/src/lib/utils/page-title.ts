@@ -7,6 +7,7 @@ const TITLES: [prefix: string, label: string][] = [
   ['/storage-roots', 'Storage Roots'],
   ['/access-requests', 'Access Management'],
   ['/access-explorer', 'Access Explorer'],
+  ['/admin/storage-topology', 'Storage Topology'],
   ['/exposure', 'Exposure map'],
   ['/access-reviews', 'Access Management'],
   ['/observability', 'Governance Jobs'],

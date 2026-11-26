@@ -89,8 +89,10 @@ export function buildNav(ctx: NavContext): NavSection[] {
       label: 'Administration',
       items: ctx.admin
         ? [
-            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack',
-              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' } },
+            // The servers, and as a tab the map of the storage: zone → server → volume → share → folder, DFS
+            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/storage-topology'],
+              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' },
+              tabs: [{ href: '/admin/storage-endpoints', label: t('Servers'), menu: false }, { href: '/admin/storage-topology', label: t('Topology') }] },
             // Zones: an entry of their own (no longer a tab of the servers)
             { href: '/admin/zones', label: 'Zones', icon: 'bi-geo-alt',
               action: { href: '/admin/zones/new', label: t('Add a zone'), icon: 'bi-plus-lg' } },
