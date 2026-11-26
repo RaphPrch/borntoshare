@@ -20,7 +20,7 @@
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import RingStat from '$lib/components/ui/RingStat.svelte';
   import { coverageTone, percent } from '$lib/utils/ring';
-  import { DFS_LINK_LABEL, STATE_META, capacityLine, topologyLevel, topologyHref, type TopologyPlace } from '$lib/utils/storage-topology';
+  import { DFS_LINK_STATES, STATE_META, capacityLine, topologyLevel, topologyHref, type TopologyPlace } from '$lib/utils/storage-topology';
 
   const PAGE = 50;
   let overview = $state<any>(null);
@@ -313,7 +313,7 @@
                 {#each dfs.links.items as link (link.dfs_path)}
                   <tr>
                     <td class="st__mono">{link.dfs_path}</td>
-                    <td><span class={`v2-tag is-${link.state === 'managed' ? 'ok' : link.state === 'partial' || link.state === 'to_manage' ? 'warn' : 'mut'}`}>{t(DFS_LINK_LABEL[link.state] ?? link.state)}</span></td>
+                    <td><span class={`v2-tag is-${{ ok: 'ok', warn: 'warn', bad: 'bad', n: 'mut' }[DFS_LINK_STATES[link.state]?.tone ?? 'n']}`}>{t(DFS_LINK_STATES[link.state]?.label ?? link.state)}</span></td>
                     <td>
                       {#each link.targets as target (target.unc)}
                         <div class="st__target">

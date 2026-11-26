@@ -15,7 +15,6 @@ from app.services.storage_topology import (
     is_stale,
     probe_state,
     server_state,
-    share_key,
     share_unc,
     volume_of,
 )
@@ -67,8 +66,6 @@ def test_relations_volume_and_share_only_when_known() -> None:
     assert volume_of("D:\\Partages\\Finance") == "D:" and volume_of("e:/data") == "E:"
     # No FSRM reading, or a path that does not say it: no volume (the share hangs under its server)
     assert volume_of(None) is None and volume_of("\\\\fs\\share") is None and volume_of("Partages") is None
-    assert share_key("/fs01.corp.local/finance/compta") == "/fs01.corp.local/finance"
-    assert share_key("/fs01") is None and share_key(None) is None
     assert share_unc("\\\\FS01\\Finance\\Compta") == "\\\\FS01\\Finance" and share_unc("FS01") is None
 
 

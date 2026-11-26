@@ -2,6 +2,7 @@
   
 
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import { DFS_LINK_STATES } from '$lib/utils/storage-topology';
   import ShowMore from '$lib/components/ui/ShowMore.svelte';
   import EmptyStateInline from '$lib/components/ui/EmptyStateInline.svelte';
   import StatusBadge from '$lib/components/ui/StatusBadge.svelte';
@@ -153,13 +154,9 @@
     }
   }
 
-  const STATE: Record<DfsLink['state'], { label: () => string; tone: string }> = {
-    managed: { label: () => t('Managed'), tone: 'ok' },
-    partial: { label: () => t('Partly managed'), tone: 'warn' },
-    to_manage: { label: () => t('To manage'), tone: 'n' },
-    unknown_server: { label: () => t('Server not declared'), tone: 'bad' },
-    no_target: { label: () => t('No target'), tone: 'n' }
-  };
+  // The same words as the Topology (utils/storage-topology)
+  const STATE = Object.fromEntries(Object.entries(DFS_LINK_STATES).map(([key, state]) => [key, { label: () => t(state.label), tone: state.tone }])) as
+    Record<DfsLink['state'], { label: () => string; tone: string }>;
 </script>
 
 <section class="card" aria-label={t('DFS folders')}>

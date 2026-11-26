@@ -29,6 +29,13 @@ const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) 
 
 export type InsightContext = { governance: boolean; fives: boolean };
 
+/** The groups of the recommendations and of the reports, by what brings them (the same on both pages) */
+export const licenseGroups = (): Array<{ key: InsightLicense; title: string; hint: string }> => [
+  { key: 'core', title: t('Storage and infrastructure'), hint: t('Every installation') },
+  { key: 'governance', title: t('Access governance'), hint: t('Access governance license') },
+  { key: 'fives', title: t('Data quality and security'), hint: t('5S module') }
+];
+
 export function buildInsights(rows: Root[], context: InsightContext): Insight[] {
   const list: Insight[] = [];
   // Each recommendation is the express search its « See » opens: its folders are counted by that very search

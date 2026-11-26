@@ -20,7 +20,7 @@
     const span = max - min || 1;
     const step = (width - 4) / (points.length - 1);
     const xy = points.map((value, index) => [2 + index * step, height - 2 - ((value - min) / span) * (height - 4)] as const);
-    return { line: xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '), last: xy[xy.length - 1], up: points[points.length - 1] >= points[0], bad: goodWhen === 'down' ? points[points.length - 1] > points[0] : points[points.length - 1] < points[0] };
+    return { line: xy.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(' '), last: xy[xy.length - 1], bad: goodWhen === 'down' ? points[points.length - 1] > points[0] : points[points.length - 1] < points[0] };
   });
 </script>
 

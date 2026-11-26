@@ -343,11 +343,12 @@ def requests(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str
                 WHERE v.storage_root_id IN :ids AND v.created_at >= :since ORDER BY v.created_at DESC""").bindparams(bindparam("ids", expanding=True)),
         {"ids": sorted(by_id) or [0], "since": since},
     ).mappings().all()] if by_id else []
-    status = lambda value: str(value or "").lower()  # noqa: E731
-    approved = [r for r in found if status(r["status"]) in {"approved", "expired", "revoked"}]
-    rejected = [r for r in found if status(r["status"]) == "rejected"]
-    pending = [r for r in found if status(r["status"]) == "pending"]
-    failed = [r for r in found if status(r["status"]) == "failed" or str(r["latest_execution_status"] or "").upper() in {"FAILED", "ERROR", "TIMED_OUT"}]
+    for r in found:
+        r["status"] = str(r["status"] or "").lower()
+    approved = [r for r in found if r["status"] in {"approved", "expired", "revoked"}]
+    rejected = [r for r in found if r["status"] == "rejected"]
+    pending = [r for r in found if r["status"] == "pending"]
+    failed = [r for r in found if r["status"] == "failed" or str(r["latest_execution_status"] or "").upper() in {"FAILED", "ERROR", "TIMED_OUT"}]
     delays = sorted((r["decided_at"] - r["created_at"]).total_seconds() / 86400 for r in found
                     if isinstance(r.get("decided_at"), datetime) and isinstance(r.get("created_at"), datetime) and r["decided_at"] >= r["created_at"])
     median = delays[len(delays) // 2] if delays else None
@@ -392,8 +393,8 @@ BUILDERS = {"storage": storage, "infrastructure": infrastructure, "alerts": aler
             "exposure": exposure, "guardians": guardians, "requests": requests}
 
 
-def build(db: Session, kind: str, rows: list[dict], scope: str, governance: bool = True, fives: bool = False, **ctx: Any) -> dict[str, Any]:
-    title, description, license_ = kinds(governance, fives)[kind]
-    body = BUILDERS[kind](db, rows, {"governance": governance, "fives": fives, **ctx})
+def build(db: Session, kind: str, rows: list[dict], scope: str, governance_on: bool = True, fives_on: bool = False, **ctx: Any) -> dict[str, Any]:
+    title, description, license_ = kinds(governance_on, fives_on)[kind]
+    body = BUILDERS[kind](db, rows, {"governance": governance_on, "fives": fives_on, **ctx})
     return {"key": kind, "title": title, "description": description, "license": license_, "generated_at": _now().isoformat() + "Z",
             "scope": scope, **body}

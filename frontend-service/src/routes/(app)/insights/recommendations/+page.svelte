@@ -10,7 +10,7 @@
   import InsightCards from '$lib/components/insights/InsightCards.svelte';
   import { t } from '$lib/i18n';
   import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
-  import { INSIGHT_FIELDS, buildInsights } from '$lib/utils/insights';
+  import { INSIGHT_FIELDS, buildInsights, licenseGroups } from '$lib/utils/insights';
 
   let roots = $state<Record<string, any>[] | null>(null);
   let isAdmin = $derived(($page.data as any)?.navigation?.canSeeAdmin === true);
@@ -20,11 +20,7 @@
   });
   let insights = $derived(roots ? buildInsights(roots, { governance: $governanceEnabled, fives: $fivesEnabled }) : []);
   // Grouped by what brings them (the same groups as the reports)
-  const GROUPS = [
-    { key: 'core', title: t('Storage and infrastructure'), hint: t('Every installation') },
-    { key: 'governance', title: t('Access governance'), hint: t('Access governance license') },
-    { key: 'fives', title: t('Data quality and security'), hint: t('5S module') }
-  ] as const;
+  const GROUPS = licenseGroups();
 </script>
 
 <svelte:head><title>Recommendations · BornToShare</title></svelte:head>
