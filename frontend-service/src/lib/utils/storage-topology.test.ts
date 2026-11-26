@@ -15,8 +15,8 @@ assert.equal(at('zone=abc').zone, null);
 for (const query of ['', 'zone=3', 'zone=3&server=12', 'zone=3&dfs=4', 'zone=3&server=12&volume=D%3A', 'zone=3&server=12&share=%2Ffs%2Ffinance']) {
   assert.deepEqual(at(new URL(`http://x${topologyHref(at(query))}`).search.slice(1)), at(query), query);
 }
-assert.equal(topologyHref({}), '/admin/storage-topology');
-assert.equal(topologyHref({ server: 12 }), '/admin/storage-topology', 'no server without its zone');
+assert.equal(topologyHref({}), '/insights/topology');
+assert.equal(topologyHref({ server: 12 }), '/insights/topology', 'no server without its zone');
 
 // States: the four of the core, unknown is never an outage
 assert.deepEqual(Object.keys(STATE_META).sort(), ['available', 'degraded', 'unavailable', 'unknown']);

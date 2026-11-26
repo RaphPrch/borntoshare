@@ -28,7 +28,7 @@ export function topologyHref(place: TopologyPlace): string {
   if (place.server && place.volume) params.set('volume', place.volume);
   if (place.server && place.share) params.set('share', place.share);
   const query = params.toString();
-  return `/admin/storage-topology${query ? `?${query}` : ''}`;
+  return `/insights/topology${query ? `?${query}` : ''}`;
 }
 
 export const STATE_META: Record<string, { label: string; variant: 'success' | 'error' | 'warning' | 'muted' }> = {

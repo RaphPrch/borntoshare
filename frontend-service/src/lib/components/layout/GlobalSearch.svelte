@@ -212,7 +212,7 @@
     { title: 'Access requests', href: '/access-requests', icon: 'bi-clipboard-check', show: $governanceEnabled },
     // The pages of the 5S module only while it is usable (licensed, switched on, answering)
     ...searchPages.storageRoots.map((item) => ({ ...item, show: canSeeStorageRoots && ($fivesEnabled || !item.href.startsWith('/five-s'))
-      && ($governanceEnabled || (item.href !== '/exposure' && item.href !== '/access-explorer')) })),
+      && ($governanceEnabled || (item.href !== '/insights/exposure' && item.href !== '/access-explorer')) })),
     { title: 'Governance Jobs', href: '/observability', icon: 'bi-list-task', show: canSeeObservability },
     { title: 'Alerts', href: '/observability?tab=alerts', icon: 'bi-exclamation-triangle', show: canSeeObservability },
     { title: 'Events', href: '/observability?tab=events', icon: 'bi-list-ul', show: canSeeObservability },

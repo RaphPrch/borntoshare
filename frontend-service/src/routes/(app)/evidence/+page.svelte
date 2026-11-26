@@ -48,8 +48,8 @@
 
     <div class="v2-sec">
       <div class="v2-sh"><h2>{t('Reports to print')}</h2></div>
-      <p class="v2-hint">{t('Storage, security, access and 5S reports, to print or save as PDF: they are listed with the recommendations.')}</p>
-      <div><a class="b2s-btn b2s-btn-secondary" href="/reports#reports"><i class="bi bi-printer" aria-hidden="true"></i>{t('Open the reports')}</a></div>
+      <p class="v2-hint">{t('Storage, security, access and 5S reports, to print or save as PDF: the Reports tab of Insights & Recommendations.')}</p>
+      <div><a class="b2s-btn b2s-btn-secondary" href="/reports"><i class="bi bi-printer" aria-hidden="true"></i>{t('Open the reports')}</a></div>
     </div>
 
     {#if $governanceEnabled}

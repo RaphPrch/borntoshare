@@ -228,7 +228,7 @@
         </span>
         <small>{t('{tagged} of {total} governed folders carry a tag', { tagged: coverage.tagged, total: coverage.total })}</small>
       </div>
-      <a class="b2s-stat-tile" class:is-warn={coverage.untagged_open > 0} href="/exposure">
+      <a class="b2s-stat-tile" class:is-warn={coverage.untagged_open > 0} href="/insights/exposure">
         <span>{t('Open to everyone, without a tag')}</span>
         <b><CountUp value={Number(coverage.untagged_open)} /></b>
         <small>{t('Folders that Everyone or Users reach and that no tag classifies · exposure map')}</small>
