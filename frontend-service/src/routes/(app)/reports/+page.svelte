@@ -4,17 +4,14 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
   import { fivesEnabled } from '$lib/utils/features';
+  import { licenseGroups } from '$lib/utils/insights';
 
   /** Insights & Recommendations › Reports: the reports to print or save as PDF (the core's, then the 5S module's). */
   type Report = { key: string; title: string; description: string; source?: 'core' | 'fives'; license?: 'core' | 'governance' | 'fives' };
   const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', infrastructure: 'bi-activity', alerts: 'bi-bell', security: 'bi-shield-lock',
     governance: 'bi-diagram-3', exposure: 'bi-globe2', guardians: 'bi-person-badge', requests: 'bi-inbox', 'fives-5s': 'bi-stars', 'fives-hygiene': 'bi-recycle' };
   // Grouped by what brings them: always there, the access governance, the 5S module (its own reports and the sensitivity scan)
-  const GROUPS: Array<{ key: 'core' | 'governance' | 'fives'; title: string; hint: string }> = [
-    { key: 'core', title: t('Storage and infrastructure'), hint: t('Every installation') },
-    { key: 'governance', title: t('Access governance'), hint: t('Access governance license') },
-    { key: 'fives', title: t('Data quality and security'), hint: t('5S module') }
-  ];
+  const GROUPS = licenseGroups();
   const groupOf = (report: Report) => report.license ?? (report.source === 'fives' ? 'fives' : 'core');
   let reports = $state<Report[] | null>(null);
 

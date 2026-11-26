@@ -40,7 +40,7 @@ assert.deepEqual(grantChain('GG_Compta', parent), ['GG_Compta', 'GL_Finance']);
 
 // Every limit sent by the core has its sentence; the SMB one never claims a complete access
 for (const code of ['ntfs_only', 'subfolders_not_read', 'local_groups_not_resolved', 'deny_present', 'account_state_unknown',
-  'no_directory_snapshot', 'group_depth_truncated', 'acl_not_read', 'people_truncated']) {
+  'no_directory_snapshot', 'group_depth_truncated']) {
   assert.ok(LIMITS[code], code);
 }
 assert.match(LIMITS.ntfs_only, /SMB/);

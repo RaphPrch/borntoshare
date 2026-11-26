@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.services import folder_query
+from app.services.storage_root_permissions import _json
 
 KEEP_DAYS = 400
 EXPOSURE_LEVELS = ("governed", "open_read", "open_write", "outside", "unknown")
@@ -135,14 +136,4 @@ def history(db: Session, *, days: int = 90, zone_id: int | None = None) -> list[
         {"kind": "zone" if zone_id else "platform", "scope": int(zone_id or 0), "since": since},
     ).mappings().all()
     return [{"day": str(row["taken_on"]), **(_json(row["indicators"]))} for row in rows]
-
-
-def _json(value: Any) -> dict[str, Any]:
-    if isinstance(value, dict):
-        return value
-    try:
-        parsed = json.loads(value or "{}")
-    except (TypeError, ValueError):
-        return {}
-    return parsed if isinstance(parsed, dict) else {}
 

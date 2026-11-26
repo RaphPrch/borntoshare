@@ -60,7 +60,5 @@ export const LIMITS: Record<string, string> = {
   deny_present: 'A deny entry is present: the effective right may be lower than shown.',
   account_state_unknown: 'The account state (enabled or disabled) is known after the next reading of the directory.',
   no_directory_snapshot: 'No reading of the directory: the groups and their members are not known.',
-  group_depth_truncated: 'Nested groups beyond 10 levels are not followed.',
-  acl_not_read: 'The ACL of this folder has not been read yet.',
-  people_truncated: 'Very large groups: the list of people stops at 20,000 rows.'
+  group_depth_truncated: 'Nested groups beyond 10 levels are not followed.'
 };

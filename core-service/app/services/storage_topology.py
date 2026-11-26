@@ -92,12 +92,6 @@ def volume_of(local_path: Any) -> str | None:
     return f"{match.group(1).upper()}:" if match else None
 
 
-def share_key(normalized_root_path: Any) -> str | None:
-    """/host/share/dir → /host/share (normalized_root_path of the core)."""
-    parts = [p for p in str(normalized_root_path or "").split("/") if p]
-    return "/" + "/".join(parts[:2]) if len(parts) >= 2 else None
-
-
 def share_unc(root_path: Any) -> str | None:
     """\\\\host\\share\\dir → \\\\host\\share (as written on the folder, case kept)."""
     parts = [p for p in str(root_path or "").replace("/", "\\").split("\\") if p]

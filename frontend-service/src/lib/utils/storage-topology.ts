@@ -38,8 +38,13 @@ export const STATE_META: Record<string, { label: string; variant: 'success' | 'e
   unknown: { label: 'Unknown', variant: 'muted' }
 };
 
-export const DFS_LINK_LABEL: Record<string, string> = {
-  managed: 'Managed', partial: 'Partly managed', to_manage: 'To manage', unknown_server: 'Server not declared', no_target: 'No target'
+/** The state of a DFS folder (its targets governed or not): Topology and the DFS panel of Storage Endpoints */
+export const DFS_LINK_STATES: Record<string, { label: string; tone: 'ok' | 'warn' | 'bad' | 'n' }> = {
+  managed: { label: 'Managed', tone: 'ok' },
+  partial: { label: 'Partly managed', tone: 'warn' },
+  to_manage: { label: 'To manage', tone: 'n' },
+  unknown_server: { label: 'Server not declared', tone: 'bad' },
+  no_target: { label: 'No target', tone: 'n' }
 };
 
 type Capacity = { quota_limit_bytes?: number | null; quota_used_bytes?: number | null; measured_bytes?: number | null } | null | undefined;
