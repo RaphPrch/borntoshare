@@ -19,6 +19,16 @@ def utcnow_naive() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+def utc_iso(value: Any) -> str | None:
+    """A datetime of the database (naive, UTC) as ISO 8601 with its « Z », so that a browser does not read it as its
+    local time; an aware one keeps its offset. None or empty: None; anything else (already a string): as text."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, datetime):
+        return value.isoformat() + ("Z" if value.tzinfo is None else "")
+    return str(value)
+
+
 def unwrap_data(payload: Any) -> Any:
     """`payload["data"]` for a {"data": ...} envelope, else the payload itself."""
     if isinstance(payload, dict) and "data" in payload:

@@ -22,6 +22,7 @@ from typing import Any, Callable, Iterable
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.core.values import utc_iso
 from app.services.authorization import get_guardian_storage_root_ids, is_platform_administrator
 from app.services.storage_root_permissions import (
     _BROAD_NAMES,
@@ -221,7 +222,7 @@ class AccessExplorer:
         if row is None:
             return None
         summary = _json(row.get("summary_json"))
-        return {"id": int(row["id"]), "at": _iso(row.get("activated_at") or row.get("completed_at")),
+        return {"id": int(row["id"]), "at": utc_iso(row.get("activated_at") or row.get("completed_at")),
                 "account_state_read": bool(summary.get("account_state_read"))}
 
     def _walk(self, snapshot_id: int, start: str, direction: str) -> dict[str, Any]:
@@ -478,8 +479,3 @@ class AccessExplorer:
         }
 
 
-
-def _iso(value: Any) -> str | None:
-    if value is None:
-        return None
-    return value.isoformat() if hasattr(value, "isoformat") else str(value)

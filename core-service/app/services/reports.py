@@ -14,6 +14,7 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.services import folder_query
+from app.core.values import utc_iso
 
 
 # The reports of the core, each with what it needs: « core » always, « governance » the access governance, « fives » the
@@ -38,6 +39,12 @@ def _now() -> datetime:
 
 def _col(key: str, label: str, type_: str = "text") -> dict[str, str]:
     return {"key": key, "label": label, "type": type_}
+
+
+def _status(text: str, tone: str | None) -> dict[str, Any]:
+    """A cell of a « status » column: its words and its colour (ok, warn, bad), said by the core rather than guessed
+    from the words by the page."""
+    return {"text": text, "tone": tone}
 
 
 def _kpi(label: str, value: Any, type_: str = "int", hint: str | None = None, tone: str | None = None) -> dict[str, Any]:
@@ -76,7 +83,8 @@ def storage(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str,
         entry["files"] += int(row.get("content_files") or 0)
         entry["quotas"] += 1 if row.get("quota_limit_bytes") is not None else 0
     quota_rows = [{"folder": _folder(row), "used": row.get("quota_used_bytes"), "limit": row.get("quota_limit_bytes"), "percent": row.get("quota_used_percent"),
-                   "status": "plein" if (row.get("quota_used_percent") or 0) >= 100 else "à surveiller" if row in watch else "ok"} for row in with_quota]
+                   "status": _status("plein", "bad") if (row.get("quota_used_percent") or 0) >= 100
+                   else _status("à surveiller", "warn") if row in watch else _status("ok", "ok")} for row in with_quota]
     return {
         "kpis": [
             _kpi("Volume mesuré", total, "bytes", f"{len(measured)} dossier(s) mesuré(s) sur {len(rows)}"),
@@ -122,6 +130,13 @@ def security(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str
             {"ids": ids, "since": _now() - timedelta(days=90)},
         ).mappings().all()]
     labels = {"open": "en cours", "overdue": "en retard", "done": "corrigée", "cancelled": "annulée"}
+    tones = {"open": "warn", "overdue": "bad", "done": "ok", "cancelled": None}
+
+    def correction(code: Any) -> dict[str, Any]:
+        if not code:
+            return _status("non demandée", "bad")
+        return _status(labels.get(str(code), str(code)), tones.get(str(code)))
+
     personal = [row for row in rows if folder_query.STATES["donnees-personnelles"](row) or folder_query.STATES["bancaire"](row)]
     return {
         "kpis": [
@@ -135,7 +150,7 @@ def security(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str
             {"title": "Mots de passe et clés trouvés", "columns": [_col("folder", "Dossier", "folder"), _col("passwords", "Mots de passe", "int"),
                                                                    _col("keys", "Clés / jetons", "int"), _col("correction", "Correction", "status")],
              "rows": [{"folder": _folder(row), "passwords": row.get("password_files"), "keys": row.get("key_files"),
-                       "correction": labels.get(str(row.get("remediation_status")), "non demandée")}
+                       "correction": correction(row.get("remediation_status"))}
                       for row in sorted({id(r): r for r in [*with_pw, *with_keys]}.values(),
                                         key=lambda r: -(int(r.get("password_files") or 0) + int(r.get("key_files") or 0)))],
              "empty": "Aucun mot de passe ni aucune clé trouvés."},
@@ -147,8 +162,8 @@ def security(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str
             {"title": "Corrections des 90 derniers jours", "columns": [_col("folder", "Dossier", "folder"), _col("status", "État", "status"),
                                                                        _col("files", "Fichiers", "int"), _col("requested_at", "Demandée", "date"),
                                                                        _col("due_at", "Échéance", "date"), _col("closed_at", "Close", "date")],
-             "rows": [{"folder": _folder(by_id.get(int(c["storage_root_id"]), {"storage_root_id": c["storage_root_id"]})), "status": labels.get(c["status"], c["status"]),
-                       "files": c["files_at_request"], "requested_at": _iso(c["requested_at"]), "due_at": _iso(c["due_at"]), "closed_at": _iso(c["closed_at"])}
+             "rows": [{"folder": _folder(by_id.get(int(c["storage_root_id"]), {"storage_root_id": c["storage_root_id"]})), "status": correction(c["status"]),
+                       "files": c["files_at_request"], "requested_at": utc_iso(c["requested_at"]), "due_at": utc_iso(c["due_at"]), "closed_at": utc_iso(c["closed_at"])}
                       for c in corrections], "empty": "Aucune correction demandée."},
         ],
     }
@@ -181,10 +196,6 @@ def governance(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[s
     }
 
 
-def _iso(value: Any) -> str | None:
-    return value.isoformat() + "Z" if isinstance(value, datetime) else value
-
-
 def infrastructure(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str, Any]:
     """Can BornToShare reach the folders, and how fresh is what it knows (the last probe of each folder)."""
     stale_before = (ctx or {}).get("stale_before") or (_now() - timedelta(hours=12))
@@ -199,7 +210,7 @@ def infrastructure(db: Session, rows: list[dict], ctx: dict | None = None) -> di
         entry["unreachable"] += 1 if row in unreachable else 0
         entry["never"] += 1 if row in never else 0
         entry["stale"] += 1 if row in stale else 0
-        when = _iso(_when(row.get("last_probe_at")))
+        when = utc_iso(_when(row.get("last_probe_at")))
         entry["last"] = max(filter(None, [entry["last"], when]), default=None)
     reachable = len(rows) - len(unreachable) - len(never)
     return {
@@ -216,7 +227,7 @@ def infrastructure(db: Session, rows: list[dict], ctx: dict | None = None) -> di
             {"title": "Dossiers injoignables", "columns": [_col("folder", "Dossier", "folder"), _col("server", "Serveur"), _col("message", "Dernier message"),
                                                           _col("last", "Dernier test", "date")],
              "rows": [{"folder": _folder(row), "server": row.get("storage_endpoint_name"), "message": row.get("last_probe_message"),
-                       "last": _iso(_when(row.get("last_probe_at")))} for row in unreachable], "empty": "Tous les dossiers testés répondent."},
+                       "last": utc_iso(_when(row.get("last_probe_at")))} for row in unreachable], "empty": "Tous les dossiers testés répondent."},
             {"title": "Jamais testés", "columns": [_col("folder", "Dossier", "folder"), _col("server", "Serveur")],
              "rows": [{"folder": _folder(row), "server": row.get("storage_endpoint_name")} for row in never], "empty": "Tous les dossiers ont été testés."},
         ],
@@ -240,7 +251,8 @@ def alerts(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str, 
         entry["serious"] += 1 if alert in serious else 0
         entry["folders"].add(int(alert["storage_root_id"]))
         per_folder[int(alert["storage_root_id"])] = per_folder.get(int(alert["storage_root_id"]), 0) + 1
-    severity = {"critical": "critique", "high": "élevée", "warning": "avertissement", "info": "information"}
+    severity = {"critical": _status("critique", "bad"), "high": _status("élevée", "bad"), "warning": _status("avertissement", "warn"),
+                "info": _status("information", None)}
     return {
         "kpis": [
             _kpi("Alertes ouvertes", len(found), "int", f"dans {len(per_folder)} dossier(s)", "warn" if found else "ok"),
@@ -256,8 +268,8 @@ def alerts(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str, 
              "empty": "Aucune alerte ouverte."},
             {"title": "Alertes graves", "columns": [_col("folder", "Dossier", "folder"), _col("title", "Alerte"), _col("severity", "Gravité", "status"),
                                                     _col("seen", "Vue", "date")],
-             "rows": [{"folder": _folder(by_id[int(a["storage_root_id"])]), "title": a["title"] or a["alert_type"], "severity": severity.get(a["severity"], a["severity"]),
-                       "seen": _iso(a["last_seen_at"])} for a in serious[:200]], "empty": "Aucune alerte critique ni élevée."},
+             "rows": [{"folder": _folder(by_id[int(a["storage_root_id"])]), "title": a["title"] or a["alert_type"], "severity": severity.get(a["severity"], _status(str(a["severity"]), None)),
+                       "seen": utc_iso(a["last_seen_at"])} for a in serious[:200]], "empty": "Aucune alerte critique ni élevée."},
         ],
     }
 
@@ -375,7 +387,7 @@ def requests(db: Session, rows: list[dict], ctx: dict | None = None) -> dict[str
              "rows": sorted(per_folder.values(), key=lambda entry: -entry["total"])[:50], "empty": "Aucune demande sur la période."},
             {"title": "En échec", "columns": [_col("code", "Demande"), _col("folder", "Dossier", "folder"), _col("who", "Pour"), _col("created", "Créée", "date")],
              "rows": [{"code": r["request_code"], "folder": _folder(by_id[int(r["storage_root_id"])]), "who": r["requested_for_display"],
-                       "created": _iso(r["created_at"])} for r in failed[:200]], "empty": "Aucune demande en échec."},
+                       "created": utc_iso(r["created_at"])} for r in failed[:200]], "empty": "Aucune demande en échec."},
         ],
     }
 

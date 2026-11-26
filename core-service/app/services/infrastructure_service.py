@@ -26,6 +26,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.core.values import utc_iso
 
 # Tables a BornToShare database must have before core-service is pointed at it
 REQUIRED_TABLES = ("identity_sources", "identities", "roles", "storage_endpoints", "storage_roots", "access_requests", "infra_schedules")
@@ -35,12 +36,6 @@ SLOW_MS = 1500
 
 def _now() -> datetime:
     return datetime.utcnow().replace(microsecond=0)
-
-
-def _iso(value: Any) -> str | None:
-    if isinstance(value, datetime):
-        return value.isoformat() + "Z"
-    return str(value) if value else None
 
 
 def _json(value: Any) -> Any:
@@ -130,7 +125,7 @@ def _worker_public(row: dict[str, Any]) -> dict[str, Any]:
     out["has_password"] = bool(row.get("password_ref"))
     out["agent_url"] = agent_url(row)
     for key in ("last_check_at", "last_seen_at"):
-        out[key] = _iso(out[key])
+        out[key] = utc_iso(out[key])
     return out
 
 
@@ -502,7 +497,7 @@ def overview(db: Session) -> dict[str, Any]:
         text("SELECT component, status, latency_ms, checked_at FROM infra_check_history WHERE checked_at >= :since ORDER BY checked_at"),
         {"since": since},
     ).mappings():
-        history.setdefault(h["component"], []).append({"status": h["status"], "latency_ms": h["latency_ms"], "at": _iso(h["checked_at"])})
+        history.setdefault(h["component"], []).append({"status": h["status"], "latency_ms": h["latency_ms"], "at": utc_iso(h["checked_at"])})
 
     schedule = db.execute(text("SELECT interval_minutes FROM infra_schedules WHERE task = 'health_check'")).scalar()
     stale_after = timedelta(minutes=max(15, int(schedule or 5) * 3))
@@ -520,10 +515,10 @@ def overview(db: Session) -> dict[str, Any]:
             "latency_ms": row["latency_ms"],
             "message": row["message"],
             "checked_by": row["checked_by"],
-            "checked_at": _iso(row["checked_at"]),
+            "checked_at": utc_iso(row["checked_at"]),
             "details": _json(row["details_json"]) or {},
             "uptime_24h": round(100.0 * up / len(points), 1) if points else None,
             "history": points[-48:],
         })
     summary = {s: sum(1 for c in components if c["status"] == s) for s in ("healthy", "degraded", "down", "unknown")}
-    return {"components": components, "summary": {**summary, "total": len(components)}, "generated_at": _iso(_now())}
+    return {"components": components, "summary": {**summary, "total": len(components)}, "generated_at": utc_iso(_now())}

@@ -16,6 +16,7 @@ from typing import Any
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
+from app.core.values import utc_iso
 
 logger = logging.getLogger("core.remediations")
 OPEN_STATES = ("open", "overdue")
@@ -23,10 +24,6 @@ OPEN_STATES = ("open", "overdue")
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _iso(value: Any) -> str | None:
-    return value.isoformat() + "Z" if value else None
 
 
 def _row(row: Any) -> dict[str, Any]:
@@ -37,8 +34,8 @@ def _row(row: Any) -> dict[str, Any]:
     return {
         "id": int(row["id"]), "storage_root_id": int(row["storage_root_id"]), "status": row["status"],
         "files_at_request": int(row["files_at_request"] or 0), "paths": paths, "note": row["note"],
-        "requested_by": row["requested_by"], "requested_at": _iso(row["requested_at"]), "due_at": _iso(row["due_at"]),
-        "rescan_requested_at": _iso(row["rescan_requested_at"]), "closed_at": _iso(row["closed_at"]), "closed_by": row["closed_by"],
+        "requested_by": row["requested_by"], "requested_at": utc_iso(row["requested_at"]), "due_at": utc_iso(row["due_at"]),
+        "rescan_requested_at": utc_iso(row["rescan_requested_at"]), "closed_at": utc_iso(row["closed_at"]), "closed_by": row["closed_by"],
     }
 
 

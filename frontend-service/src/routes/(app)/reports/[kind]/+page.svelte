@@ -65,10 +65,9 @@
     }
   }
   const scoreTone = (value: any) => (value == null ? '' : Number(value) >= 80 ? 'ok' : Number(value) >= 60 ? 'warn' : 'bad');
-  const statusTone = (value: any) => {
-    const text = String(value ?? '');
-    return /retard|plein|non demandée|critique|élevée/.test(text) ? 'bad' : /surveiller|en cours|avertissement/.test(text) ? 'warn' : /ok|corrigée/.test(text) ? 'ok' : '';
-  };
+  // A « status » cell comes with its colour from the report ({ text, tone }): never guessed from its words
+  const statusOf = (value: any): { text: string; tone: string } =>
+    value && typeof value === 'object' ? { text: String(value.text ?? ''), tone: String(value.tone ?? '') } : { text: String(value ?? ''), tone: '' };
   let kind = $derived($page.params.kind);
   // A report of the 5S module while the module is not usable: said, and the module is not called
   let fivesOff = $derived(($page.data as { fivesOff?: { reason: string } | null }).fivesOff ?? null);
@@ -168,7 +167,8 @@
                       {:else if column.type === 'score'}
                         <span class={`rv__pill is-${scoreTone(row[column.key])}`}>{show(row[column.key], 'score')}</span>
                       {:else if column.type === 'status'}
-                        <span class={`rv__pill is-${statusTone(row[column.key])}`}>{show(row[column.key], 'text')}</span>
+                        {@const cell = statusOf(row[column.key])}
+                        <span class={`rv__pill is-${cell.tone}`}>{show(cell.text, 'text')}</span>
                       {:else}
                         {show(row[column.key], column.type)}
                       {/if}

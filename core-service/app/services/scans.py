@@ -15,6 +15,7 @@ from app.services.root_payload import merge_root_payload
 from sqlalchemy import bindparam, text
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
+from app.core.values import utc_iso
 
 logger = logging.getLogger("core.scans")
 ACTION = "folder_scan"
@@ -22,10 +23,6 @@ ACTION = "folder_scan"
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _iso(value: Any) -> str | None:
-    return value.isoformat() + "Z" if value else None
 
 
 def _parse(value: Any) -> datetime | None:
@@ -57,7 +54,7 @@ def get(db: Session, storage_root_id: int) -> dict[str, Any] | None:
 
     progress = row.get("progress_json")
     return {"status": row["status"], "job_id": row["job_id"], "method": row["method"], "fallback_reason": row["fallback_reason"],
-            "requested_at": _iso(row["requested_at"]), "finished_at": _iso(row["finished_at"]), "elapsed_ms": row["elapsed_ms"],
+            "requested_at": utc_iso(row["requested_at"]), "finished_at": utc_iso(row["finished_at"]), "elapsed_ms": row["elapsed_ms"],
             "files": row["files"], "error": row["error_message"], "mode": row.get("mode"),
             "progress": json.loads(progress) if progress else None}
 
@@ -136,8 +133,6 @@ def states_by_root(db: Session, storage_root_ids: list[int]) -> dict[int, str]:
         db.rollback()
         return {}
     return {int(root_id): str(state) for root_id, state in rows}
-
-
 
 
 def record_module_state(db: Session, storage_root_id: int, *, status: str, stats: dict | None = None, method: str | None = None,
@@ -241,7 +236,6 @@ def emptied(current: dict, stats: dict) -> bool:
     far more often than it was emptied. Its figures must not replace the good ones."""
     before = int(((current or {}).get("content_stats") or {}).get("files") or 0)
     return before > 0 and int((stats or {}).get("files") or 0) == 0
-
 
 
 # Measures kept per folder besides the current one: a bad one can be undone, two can be compared
