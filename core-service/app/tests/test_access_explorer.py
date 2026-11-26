@@ -6,8 +6,6 @@ from app.services.access_explorer import (
     account_state,
     ace_info,
     folders_from_entries,
-    merge_people,
-    principal_kind,
     summarize,
     walk,
 )
@@ -86,20 +84,6 @@ def test_folders_of_a_user_with_their_origins() -> None:
     assert finance["grants"][1]["via"] == ["GG_Compta", "GG_Finance_Write"]
 
 
-def test_people_of_a_folder_merge_every_way_in() -> None:
-    grants = {"paul": {"principal": "CORP\\paul", "rights": "read", "deny": False, "inherited": False},
-              "gg_fin": {"principal": "CORP\\GG_Fin", "rights": "modify", "deny": False, "inherited": True}}
-    direct = [{"user_id": 1, "username": "paul", "display_name": "Paul", "key": "paul", "is_active": 1}]
-    via = [{"user_id": 1, "username": "paul", "display_name": "Paul", "key": "gg_fin", "group_name": "GG_Fin", "depth": 2},
-           {"user_id": 2, "username": "anne", "display_name": "Anne", "key": "gg_fin", "group_name": "GG_Fin", "depth": 0}]
-    people = merge_people(direct, via, grants)
-    paul = next(p for p in people if p["username"] == "paul")
-    assert paul["ntfs_rights"] == "modify" and paul["multiple_paths"]
-    assert {g["kind"] for g in paul["grants"]} == {"direct", "nested"}
-    anne = next(p for p in people if p["username"] == "anne")
-    assert anne["grants"][0]["kind"] == "group" and anne["inherited_only"]
-
-
 def test_account_state_is_never_guessed() -> None:
     assert account_state(0, True) == "disabled"
     assert account_state(1, True) == "enabled"
@@ -108,15 +92,10 @@ def test_account_state_is_never_guessed() -> None:
     assert account_state(None, True) == "not_in_directory"
 
 
-def test_principal_kinds_and_incomplete_data() -> None:
-    assert principal_kind("Everyone", broad=True, service_account=None, group=False, user=False) == "broad"
-    assert principal_kind("S-1-5-21-1-2-3-1105", broad=False, service_account=None, group=False, user=False) == "orphan"
-    assert principal_kind("NT AUTHORITY\\SYSTEM", broad=False, service_account=None, group=False, user=False) == "system"
-    assert principal_kind("CORP\\GG_X", broad=False, service_account=None, group=True, user=False) == "group"
-    # Not in the directory reading (another domain, deleted account): unknown, never dropped
-    assert principal_kind("OTHER\\someone", broad=False, service_account=None, group=False, user=False) == "unknown"
-    # An entry without a readable mask stays an entry (special right)
+def test_incomplete_data() -> None:
+    # An entry without a readable mask stays an entry (special right); no entry: nothing given
     assert ace_info("CORP\\GG_X", None)["rights"] == "special"
+    assert summarize([])["ntfs_rights"] is None and not summarize([])["multiple_paths"]
 
 
 def test_acl_index_keys_match_short_names() -> None:

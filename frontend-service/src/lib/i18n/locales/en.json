@@ -1874,8 +1874,6 @@
   "Only an administrator can apply this change.": "Only an administrator can apply this change.",
   "access_explorer": {
     "mode_user": "User",
-    "mode_group": "Group",
-    "mode_folder": "Folder",
-    "mode_root": "Storage Root"
+    "mode_group": "Group"
   }
 }

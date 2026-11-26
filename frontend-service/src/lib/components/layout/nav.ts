@@ -49,11 +49,10 @@ export function buildNav(ctx: NavContext): NavSection[] {
       items: [
         // Adding folders: the « + » of the folder list (no button in the top bar)
         { href: '/storage-roots', label: 'Storage Roots', icon: 'bi-folder2-open' },
-        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/access-reviews'], count: ctx.pending,
+        // Requests, reviews and (administrators, guardians) the Explorer: what a person or a group reaches, and why
+        ...(governance ? [{ href: '/access-requests', label: 'Access Management', icon: 'bi-shield-check', also: ['/access-reviews', '/access-explorer'], count: ctx.pending,
             tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },
-              ...(ctx.staff ? [{ href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
-        // Who reaches what: the map of the folders by how widely their last ACL read opens them
-        ...(governance && ctx.staff ? [{ href: '/access-explorer', label: 'Access Explorer', icon: 'bi-diagram-3' }] : []),
+              ...(ctx.staff ? [{ href: '/access-reviews', label: t('Reviews') }, { href: '/access-explorer', label: t('Explorer') }] : [])] }] : []),
         // Administrators: the platform (health, alerts, jobs) and, as a tab, what a manager sees; managers: their own view
         ...(ctx.admin
           ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.critical, danger: true,
