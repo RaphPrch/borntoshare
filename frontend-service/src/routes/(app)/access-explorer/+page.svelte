@@ -158,7 +158,7 @@
       <h1>Access Explorer</h1>
       <p>{t('Who reaches what, and why: from the last ACL read of the folders and the last reading of the directory.')}</p>
     </div>
-    <div class="v2-head__r"><a class="b2s-btn b2s-btn-secondary" href="/exposure"><i class="bi bi-globe2" aria-hidden="true"></i>{t('Exposure map')}</a></div>
+    <div class="v2-head__r"><a class="b2s-btn b2s-btn-secondary" href="/insights/exposure"><i class="bi bi-globe2" aria-hidden="true"></i>{t('Exposure map')}</a></div>
   </div>
 
   <div class="v2-sec ax__search">

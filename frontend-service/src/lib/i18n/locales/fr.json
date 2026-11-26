@@ -6075,5 +6075,19 @@
   "Servers available": "Serveurs disponibles",
   "{degraded} degraded · {down} unavailable": "{degraded} dégradé(s) · {down} indisponible(s)",
   "Reading the topology…": "Lecture de la topologie…",
-  "{n} of {total} available": "{n} sur {total} disponible(s)"
+  "{n} of {total} available": "{n} sur {total} disponible(s)",
+  "Data overview": "Vue d'ensemble des données",
+  "View in the topology": "Voir dans la topologie",
+  "The state of the data: coverage, alerts, availability, and what to handle.": "L'état des données : couverture, alertes, disponibilité, et ce qu'il faut traiter.",
+  "What the measures, scans and ACL reads reveal, with the folders concerned.": "Ce que révèlent les mesures, les analyses et les lectures d'ACL, avec les dossiers concernés.",
+  "Storage, security, access and 5S reports to print or save as PDF.": "Rapports stockage, sécurité, accès et 5S à imprimer ou enregistrer en PDF.",
+  "What the last measures, scans and ACL reads of the folders you may see reveal, with the folders concerned.": "Ce que révèlent les dernières mesures, analyses et lectures d'ACL des dossiers que vous pouvez voir, avec les dossiers concernés.",
+  "Storage, security, access and 5S reports, to print or save as PDF.": "Rapports stockage, sécurité, accès et 5S, à imprimer ou enregistrer en PDF.",
+  "Storage, security, access and 5S reports, to print or save as PDF: the Reports tab of Insights & Recommendations.": "Rapports stockage, sécurité, accès et 5S, à imprimer ou enregistrer en PDF : onglet Rapports d'Insights & Recommendations.",
+  "The state of the data of the folders you may see: what is covered, what is exposed, what to handle first.": "L'état des données des dossiers que vous pouvez voir : ce qui est couvert, ce qui est exposé, ce qu'il faut traiter d'abord.",
+  "in your scope": "dans votre périmètre",
+  "{count} to handle first": "{count} à traiter d'abord",
+  "To handle first": "À traiter d'abord",
+  "All recommendations": "Toutes les recommandations",
+  "Nothing urgent: the folders are well kept, or not measured yet.": "Rien d'urgent : les dossiers sont bien tenus, ou pas encore mesurés."
 }

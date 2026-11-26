@@ -1,6 +1,7 @@
 <script lang="ts">
   
   import { reportUiError } from '$lib/errors/report';
+  import { topologyHref } from '$lib/utils/storage-topology';
   import ShareCreateModal from '$lib/components/storage-endpoints/ShareCreateModal.svelte';
   import { alertTitle } from '$lib/mappers/storage-root-alerts.mapper';
   import { t } from '$lib/i18n';
@@ -977,6 +978,14 @@
       icon: 'bi-pencil',
       variant: 'secondary',
       onClick: () => (showEditModal = true)
+    },
+    // Its state, its shares and folders: the Topology tab of Insights & Recommendations
+    {
+      key: 'topology',
+      label: t('View in the topology'),
+      icon: 'bi-diagram-2',
+      variant: 'secondary',
+      onClick: () => goto(topologyHref({ zone: Number(ep?.zone_id ?? ep?.zone?.id ?? 0) || null, ...(isDfsEndpoint(ep) ? { dfs: endpointId(ep) } : { server: endpointId(ep) }) }))
     },
     ...(isDfsEndpoint(ep) ? [{
       key: 'read-namespace',

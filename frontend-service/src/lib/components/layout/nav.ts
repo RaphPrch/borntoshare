@@ -53,7 +53,7 @@ export function buildNav(ctx: NavContext): NavSection[] {
             tabs: [{ href: '/access-requests', label: t('Requests'), menu: false },
               ...(ctx.staff ? [{ href: '/access-reviews', label: t('Reviews') }] : [])] }] : []),
         // Who reaches what: the map of the folders by how widely their last ACL read opens them
-        ...(governance && ctx.staff ? [{ href: '/access-explorer', label: 'Access Explorer', icon: 'bi-diagram-3', also: ['/exposure'] }] : []),
+        ...(governance && ctx.staff ? [{ href: '/access-explorer', label: 'Access Explorer', icon: 'bi-diagram-3' }] : []),
         // Administrators: the platform (health, alerts, jobs) and, as a tab, what a manager sees; managers: their own view
         ...(ctx.admin
           ? [{ href: '/observability', label: 'Governance Jobs', icon: 'bi-list-task', count: ctx.critical, danger: true,
@@ -78,7 +78,13 @@ export function buildNav(ctx: NavContext): NavSection[] {
                   { href: '/five-s', label: 'Analytics', icon: 'bi-bar-chart' }
                 ]
               : []),
-            { href: '/reports', label: 'Insights & Recommendations', icon: 'bi-lightbulb' },
+            // The cockpit of the data: the state now, what to handle, the storage map, the exposure, the reports
+            { href: '/insights', label: 'Insights & Recommendations', icon: 'bi-lightbulb', also: ['/reports'],
+              tabs: [{ href: '/insights', label: t('Overview'), menu: false },
+                { href: '/insights/recommendations', label: t('Recommendations') },
+                ...(ctx.admin ? [{ href: '/insights/topology', label: t('Topology') }] : []),
+                ...(governance ? [{ href: '/insights/exposure', label: t('Exposure') }] : []),
+                { href: '/reports', label: t('Reports') }] },
             // Audit evidence of the whole platform (administrators)
             ...(ctx.admin ? [{ href: '/evidence', label: 'Evidence Center', icon: 'bi-file-earmark-zip' }] : [])
           ]
@@ -89,10 +95,9 @@ export function buildNav(ctx: NavContext): NavSection[] {
       label: 'Administration',
       items: ctx.admin
         ? [
-            // The servers, and as a tab the map of the storage: zone → server → volume → share → folder, DFS
-            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack', also: ['/admin/storage-topology'],
-              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' },
-              tabs: [{ href: '/admin/storage-endpoints', label: t('Servers'), menu: false }, { href: '/admin/storage-topology', label: t('Topology') }] },
+            // Their configuration; their state is the Topology tab of Insights & Recommendations
+            { href: '/admin/storage-endpoints', label: 'Storage Endpoints', icon: 'bi-hdd-stack',
+              action: { href: '/admin/storage-endpoints/new', label: t('Add a server'), icon: 'bi-plus-lg' } },
             // Zones: an entry of their own (no longer a tab of the servers)
             { href: '/admin/zones', label: 'Zones', icon: 'bi-geo-alt',
               action: { href: '/admin/zones/new', label: t('Add a zone'), icon: 'bi-plus-lg' } },

@@ -35,11 +35,18 @@ assert.ok(!JSON.stringify(buildNav(ctx({ admin: true, staff: true, features: ['g
 // The old address of the Assistant still lights its entry; Access Explorer is no longer a tab of Access Management
 const sections = buildNav(ctx({ admin: true, staff: true, features: ['governance', 'fives'] }));
 assert.equal(activeItem(sections, '/pilot')?.item.label, 'Assistant');
-assert.equal(activeItem(sections, '/exposure')?.item.label, 'Access Explorer');
 assert.equal(activeItem(sections, '/access-explorer')?.item.label, 'Access Explorer');
-// The storage map is a tab of Storage Endpoints (administrators only)
-assert.equal(activeItem(sections, '/admin/storage-topology')?.item.label, 'Storage Endpoints');
-assert.ok(activeItem(sections, '/admin/storage-topology')?.item.tabs?.some((tab) => tab.href === '/admin/storage-topology'));
+// The cockpit of the data: one entry, its tabs (overview, recommendations, topology, exposure, reports)
+for (const path of ['/insights', '/insights/recommendations', '/insights/topology', '/insights/exposure', '/reports', '/reports/storage']) {
+  assert.equal(activeItem(sections, path)?.item.label, 'Insights & Recommendations', path);
+}
+const cockpit = (c: NavContext) => buildNav(c).flatMap((s) => s.items).find((item) => item.href === '/insights')?.tabs?.map((tab) => tab.href);
+assert.deepEqual(cockpit(ctx({ admin: true, staff: true })), ['/insights', '/insights/recommendations', '/insights/topology', '/insights/exposure', '/reports']);
+// A guardian: no topology (hosts of the servers); without the governance: no exposure
+assert.deepEqual(cockpit(ctx({ staff: true })), ['/insights', '/insights/recommendations', '/insights/exposure', '/reports']);
+assert.deepEqual(cockpit(ctx({ admin: true, staff: true, features: ['fives'] })), ['/insights', '/insights/recommendations', '/insights/topology', '/reports']);
+// Storage Endpoints is the configuration only
+assert.equal(buildNav(ctx({ admin: true, staff: true })).flatMap((s) => s.items).find((item) => item.href === '/admin/storage-endpoints')?.tabs, undefined);
 assert.equal(activeItem(sections, '/access-reviews/4')?.item.label, 'Access Management');
 assert.equal(activeItem(sections, '/five-s/report/12')?.item.label, 'Explorer');
 console.log('nav: menus by role and license ok');

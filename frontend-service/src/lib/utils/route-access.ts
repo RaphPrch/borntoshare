@@ -6,9 +6,9 @@ export type AccessContext = { admin: boolean; staff: boolean; features: string[]
 const covers = (prefix: string, path: string) => path === prefix || path.startsWith(`${prefix}/`);
 
 /** The screens about the folders: administrators and guardians (a user has his requests and his folders) */
-export const STAFF_ONLY = ['/observability', '/reports', '/five-s', '/exposure', '/access-explorer', '/assistant', '/pilot', '/access-reviews'];
-/** Audit exports of the whole platform */
-export const ADMIN_ONLY = ['/evidence'];
+export const STAFF_ONLY = ['/observability', '/insights', '/reports', '/five-s', '/exposure', '/access-explorer', '/assistant', '/pilot', '/access-reviews'];
+/** Audit exports of the whole platform; the map of the servers (their hosts, the messages of their probes) */
+export const ADMIN_ONLY = ['/evidence', '/insights/topology'];
 
 /** Where to send someone who may not open `path`; null when the page is his */
 export function redirectFor(path: string, ctx: AccessContext): string | null {
@@ -17,7 +17,7 @@ export function redirectFor(path: string, ctx: AccessContext): string | null {
   // An installation for the 5S only: no access request, no exposure; the dashboard of a guardian is the 5S
   if (!ctx.features.includes('governance')) {
     const home = ctx.features.includes('fives') && ctx.staff ? '/five-s' : '/dashboard';
-    if (covers('/access-requests', path) || covers('/exposure', path) || covers('/access-explorer', path) || (path === '/dashboard' && ctx.staff && !ctx.admin)) {
+    if (covers('/access-requests', path) || covers('/exposure', path) || covers('/insights/exposure', path) || covers('/access-explorer', path) || (path === '/dashboard' && ctx.staff && !ctx.admin)) {
       return path === home ? null : home;
     }
   }
