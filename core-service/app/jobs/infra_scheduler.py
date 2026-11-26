@@ -72,6 +72,15 @@ async def run_task(db: Session, task: str, *, trigger: str) -> dict[str, Any]:
             except Exception:
                 db.rollback()
                 logger.warning("DERIVED_MEASURE_FAILED", exc_info=True)
+            # The day's snapshot of the data indicators (trends of Insights & Recommendations), once a day
+            try:
+                from app.services.indicator_history import take_snapshot
+
+                if await run_in_threadpool(take_snapshot, db):
+                    message += " · indicateurs du jour enregistrés"
+            except Exception:
+                db.rollback()
+                logger.warning("INDICATOR_SNAPSHOT_FAILED", exc_info=True)
             # The bell keeps what is unread; what was read more than 90 days ago goes
             from app.services.inbox import purge_read
 

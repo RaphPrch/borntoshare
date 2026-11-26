@@ -17,6 +17,10 @@
   import { INSIGHT_FIELDS, buildInsights } from '$lib/utils/insights';
   import { coverageRings, type ExposureSummary, type TopologySummary } from '$lib/utils/coverage';
   import { coverageTone } from '$lib/utils/ring';
+  import Sparkline from '$lib/components/ui/Sparkline.svelte';
+  import SegmentedFilter from '$lib/components/ui/SegmentedFilter.svelte';
+  import { formatDate } from '$lib/utils/format';
+  import { buildTrends, trendVerdict, type HistoryPoint, type Trend } from '$lib/utils/trends';
 
   const FIRST = 4;
   let isAdmin = $derived(($page.data as any)?.navigation?.canSeeAdmin === true);
@@ -24,6 +28,15 @@
   let exposure = $state<ExposureSummary | null>(null);
   let topology = $state<TopologySummary | null>(null);
   let fivesScore = $state<number | null>(null);
+  // Trends (administrators: the figures of every folder): one snapshot a day, taken by core-service
+  let period = $state('90');
+  let history = $state<HistoryPoint[] | null>(null);
+  $effect(() => {
+    if (!isAdmin) return;
+    const days = period;
+    history = null;
+    apiGetData<HistoryPoint[]>(fetch, '/insights/history', { days }).then((data) => (history = data ?? [])).catch(() => (history = []));
+  });
 
   onMount(() => {
     // Each source on its own: the page shows what has come, the others fill in (never a « 0 » for « not read yet »)
@@ -41,6 +54,15 @@
   let volume = $derived((roots ?? []).reduce((sum, row) => sum + num(row.content_size_bytes ?? row.estimated_size_bytes), 0));
   let alerted = $derived(roots ? foldersMatching(roots, 'est:alerte') : []);
   let alerts = $derived(alerted.reduce((sum, row) => sum + num(row.open_alerts_count), 0));
+  let trends = $derived(history ? buildTrends(history) : []);
+  const show = (trend: Trend, value: number | null) =>
+    value == null ? '—' : trend.kind === 'percent' ? `${Math.round(value)} %` : trend.kind === 'bytes' ? formatBytes(value) : Math.round(value).toLocaleString('fr-FR');
+  const showDelta = (trend: Trend) => {
+    if (trend.delta == null) return '';
+    const sign = trend.delta > 0 ? '+' : trend.delta < 0 ? '−' : '±';
+    const size = Math.abs(trend.delta);
+    return `${sign}${trend.kind === 'percent' ? `${size.toFixed(1)} pt` : trend.kind === 'bytes' ? formatBytes(size) : Math.round(size).toLocaleString('fr-FR')}`;
+  };
 </script>
 
 <svelte:head><title>Insights & Recommendations · BornToShare</title></svelte:head>
@@ -75,6 +97,34 @@
     </div>
   </div>
 
+  {#if isAdmin}
+    <div class="v2-sec">
+      <div class="v2-sh"><h2>{t('Trends')}</h2>
+        <div class="v2-sh__r"><SegmentedFilter options={[{ key: '30', label: t('30 days') }, { key: '90', label: t('90 days') }, { key: '365', label: t('1 year') }]} bind:value={period} ariaLabel={t('Period')} /></div></div>
+      {#if !history}
+        <LoadingState block skeleton="rows" rows={2} />
+      {:else if history.length < 2}
+        <p class="v2-hint">{history.length
+          ? t('The history started on {date}: the curves appear from the second day (one snapshot a day, taken by the health check).', { date: formatDate(history[0].day) })
+          : t('No snapshot yet: the first one is taken by the next health check, then one a day.')}</p>
+      {/if}
+      {#if history?.length}
+        <div class="io__trends">
+          {#each trends as trend (trend.key)}
+            {@const verdict = trendVerdict(trend)}
+            <a class="io__trend" href={trend.href}>
+              <span class="io__trend-h"><small>{t(trend.label)}</small>
+                {#if verdict}<span class={`v2-tag is-${verdict === 'better' ? 'ok' : verdict === 'worse' ? 'warn' : 'mut'}`}>{showDelta(trend)}</span>{/if}</span>
+              <b>{show(trend, trend.last)}</b>
+              <Sparkline points={trend.points} width={150} height={30} goodWhen={trend.goodWhen}
+                title={t('{label}: {from} → {to}', { label: t(trend.label), from: show(trend, trend.points[0] ?? null), to: show(trend, trend.last) })} />
+            </a>
+          {/each}
+        </div>
+      {/if}
+    </div>
+  {/if}
+
   <div class="v2-sec">
     <div class="v2-sh"><h2>{t('To handle first')}</h2>
       <div class="v2-sh__r"><a href="/insights/recommendations">{t('All recommendations')}</a></div></div>
@@ -94,4 +144,11 @@
   .io__ring:hover, .io__ring:focus-visible { background: var(--b2s-color-surface-hover); }
   .io__ring b { display: block; font-size: 14px; }
   .io__ring small { color: var(--b2s-color-text-muted); font-size: 12px; }
+  .io__trends { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+  .io__trend { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border: 1px solid var(--b2s-color-border-soft); border-radius: var(--b2s-radius-md);
+    color: inherit; text-decoration: none; }
+  .io__trend:hover, .io__trend:focus-visible { border-color: var(--b2s-accent-border); }
+  .io__trend-h { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+  .io__trend small { color: var(--b2s-color-text-muted); font-size: 12px; }
+  .io__trend b { font-size: 20px; font-variant-numeric: tabular-nums; }
 </style>

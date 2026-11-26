@@ -41,7 +41,8 @@
     "test:storage-topology": "npx tsx ./src/lib/utils/storage-topology.test.ts",
     "test:insights": "npx tsx ./src/lib/utils/insights.test.ts",
     "test:ring": "npx tsx ./src/lib/utils/ring.test.ts",
-    "test:coverage": "npx tsx ./src/lib/utils/coverage.test.ts"
+    "test:coverage": "npx tsx ./src/lib/utils/coverage.test.ts",
+    "test:trends": "npx tsx ./src/lib/utils/trends.test.ts"
   },
   "overrides": {
     "cookie": "0.7.2"

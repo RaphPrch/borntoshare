@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.api._helpers import ui_data
 from app.core.db import get_db
 from app.services import features, reports
-from app.services.authorization import actor_from_request, filter_storage_root_rows, require_storage_roots_index
+from app.services.authorization import actor_from_request, admin_only, filter_storage_root_rows, require_storage_roots_index
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -44,3 +44,12 @@ def get_report(kind: str, request: Request, zone_id: int | None = None, db: Sess
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
     rows, scope, zones = _rows(db, request, zone_id)
     return ui_data({**reports.build(db, kind, rows, scope, governance), "zones": zones})
+
+
+@router.get("/history", dependencies=[Depends(admin_only)])
+def get_history(days: int = Query(90, ge=1, le=400), zone_id: int | None = Query(None, ge=1), db: Session = Depends(get_db)):
+    """One snapshot a day of the data indicators of the platform or of a zone (administrators: the figures of every
+    folder), oldest first. Empty until the first snapshot (taken by the health check)."""
+    from app.services.indicator_history import history
+
+    return ui_data(history(db, days=days, zone_id=zone_id))
