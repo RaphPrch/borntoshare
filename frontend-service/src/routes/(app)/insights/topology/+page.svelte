@@ -107,7 +107,7 @@
   <span class="st__facts">
     {#if node.collected_at}<span>{t('Collected')} <RelativeTime value={node.collected_at} /></span>{:else}<span>{t('Never collected')}</span>{/if}
     {#if node.capacity && capacityLine(node.capacity)}<span>{capacityLine(node.capacity, formatBytes, t)}</span>{/if}
-    {#if node.alerts?.open}<span class={node.alerts.serious ? 'st__bad' : ''}><i class="bi bi-bell" aria-hidden="true"></i> {node.alerts.open}{#if node.alerts.serious} ({t('{n} serious', { n: node.alerts.serious })}){/if}</span>{/if}
+    {#if node.alerts?.open}<span class={node.alerts.serious ? 'st__bad' : ''}><i class="bi bi-bell" aria-hidden="true"></i> {node.alerts.open}{node.alerts.serious ? ` (${t('{n} serious', { n: node.alerts.serious })})` : ''}</span>{/if}
   </span>
 {/snippet}
 
@@ -147,16 +147,19 @@
         <div class="st__grid">
           {#each overview.zones as z (z.id)}
             {@const known = z.children.servers + z.children.dfs - z.states.unknown}
+            {@const answering = z.states.available + z.states.degraded}
             <button type="button" class="v2-sec st__card" onclick={() => go({ zone: z.id })}>
+              <!-- Name and state on top, the ring of the servers that answer at the right: the text keeps the width -->
               <div class="st__card-b">
-                <RingStat value={percent(z.states.available, known)} size={52} tone={coverageTone(percent(z.states.available, known), 100, 50)}
-                  label={t('{n} of {total} available', { n: z.states.available, total: known })} />
-                <div>
-                  <div class="st__card-h"><i class="bi bi-geo-alt" aria-hidden="true"></i><b>{z.name}</b>{@render state(z)}</div>
-                  <span class="st__counts">{t('{s} server(s) · {d} DFS · {r} folder(s)', { s: z.children.servers, d: z.children.dfs, r: z.children.roots })}</span>
-                  {@render facts(z)}
+                <div class="st__card-t">
+                  <div class="st__card-h"><i class="bi bi-geo-alt" aria-hidden="true"></i><b>{z.name}</b></div>
+                  <div class="st__card-s">{@render state(z)}</div>
                 </div>
+                <RingStat value={percent(answering, known)} size={48} stroke={5} tone={coverageTone(percent(answering, known), 100, 50)}
+                  label={t('{n} of {total} servers answer', { n: answering, total: known })} />
               </div>
+              <span class="st__counts">{t('{s} server(s) · {d} DFS · {r} folder(s)', { s: z.children.servers, d: z.children.dfs, r: z.children.roots })}</span>
+              {@render facts(z)}
             </button>
           {/each}
         </div>
@@ -366,8 +369,11 @@
   .st__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
   .st__card { display: flex; flex-direction: column; gap: 6px; text-align: left; cursor: pointer; border: 1px solid var(--b2s-color-border); }
   .st__card:hover, .st__card:focus-visible { border-color: var(--b2s-accent); }
-  .st__card-b { display: flex; align-items: center; gap: 12px; }
-  .st__card-h { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .st__card-b { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; width: 100%; }
+  .st__card-t { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .st__card-h { display: flex; align-items: center; gap: 6px; font-size: 15px; }
+  .st__card-h b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .st__card-s { display: flex; flex-wrap: wrap; gap: 6px; }
   .st__counts { font-size: 13px; }
   .st__facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--b2s-color-text-muted); }
   .st__bad { color: var(--b2s-color-danger); }

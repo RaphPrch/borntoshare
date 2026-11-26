@@ -35,11 +35,12 @@
 
   let data = $state<Exposure | null>(null);
   let error = $state('');
-  const savedExposure = recall('exposure', { filter: 'all', zoneFilter: 0 });
-  let filter = $state(savedExposure.filter as Level | 'all');
+  // By default the folders to look at: open to everyone, outside accounts, not read; the governed ones one click away
+  const savedExposure = recall('exposure-v2', { filter: 'exposed', zoneFilter: 0 });
+  let filter = $state(savedExposure.filter as Level | 'all' | 'exposed');
   let zoneFilter = $state(savedExposure.zoneFilter);
   $effect.pre(() => {
-    remember('exposure', { filter, zoneFilter });
+    remember('exposure-v2', { filter, zoneFilter });
   });
   let query = $state('');
 
@@ -52,8 +53,8 @@
   });
 
   let needle = $derived(query.trim().toLowerCase());
-  const keep = (folder: Folder, level: Level | 'all', text: string) =>
-    (level === 'all' || folder.level === level) && (!text || `${folder.name} ${folder.path}`.toLowerCase().includes(text));
+  const keep = (folder: Folder, level: Level | 'all' | 'exposed', text: string) =>
+    (level === 'all' || (level === 'exposed' ? folder.level !== 'governed' : folder.level === level)) && (!text || `${folder.name} ${folder.path}`.toLowerCase().includes(text));
   // Zones, servers and shares without a folder left after the filters are hidden; the worst folders come first
   const ORDER: Level[] = ['open_write', 'open_read', 'outside', 'unknown', 'governed'];
   let zones = $derived((data?.zones ?? [])
@@ -100,12 +101,12 @@
   }
 </script>
 
-<svelte:head><title>Access Explorer · BornToShare</title></svelte:head>
+<svelte:head><title>Exposure map · BornToShare</title></svelte:head>
 
 <section class="ex">
   <header class="ex__top">
     <div>
-      <h1>Access Explorer</h1>
+      <h1>Exposure map</h1>
       <p>{t('How widely each governed folder is open, from the last reading of its rights on the file server.')}</p>
     </div>
     {#if data}
@@ -142,6 +143,7 @@
           {#each data.zones as zone (zone.zone_id)}<option value={zone.zone_id}>{zone.zone}</option>{/each}
         </select>
       {/if}
+      {#if filter === 'exposed'}<span class="v2-hint">{t('{count} governed folder(s) hidden', { count: data?.summary.governed ?? 0 })}</span>{/if}
       {#if filter !== 'all'}<button type="button" class="b2s-link-btn" onclick={() => (filter = 'all')}>{t('Show every level')}</button>{/if}
     </div>
 

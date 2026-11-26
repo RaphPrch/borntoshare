@@ -157,7 +157,8 @@
       detail: t('Quotas'), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:quota-demande')}` });
     if (noGuardian.length) list.push({ key: 'guardian', tone: 'warn', title: t('{count} folder(s) without guardian', { count: noGuardian.length }),
       detail: t('Their requests go to the administrators'), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:sans-gardien')}` });
-    if (neverRoots.length) list.push({ key: 'never', tone: 'mut', title: t('{count} folder(s) never measured', { count: neverRoots.length }),
+    // The same count as Storage Roots (est:non-mesure); the action measures those that can be started now
+    if (neverRoots.length) list.push({ key: 'never', tone: 'mut', title: t('{count} folder(s) never measured', { count: foldersMatching(roots, 'est:non-mesure').length }),
       detail: t('No detailed volume, no 5S'), action: t('Measure'), run: measureNever });
     return list;
   });
@@ -180,7 +181,7 @@
         <a class="b2s-btn b2s-btn-secondary" href="/insights"><i class="bi bi-speedometer2" aria-hidden="true"></i>{t('Data overview')}</a>
         {#if neverRoots.length}
           <button type="button" class="b2s-btn b2s-btn-primary" disabled={measuring} onclick={measureNever}>
-            <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure the {count} folder(s) never measured', { count: neverRoots.length })}
+            <i class="bi bi-rulers" aria-hidden="true"></i>{t('Measure {count} folder(s)', { count: neverRoots.length })}
           </button>
         {/if}
       </div>

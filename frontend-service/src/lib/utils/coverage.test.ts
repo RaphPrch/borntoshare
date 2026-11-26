@@ -11,11 +11,11 @@ const by = (rings: ReturnType<typeof coverageRings>) => Object.fromEntries(rings
 
 // The counts are those of the lists they open
 const all = by(coverageRings({ roots, governance: true, exposure: { governed: 6, total: 10, unknown: 2, open_read: 1, outside: 1 },
-  topology: { servers: 4, dfs: 1, states: { available: 3, degraded: 1, unavailable: 0, unknown: 1 } } }));
+  topology: { servers: 4, dfs: 1, states: { available: 2, degraded: 1, unavailable: 1, unknown: 1 } } }));
 assert.equal(all.measured.value, 75);
 assert.equal(all.guardian.value, 50);
 assert.equal(all.governed.value, 75, 'governed out of the folders whose ACL was read');
-assert.equal(all.servers.value, 75, 'available out of the servers whose state is known');
+assert.equal(all.servers.value, 75, 'answering (available or degraded) out of the servers whose state is known');
 assert.equal(all.servers.href, '/insights/topology');
 
 // Still reading: an empty ring, never 0 %

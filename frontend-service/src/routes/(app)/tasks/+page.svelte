@@ -71,7 +71,7 @@
       <h1>My Tasks</h1>
       <p>{t('What waits for you: requests to decide, reviews, alerts and your own requests to follow.')}</p>
     </div>
-    {#if staff}<div class="v2-head__r"><a class="b2s-btn b2s-btn-secondary" href="/reports"><i class="bi bi-lightbulb" aria-hidden="true"></i>{t('Recommendations')}</a></div>{/if}
+    {#if staff}<div class="v2-head__act"><a class="b2s-btn b2s-btn-secondary" href="/reports"><i class="bi bi-lightbulb" aria-hidden="true"></i>{t('Recommendations')}</a></div>{/if}
   </div>
 
   {#if loading}

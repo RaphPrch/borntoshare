@@ -33,7 +33,7 @@ export const TREND_DEFS: Def[] = [
   { key: 'governed', label: 'Folders governed', kind: 'percent', goodWhen: 'up', href: '/insights/exposure',
     value: (p) => (p.exposure ? share(Number(p.exposure.governed ?? 0), exposureRead(p.exposure)) : null) },
   { key: 'servers', label: 'Servers available', kind: 'percent', goodWhen: 'up', href: '/insights/topology',
-    value: (p) => (p.servers ? share(Number(p.servers.available ?? 0), serversKnown(p.servers)) : null) },
+    value: (p) => (p.servers ? share(Number(p.servers.available ?? 0) + Number(p.servers.degraded ?? 0), serversKnown(p.servers)) : null) },
   { key: 'volume', label: 'Measured volume', kind: 'bytes', goodWhen: 'down', href: '/storage-roots', value: (p) => Number(p.volume_bytes ?? 0) },
   { key: 'cold', label: 'Cold data', kind: 'bytes', goodWhen: 'down', href: search('est:donnees-froides'), value: (p) => Number(p.cold_bytes ?? 0) },
   { key: 'dups', label: 'Duplicates to free', kind: 'bytes', goodWhen: 'down', href: search('est:doublons'), value: (p) => Number(p.dup_bytes ?? 0) },
