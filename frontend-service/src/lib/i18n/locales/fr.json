@@ -6089,5 +6089,11 @@
   "{count} to handle first": "{count} à traiter d'abord",
   "To handle first": "À traiter d'abord",
   "All recommendations": "Toutes les recommandations",
-  "Nothing urgent: the folders are well kept, or not measured yet.": "Rien d'urgent : les dossiers sont bien tenus, ou pas encore mesurés."
+  "Nothing urgent: the folders are well kept, or not measured yet.": "Rien d'urgent : les dossiers sont bien tenus, ou pas encore mesurés.",
+  "Trends": "Tendances",
+  "1 year": "1 an",
+  "The history started on {date}: the curves appear from the second day (one snapshot a day, taken by the health check).": "L'historique a commencé le {date} : les courbes apparaissent dès le deuxième jour (une photo par jour, prise par le contrôle de santé).",
+  "No snapshot yet: the first one is taken by the next health check, then one a day.": "Aucune photo pour l'instant : la première est prise au prochain contrôle de santé, puis une par jour.",
+  "{label}: {from} → {to}": "{label} : {from} → {to}",
+  "Folders with passwords or keys": "Dossiers avec mots de passe ou clés"
 }
