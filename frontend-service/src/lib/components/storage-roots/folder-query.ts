@@ -178,7 +178,8 @@ export function foldersMatching<T extends Row>(rows: T[], query: string): T[] {
 }
 
 const quote = (value: string) => (/\s/.test(value) ? `"${value}"` : value);
-const STATE_LABELS = (): Array<[string, string]> => [
+/** Every « est:… » state with its label (filters of the reports, suggestions of the search) */
+export const STATE_LABELS = (): Array<[string, string]> => [
   ['alerte', t('with open alerts')],
   ['injoignable', t('unreachable')],
   ['sain', t('healthy')],

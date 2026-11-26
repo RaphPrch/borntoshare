@@ -8,6 +8,8 @@
   import FivesOffNotice from '$lib/components/settings/FivesOffNotice.svelte';
   import { t } from '$lib/i18n';
   import { formatBytes, formatDate, formatDateTime } from '$lib/utils/format';
+  import SearchField from '$lib/components/ui/SearchField.svelte';
+  import { STATE_LABELS } from '$lib/components/storage-roots/folder-query';
 
   /**
    * One report, the same layout for all: key figures, then tables. Printed (or saved as PDF) without the
@@ -17,11 +19,19 @@
   type Section = { title: string; description?: string; columns: Column[]; rows: Array<Record<string, any>>; empty?: string };
   type Kpi = { label: string; value: number | null; type: Column['type']; hint?: string | null; tone?: string | null };
   type Report = { key: string; title: string; description: string; generated_at: string; scope: string; kpis: Kpi[]; sections: Section[];
-    zones: Array<{ id: number; name: string }> };
+    zones: Array<{ id: number; name: string }>; servers?: Array<{ id: number; name: string }>; tags?: string[]; period_days?: number };
 
   let report = $state<Report | null>(null);
   let error = $state('');
   let zoneId = $state(0);
+  // The filters of the report: the folders it reads (the same « est:… » search as Storage Roots), the period of the requests
+  let serverId = $state(0);
+  let tag = $state('');
+  let stateKey = $state('');
+  let query = $state('');
+  let applied = $state('');
+  let days = $state(30);
+  let search = $derived([stateKey ? `est:${stateKey}` : '', applied].filter(Boolean).join(' '));
   let loadedFor = $state('');
   async function load() {
     loadedFor = key;
@@ -29,7 +39,15 @@
     try {
       // fives-…: a report of the 5S module (its own service)
       const base = kind.startsWith('fives-') ? '/modules/fives/reports' : '/insights/reports';
-      report = await apiGetData<Report>(fetch, `${base}/${kind}`, zoneId ? { zone_id: zoneId } : undefined);
+      // The 5S module filters by zone; the core by zone, server, tag, search and period
+      const params: Record<string, string | number> = zoneId ? { zone_id: zoneId } : {};
+      if (!kind.startsWith('fives-')) {
+        if (serverId) params.server_id = serverId;
+        if (tag) params.tag = tag;
+        if (search) params.q = search;
+        if (kind === 'requests') params.days = days;
+      }
+      report = await apiGetData<Report>(fetch, `${base}/${kind}`, Object.keys(params).length ? params : undefined);
     } catch (failure) {
       error = failure instanceof Error ? failure.message : t('Unable to load the report.');
     }
@@ -49,12 +67,17 @@
   const scoreTone = (value: any) => (value == null ? '' : Number(value) >= 80 ? 'ok' : Number(value) >= 60 ? 'warn' : 'bad');
   const statusTone = (value: any) => {
     const text = String(value ?? '');
-    return /retard|plein|non demandée/.test(text) ? 'bad' : /surveiller|en cours/.test(text) ? 'warn' : /ok|corrigée/.test(text) ? 'ok' : '';
+    return /retard|plein|non demandée|critique|élevée/.test(text) ? 'bad' : /surveiller|en cours|avertissement/.test(text) ? 'warn' : /ok|corrigée/.test(text) ? 'ok' : '';
   };
   let kind = $derived($page.params.kind);
   // A report of the 5S module while the module is not usable: said, and the module is not called
   let fivesOff = $derived(($page.data as { fivesOff?: { reason: string } | null }).fivesOff ?? null);
-  let key = $derived(`${kind}:${zoneId}`);
+  let key = $derived(`${kind}:${zoneId}:${serverId}:${tag}:${search}:${days}`);
+  let core = $derived(!kind.startsWith('fives-'));
+  let filtered = $derived(Boolean(zoneId || serverId || tag || search));
+  function reset() {
+    zoneId = 0; serverId = 0; tag = ''; stateKey = ''; query = ''; applied = '';
+  }
   $effect.pre(() => {
     if (kind && !fivesOff && key !== loadedFor) untrack(load);
   });
@@ -65,10 +88,9 @@
 {:else}
 <section class="b2s-page b2s-page--admin rv">
   <nav class="rv__crumbs no-print"><a class="b2s-btn b2s-btn-sm b2s-btn-secondary" href="/reports"><i class="bi bi-arrow-left" aria-hidden="true"></i>{t('All the reports')}</a></nav>
-  {#if error}
-    <InlineAlert tone="error">{error}</InlineAlert>
-  {:else if !report}
-    <LoadingState block skeleton="detail" />
+  {#if error}<InlineAlert tone="error">{error}</InlineAlert>{/if}
+  {#if !report}
+    {#if !error}<LoadingState block skeleton="detail" />{/if}
   {:else}
     <header class="rv__head">
       <div>
@@ -78,16 +100,45 @@
         <small>{report.scope} · {t('generated on {date}', { date: formatDateTime(report.generated_at) })}</small>
       </div>
       <div class="rv__tools no-print">
-        {#if report.zones?.length}
-          <select class="b2s-input" bind:value={zoneId} aria-label={t('Zone')}>
-            <option value={0}>{t('All the zones')}</option>
-            {#each report.zones as zone (zone.id)}<option value={zone.id}>{zone.name}</option>{/each}
-          </select>
-        {/if}
         <button type="button" class="b2s-btn b2s-btn-primary" onclick={() => window.print()}>
           <i class="bi bi-printer" aria-hidden="true"></i>{t('Print or save as PDF')}</button>
       </div>
     </header>
+
+    <div class="rv__filters no-print" aria-label={t('Filters of the report')}>
+      {#if report.zones?.length}
+        <select class="b2s-input" bind:value={zoneId} onchange={() => (serverId = 0)} aria-label={t('Zone')}>
+          <option value={0}>{t('All the zones')}</option>
+          {#each report.zones as zone (zone.id)}<option value={zone.id}>{zone.name}</option>{/each}
+        </select>
+      {/if}
+      {#if core}
+        {#if report.servers?.length}
+          <select class="b2s-input" bind:value={serverId} aria-label={t('Server')}>
+            <option value={0}>{t('All the servers')}</option>
+            {#each report.servers as server (server.id)}<option value={server.id}>{server.name}</option>{/each}
+          </select>
+        {/if}
+        {#if report.tags?.length}
+          <select class="b2s-input" bind:value={tag} aria-label={t('Tag')}>
+            <option value="">{t('All the tags')}</option>
+            {#each report.tags as name (name)}<option value={name}>{name}</option>{/each}
+          </select>
+        {/if}
+        <select class="b2s-input" bind:value={stateKey} aria-label={t('State')}>
+          <option value="">{t('Every state')}</option>
+          {#each STATE_LABELS().filter(([key]) => key !== 'tous') as [key, label] (key)}<option value={key}>{label}</option>{/each}
+        </select>
+        {#if kind === 'requests'}
+          <select class="b2s-input" bind:value={days} aria-label={t('Period')}>
+            {#each [7, 30, 90, 365] as value (value)}<option value={value}>{t('{n} days', { n: value })}</option>{/each}
+          </select>
+        {/if}
+        <SearchField bind:value={query} placeholder={t('Search: tag:Finance gardien:alice taille>1Go…')} ariaLabel={t('Search the folders')}
+          wrapperClass="rv__search" onEnter={() => (applied = query.trim())} />
+      {/if}
+      {#if filtered}<button type="button" class="b2s-link-btn" onclick={reset}>{t('Clear the filters')}</button>{/if}
+    </div>
 
     <div class="rv__kpis">
       {#each report.kpis as kpi (kpi.label)}
@@ -145,7 +196,9 @@
   .rv__head p { margin: 4px 0; color: var(--b2s-color-text-muted); }
   .rv__head small { color: var(--b2s-color-text-muted); font-size: var(--b2s-fs-xs); }
   .rv__tools { display: flex; gap: 10px; align-items: center; }
-  .rv__tools select { width: 200px; }
+  .rv__filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .rv__filters select { width: auto; min-width: 150px; max-width: 220px; }
+  .rv__filters :global(.rv__search) { flex: 1 1 260px; }
   .rv__tools .b2s-btn i { margin-right: 6px; }
   .rv__kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
   .rv__kpi { display: flex; flex-direction: column; gap: 2px; padding: 14px 16px; border: 1px solid var(--b2s-color-border); border-radius: var(--b2s-radius-lg); background: var(--b2s-color-surface); }

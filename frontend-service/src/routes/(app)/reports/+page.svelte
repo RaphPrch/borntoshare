@@ -6,8 +6,16 @@
   import { fivesEnabled } from '$lib/utils/features';
 
   /** Insights & Recommendations › Reports: the reports to print or save as PDF (the core's, then the 5S module's). */
-  type Report = { key: string; title: string; description: string; source?: 'core' | 'fives' };
-  const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', security: 'bi-shield-lock', governance: 'bi-diagram-3', 'fives-5s': 'bi-stars', 'fives-hygiene': 'bi-recycle' };
+  type Report = { key: string; title: string; description: string; source?: 'core' | 'fives'; license?: 'core' | 'governance' | 'fives' };
+  const ICONS: Record<string, string> = { storage: 'bi-hdd-stack', infrastructure: 'bi-activity', alerts: 'bi-bell', security: 'bi-shield-lock',
+    governance: 'bi-diagram-3', exposure: 'bi-globe2', guardians: 'bi-person-badge', requests: 'bi-inbox', 'fives-5s': 'bi-stars', 'fives-hygiene': 'bi-recycle' };
+  // Grouped by what brings them: always there, the access governance, the 5S module (its own reports and the sensitivity scan)
+  const GROUPS: Array<{ key: 'core' | 'governance' | 'fives'; title: string; hint: string }> = [
+    { key: 'core', title: t('Storage and infrastructure'), hint: t('Every installation') },
+    { key: 'governance', title: t('Access governance'), hint: t('Access governance license') },
+    { key: 'fives', title: t('Data quality and security'), hint: t('5S module') }
+  ];
+  const groupOf = (report: Report) => report.license ?? (report.source === 'fives' ? 'fives' : 'core');
   let reports = $state<Report[] | null>(null);
 
   onMount(async () => {
@@ -29,24 +37,30 @@
     </div>
   </div>
 
-  <div class="v2-sec">
-    <div class="v2-sh"><h2>{t('Reports')}</h2>{#if reports?.length}<span class="v2-tag is-mut">{reports.length}</span>{/if}</div>
-    {#if !reports}
-      <LoadingState block skeleton="rows" rows={2} />
-    {:else}
-      <div class="rp__reports">
-        {#each reports as report (report.key)}
-          <a class="rp__report" href={`/reports/${report.key}`}>
-            <span class="rp__icon"><i class={`bi ${ICONS[report.key] ?? 'bi-file-earmark-text'}`} aria-hidden="true"></i></span>
-            <b>{report.title}</b>
-            <small>{report.description}</small>
-            <span class="rp__open">{t('Open the report')} <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
-          </a>
-        {/each}
-      </div>
-    {/if}
-  </div>
-
+  {#if !reports}
+    <div class="v2-sec"><LoadingState block skeleton="rows" rows={2} /></div>
+  {:else}
+    {#each GROUPS as group (group.key)}
+      {@const items = reports.filter((report) => groupOf(report) === group.key)}
+      {#if items.length}
+        <div class="v2-sec">
+          <div class="v2-sh"><h2>{group.title}</h2><span class="v2-tag is-mut">{items.length}</span>
+            <div class="v2-sh__r"><span class="v2-hint">{group.hint}</span></div></div>
+          <div class="rp__reports">
+            {#each items as report (report.key)}
+              <a class="rp__report" href={`/reports/${report.key}`}>
+                <span class="rp__icon"><i class={`bi ${ICONS[report.key] ?? 'bi-file-earmark-text'}`} aria-hidden="true"></i></span>
+                <b>{report.title}</b>
+                <small>{report.description}</small>
+                <span class="rp__open">{t('Open the report')} <i class="bi bi-arrow-right" aria-hidden="true"></i></span>
+              </a>
+            {/each}
+          </div>
+        </div>
+      {/if}
+    {/each}
+    <p class="v2-hint">{t('Each report can be narrowed: zone, server, tag, state of the folders or an express search, then printed or saved as PDF.')}</p>
+  {/if}
 </section>
 
 <style>

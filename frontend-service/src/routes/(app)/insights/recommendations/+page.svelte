@@ -9,7 +9,7 @@
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import InsightCards from '$lib/components/insights/InsightCards.svelte';
   import { t } from '$lib/i18n';
-  import { governanceEnabled } from '$lib/utils/features';
+  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   import { INSIGHT_FIELDS, buildInsights } from '$lib/utils/insights';
 
   let roots = $state<Record<string, any>[] | null>(null);
@@ -18,7 +18,13 @@
     // Only the columns the recommendations read: the whole folder list weighs megabytes
     roots = await apiGetList<Record<string, any>>(fetch, '/storage-roots/context', { fields: INSIGHT_FIELDS }).catch(() => []);
   });
-  let insights = $derived(roots ? buildInsights(roots, $governanceEnabled) : []);
+  let insights = $derived(roots ? buildInsights(roots, { governance: $governanceEnabled, fives: $fivesEnabled }) : []);
+  // Grouped by what brings them (the same groups as the reports)
+  const GROUPS = [
+    { key: 'core', title: t('Storage and infrastructure'), hint: t('Every installation') },
+    { key: 'governance', title: t('Access governance'), hint: t('Access governance license') },
+    { key: 'fives', title: t('Data quality and security'), hint: t('5S module') }
+  ] as const;
 </script>
 
 <svelte:head><title>Recommendations · BornToShare</title></svelte:head>
@@ -30,15 +36,22 @@
       <p>{t('What the last measures, scans and ACL reads of the folders you may see reveal, with the folders concerned.')}</p>
     </div>
   </div>
-  <div class="v2-sec">
-    <div class="v2-sh"><h2>{t('Recommendations')}</h2>{#if insights.length}<span class="v2-tag is-mut">{insights.length}</span>{/if}
-      <div class="v2-sh__r"><span class="v2-hint">{t('Click: the folders concerned · right click: actions')}</span></div></div>
-    {#if !roots}
-      <LoadingState block skeleton="rows" rows={4} />
-    {:else if insights.length}
-      <InsightCards {insights} total={roots.length} {isAdmin} />
-    {:else}
-      <p class="v2-empty">{t('Nothing to recommend')} · {t('The folders are well kept, or not measured yet.')}</p>
-    {/if}
-  </div>
+  {#if !roots}
+    <div class="v2-sec"><LoadingState block skeleton="rows" rows={4} /></div>
+  {:else if insights.length}
+    <p class="v2-hint">{t('Click: the folders concerned · right click: actions')}</p>
+    {#each GROUPS as group (group.key)}
+      {@const items = insights.filter((insight) => insight.license === group.key)}
+      {#if items.length}
+        <div class="v2-sec">
+          <div class="v2-sh"><h2>{group.title}</h2><span class="v2-tag is-mut">{items.length}</span>
+            <div class="v2-sh__r"><span class="v2-hint">{group.hint}</span></div></div>
+          <InsightCards insights={items} total={roots.length} {isAdmin} />
+        </div>
+      {/if}
+    {/each}
+    {#if !$fivesEnabled}<p class="v2-hint">{t('With the 5S module: cold data, duplicates, clutter, passwords, personal data and risky files found in the content.')}</p>{/if}
+  {:else}
+    <div class="v2-sec"><p class="v2-empty">{t('Nothing to recommend')} · {t('The folders are well kept, or not measured yet.')}</p></div>
+  {/if}
 </section>
