@@ -22,6 +22,7 @@ const searchPages: Record<SearchPageGroup, SearchPage[]> = {
   admin: [
     { title: 'Storage Endpoints', description: 'Configure and manage storage endpoint connectors.', href: '/admin/storage-endpoints', icon: 'bi-hdd-network' },
     { title: 'Zones', description: 'Manage sites and zones topology.', href: '/admin/zones', icon: 'bi-diagram-2' },
+    { title: 'Storage Topology', description: 'Map of the storage: zones, servers, volumes, shares, DFS and folders, with their state.', href: '/admin/storage-topology', icon: 'bi-diagram-2' },
     { title: 'Policies', description: 'Smart policies: tag, alert and notify when folders match a condition.', href: '/policies', icon: 'bi-magic' },
     { title: 'Identity & Users', description: 'Manage local accounts and directory users or groups.', href: '/admin/identity', icon: 'bi-people' },
     { title: 'Tags', description: 'Define and manage governance tags.', href: '/admin/tags', icon: 'bi-tags' },

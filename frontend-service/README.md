@@ -48,7 +48,7 @@ Les noms du menu sont des noms de produit, en anglais dans les deux langues.
 | | Analytics (`/five-s`) | score 5S des dossiers et « Quoi faire d'abord » |
 | | Insights & Recommendations (`/reports`) | recommandations et rapports |
 | | Evidence Center (`/evidence`, administrateurs) | pack de preuves d'audit, rapports à imprimer, exports des campagnes de revue |
-| Administration | Storage Endpoints (`/admin/storage-endpoints`) | serveurs de fichiers et espaces DFS |
+| Administration | Storage Endpoints (`/admin/storage-endpoints`) | serveurs de fichiers et espaces DFS ; onglet Topology (`/admin/storage-topology`) : zone → serveur → volume (connu par les quotas FSRM) → partage → dossier géré, et espaces DFS, avec l'état de la dernière collecte (disponible, indisponible, dégradé, inconnu, collecte ancienne), capacité connue, alertes ; exploration niveau par niveau, dossiers paginés |
 | | Zones (`/admin/zones`) | zones (OU de provisionnement, serveurs rattachés) |
 | | Identity & Users (`/admin/identity`) | onglets Identités, Annuaires |
 | | Settings (`/admin/advanced-settings`) | onglets Réglages, en quatre groupes : Général (nommage, gouvernance), Sécurité (sessions, journalisation), Réseau et infrastructure (réseau et DNS, infrastructure, workers), Intégrations et licence (licence et modules, notifications, extensions) ; et Tags |

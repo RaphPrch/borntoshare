@@ -113,6 +113,7 @@ export function resolveDirectRoute(pathname: string): DirectRoute | null {
     path.startsWith('/access-requests') ||
     path.startsWith('/access-reviews') ||
     path.startsWith('/access-explorer') ||
+    path.startsWith('/storage-topology') ||
     path.startsWith('/monthly-report') ||
     path.startsWith('/activity') ||
     path.startsWith('/admin/advanced-settings') ||

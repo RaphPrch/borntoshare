@@ -41,6 +41,7 @@ from app.api.features import router as features_router
 from app.api.access_reviews import internal_router as access_reviews_internal_router, router as access_reviews_router
 from app.api.monthly_report import router as monthly_report_router
 from app.api.access_explorer import router as access_explorer_router
+from app.api.storage_topology import router as storage_topology_router
 from app.api.internal_fives import router as internal_fives_router
 
 
@@ -72,6 +73,7 @@ router.include_router(internal_fives_router)
 router.include_router(access_reviews_router)
 router.include_router(access_reviews_internal_router)
 router.include_router(access_explorer_router)
+router.include_router(storage_topology_router)
 router.include_router(monthly_report_router)
 router.include_router(internal_sso_router)
 router.include_router(governance_alerts_router)
