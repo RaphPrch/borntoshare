@@ -1,6 +1,7 @@
 <script lang="ts">
   /**
-   * Access Explorer: who reaches what, and why. Four ways in (a user, a group, a folder path, a governed folder); the
+   * Access Management › Explorer: what a person or a group reaches, and why. Two ways in (a user, a group); a folder
+   * has its own Permissions tab (its sheet in Storage Roots), the Explorer does not repeat it. The
    * answer comes from core-service (/access-explorer: the last ACL read of each folder and the active directory reading,
    * paged by the server, limited to the folders of a guardian). Each way in is explained in a sentence with its full
    * path, and what is not known (share permissions, sub-folders, account state…) is always said.
@@ -20,30 +21,23 @@
   import Drawer from '$lib/components/ui/Drawer.svelte';
   import { LIMITS, RIGHTS_LABEL, explainGrant, grantChain, type Grant } from '$lib/utils/access-explain';
 
-  type Mode = 'user' | 'group' | 'folder' | 'root';
+  type Mode = 'user' | 'group';
   type Suggestion = { id: number; label: string; detail: string | null; source: string | null };
   type Paged<T> = { items: T[]; total: number; offset: number; limit: number; broad_total?: number };
   type Reached = { storage_root_id: number; name: string; root_path: string; endpoint_name: string; grants: Grant[]; ntfs_rights: string | null;
     denied: boolean; paths: number; multiple_paths: boolean; inherited_only: boolean; inheritance_broken: boolean };
-  type Person = { user_id: number; username: string; display_name: string; state: string; grants: Grant[]; ntfs_rights: string | null; denied: boolean; multiple_paths: boolean };
-  type GroupRef = { group_id: number | null; name: string; depth: number; via: string[] };
 
   const PAGE = 50;
   const MODES: Array<{ key: Mode; label: string }> = [
     { key: 'user', label: t('access_explorer.mode_user') },
-    { key: 'group', label: t('access_explorer.mode_group') },
-    { key: 'folder', label: t('access_explorer.mode_folder') },
-    { key: 'root', label: t('access_explorer.mode_root') }
+    { key: 'group', label: t('access_explorer.mode_group') }
   ];
   const PLACEHOLDER: Record<Mode, string> = {
     user: t('Name, login or e-mail of a user'),
-    group: t('Name of an AD group'),
-    folder: t('Path of a folder (\\\\server\\share\\folder)'),
-    root: t('Name of a governed folder')
+    group: t('Name of an AD group')
   };
   const KIND_LABEL: Record<string, string> = {
-    direct: t('Own account'), group: t('Group'), nested: t('Nested group'), parent: t('Through a parent group'), broad: t('Whole company'),
-    user: t('User'), system: t('System'), orphan: t('Orphan SID'), unknown: t('Unknown account')
+    direct: t('Own account'), group: t('Group'), nested: t('Nested group'), parent: t('Through a parent group'), broad: t('Whole company')
   };
   const STATE: Record<string, { label: string; variant: 'success' | 'error' | 'muted' | 'warning' }> = {
     enabled: { label: t('Enabled'), variant: 'success' }, disabled: { label: t('Disabled'), variant: 'error' },
@@ -63,14 +57,13 @@
   let error = $state('');
   let offset = $state(0);
   let includeBroad = $state(false);
-  let level = $state('all');
   let filter = $state('');
-  let resolvedBelow = $state<string | null>(null);
-  let selected = $state<{ who: string; folder: string; grants: Grant[] } | null>(null);
+  let selected = $state<{ who: string; folder: string; folderId: number; grants: Grant[] } | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   // The selection lives in the address: a link to an explanation can be shared
-  let target = $derived({ mode: ($page.url.searchParams.get('mode') ?? 'user') as Mode, id: Number($page.url.searchParams.get('id') || 0) });
+  let target = $derived({ mode: ($page.url.searchParams.get('mode') === 'group' ? 'group' : 'user') as Mode,
+    id: Number($page.url.searchParams.get('id') || 0) });
 
   onMount(() => {
     mode = target.mode;
@@ -78,7 +71,7 @@
 
   $effect(() => {
     const { mode: m, id } = target;
-    void offset; void includeBroad; void level;
+    void offset; void includeBroad;
     if (id) load(m, id);
     else detail = null;
   });
@@ -89,8 +82,7 @@
     try {
       const common = { offset, limit: PAGE, ...(filter.trim() ? { q: filter.trim() } : {}) };
       if (m === 'user') detail = await apiGetData(fetch, `/access-explorer/users/${id}`, { ...common, include_broad: includeBroad });
-      else if (m === 'group') detail = await apiGetData(fetch, `/access-explorer/groups/${id}`, common);
-      else detail = await apiGetData(fetch, `/access-explorer/folders/${id}`, { ...common, ...(level !== 'all' ? { level } : {}) });
+      else detail = await apiGetData(fetch, `/access-explorer/groups/${id}`, common);
     } catch (failure) {
       detail = null;
       error = failure instanceof Error ? failure.message : t('Unable to load the access of this entry.');
@@ -104,7 +96,7 @@
     offset = 0;
     filter = '';
     suggestions = [];
-    mode = m === 'folder' ? 'folder' : m;
+    mode = m;
     void goto(`/access-explorer?mode=${m}&id=${id}`, { keepFocus: true, noScroll: true });
   }
 
@@ -129,25 +121,13 @@
     }, 200);
   }
 
-  // A full path in Folder mode: the governed folder holding it
-  async function onEnter(value: string) {
-    if (mode === 'folder' && /[\\/]/.test(value)) {
-      try {
-        const found = await apiGetData<{ storage_root_id: number; below: boolean }>(fetch, '/access-explorer/resolve', { path: value.trim() });
-        resolvedBelow = found.below ? value.trim() : null;
-        open('folder', found.storage_root_id);
-      } catch {
-        error = t('No governed folder holds this path.');
-      }
-    } else if (suggestions[0]) {
-      open(mode, suggestions[0].id);
-    }
+  function onEnter() {
+    if (suggestions[0]) open(mode, suggestions[0].id);
   }
 
   let folders = $derived<Paged<Reached> | null>(detail?.folders ?? null);
-  let people = $derived<Paged<Person> | null>(detail?.people ?? null);
-  let pager = $derived(folders ?? people);
-  let subject = $derived(detail?.user?.display_name ?? detail?.group?.name ?? detail?.folder?.name ?? '');
+  let pager = $derived(folders);
+  let subject = $derived(detail?.user?.display_name ?? detail?.group?.name ?? '');
 </script>
 
 <svelte:head><title>Access Explorer · BornToShare</title></svelte:head>
@@ -222,46 +202,17 @@
           <div><h3>{t('Member of')}</h3>
             {#each detail.parent_groups as g (g.name)}<button type="button" class="ax__chip" title={g.via.join(' › ')} onclick={() => open('group', g.group_id)} disabled={!g.group_id}>{g.name}</button>{:else}<p class="v2-empty">{t('None')}</p>{/each}</div>
         </div>
-      {:else if detail.folder}
-        <div class="v2-sh"><h2><i class="bi bi-folder2" aria-hidden="true"></i> {detail.folder.name}</h2>
-          <div class="v2-sh__r"><a href={`/storage-roots?selected=${detail.folder.storage_root_id}`}>{t('Open its sheet')}</a></div></div>
-        <p class="v2-hint ax__mono">{detail.folder.root_path} · {detail.folder.endpoint_name} · {detail.folder.zone_name}</p>
-        {#if resolvedBelow}<InlineAlert tone="info" compact>{t('{path} is inside this governed folder: the rights shown are the ones read on it.', { path: resolvedBelow })}</InlineAlert>{/if}
-        <div class="v2-stats">
-          <div class="v2-stat"><b>{detail.summary.explicit}</b><span>{t('Explicit entries')}</span></div>
-          <div class="v2-stat"><b>{detail.summary.inherited}</b><span>{t('Inherited entries')}</span></div>
-          <div class="v2-stat"><b>{detail.summary.people}</b><span>{t('People reached')}</span></div>
-          <div class="v2-stat"><i class={`bi bi-globe2 ${detail.summary.broad ? 'is-bad' : ''}`} aria-hidden="true"></i><b>{detail.summary.broad}</b><span>{t('Entries open to everyone')}</span></div>
-        </div>
-        <table class="b2s-table ax__table">
-          <thead><tr><th>{t('Account or group')}</th><th>{t('Kind')}</th><th>{t('Right')}</th><th>{t('Origin')}</th><th>{t('Members')}</th></tr></thead>
-          <tbody>
-            {#each detail.principals as p, i (i)}
-              <tr>
-                <td>{#if p.group_id}<button type="button" class="b2s-link-btn" onclick={() => open('group', p.group_id)}>{p.principal}</button>
-                  {:else if p.user_id}<button type="button" class="b2s-link-btn" onclick={() => open('user', p.user_id)}>{p.principal}</button>{:else}{p.principal}{/if}</td>
-                <td><span class={`v2-tag is-${p.kind === 'broad' || p.kind === 'orphan' ? 'bad' : p.kind === 'unknown' ? 'warn' : 'mut'}`}>{KIND_LABEL[p.kind] ?? p.kind}</span></td>
-                <td>{#if p.deny}<span class="v2-tag is-bad">{t('Denied')}: {rightLabel(p.rights)}</span>{:else}<span class={`v2-tag is-${rightTone(p.rights)}`}>{rightLabel(p.rights)}</span>{/if}</td>
-                <td>{p.inherited ? t('Inherited') : t('Explicit')}</td>
-                <td>{p.members ?? ''}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
       {/if}
-      {#if detail.snapshot_at || detail.folder?.acl_read_at}
-        <p class="v2-hint">{#if detail.folder?.acl_read_at}{t('ACL read')} <RelativeTime value={detail.folder.acl_read_at} /> · {/if}{#if detail.snapshot_at}{t('Directory read')} <RelativeTime value={detail.snapshot_at} />{/if}</p>
+      {#if detail.snapshot_at}
+        <p class="v2-hint">{t('Directory read')} <RelativeTime value={detail.snapshot_at} /></p>
       {/if}
     </div>
 
-    <!-- Folders reached (user, group) or people (folder) -->
+    <!-- Folders reached -->
     <div class="v2-sec">
       <div class="v2-sh">
-        <h2>{folders ? t('Folders reached') : t('People who reach it')}</h2>{#if pager}<span class="v2-tag is-mut">{pager.total}</span>{/if}
+        <h2>{t('Folders reached')}</h2>{#if pager}<span class="v2-tag is-mut">{pager.total}</span>{/if}
         <div class="v2-sh__r ax__filters">
-          {#if people}
-            <SegmentedFilter options={[{ key: 'all', label: t('All') }, { key: 'write', label: t('Modify') }, { key: 'read', label: t('Read') }]} bind:value={level} onChange={() => (offset = 0)} />
-          {/if}
           {#if detail.user}
             <label class="ax__check"><input type="checkbox" bind:checked={includeBroad} onchange={() => (offset = 0)} /> {t('Include the entries open to everyone')}{#if folders?.broad_total} ({folders.broad_total}){/if}</label>
           {/if}
@@ -275,7 +226,7 @@
             <thead><tr><th>{t('Folder')}</th><th>{t('NTFS right')}</th><th>{t('How')}</th><th>{t('Paths')}</th><th></th></tr></thead>
             <tbody>
               {#each folders.items as f (f.storage_root_id)}
-                <tr class="ax__row" onclick={() => (selected = { who: subject, folder: f.name, grants: f.grants })}>
+                <tr class="ax__row" onclick={() => (selected = { who: subject, folder: f.name, folderId: f.storage_root_id, grants: f.grants })}>
                   <td><b>{f.name}</b><small class="ax__mono">{f.root_path}</small></td>
                   <td><span class={`v2-tag is-${rightTone(f.ntfs_rights)}`}>{rightLabel(f.ntfs_rights)}</span>{#if f.denied} <span class="v2-tag is-bad">{t('Deny entry')}</span>{/if}</td>
                   <td>{#each kinds(f.grants) as k (k)}<span class="v2-tag is-mut">{KIND_LABEL[k]}</span> {/each}{#if f.inherited_only}<small>{t('inherited')}</small>{/if}</td>
@@ -287,25 +238,6 @@
           </table>
         {:else}
           <EmptyStateInline message={folders.broad_total ? t('No folder names this account or its groups; {n} folder(s) are open to everyone.', { n: folders.broad_total }) : t('No folder reached according to the ACL read.')} />
-        {/if}
-      {:else if people}
-        {#if people.items.length}
-          <table class="b2s-table ax__table">
-            <thead><tr><th>{t('Person')}</th><th>{t('Account')}</th><th>{t('NTFS right')}</th><th>{t('How')}</th><th></th></tr></thead>
-            <tbody>
-              {#each people.items as p (p.user_id)}
-                <tr class="ax__row" onclick={() => (selected = { who: p.display_name ?? p.username, folder: subject, grants: p.grants })}>
-                  <td><b>{p.display_name ?? p.username}</b><small>{p.username}</small></td>
-                  <td>{#if STATE[p.state]}<StatusBadge variant={STATE[p.state].variant} label={STATE[p.state].label} compact />{/if}</td>
-                  <td><span class={`v2-tag is-${rightTone(p.ntfs_rights)}`}>{rightLabel(p.ntfs_rights)}</span>{#if p.denied} <span class="v2-tag is-bad">{t('Deny entry')}</span>{/if}</td>
-                  <td>{#each kinds(p.grants) as k (k)}<span class="v2-tag is-mut">{KIND_LABEL[k]}</span> {/each}{#if p.multiple_paths}<span class="v2-tag is-info">{t('several')}</span>{/if}</td>
-                  <td><button type="button" class="b2s-link-btn" onclick={(event) => { event.stopPropagation(); open('user', p.user_id); }}>{t('Explore')}</button></td>
-                </tr>
-              {/each}
-            </tbody>
-          </table>
-        {:else}
-          <EmptyStateInline message={t('Nobody known reaches this folder through its groups or an account of their own.')} />
         {/if}
       {/if}
       {#if pager && pager.total > pager.limit}
@@ -323,7 +255,7 @@
       <ul class="ax__limits">{#each detail.limits as code (code)}<li>{t(LIMITS[code] ?? code)}</li>{/each}</ul>
     </InlineAlert>
   {:else if !error}
-    <div class="v2-sec"><p class="v2-empty">{t('Search a user, a group or a folder to see who reaches what, and why.')}</p></div>
+    <div class="v2-sec"><p class="v2-empty">{t('Search a user or a group to see what they reach, and why. For a folder: its Permissions tab in Storage Roots.')}</p></div>
   {/if}
 </section>
 
@@ -341,6 +273,7 @@
     {/each}
     {#if selected.grants.length > 1}<p class="v2-hint">{t('Several paths: removing one of them does not remove the access.')}</p>{/if}
     <p class="v2-hint">{t(LIMITS.ntfs_only)}</p>
+    <a class="b2s-btn b2s-btn-secondary" href={`/storage-roots?selected=${selected.folderId}&tab=permissions`}><i class="bi bi-shield-lock" aria-hidden="true"></i>{t('Everyone who reaches this folder')}</a>
   {/if}
 </Drawer>
 

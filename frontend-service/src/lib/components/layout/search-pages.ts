@@ -15,7 +15,7 @@ const searchPages: Record<SearchPageGroup, SearchPage[]> = {
     { title: 'Inventory', description: 'Scans, folders measured, quarantine and archives.', href: '/five-s/scanner', icon: 'bi-list-ul' },
     { title: 'Analytics', description: '5S score of the folders and what to do first.', href: '/five-s', icon: 'bi-bar-chart' },
     { title: 'Assistant', description: 'Questions on the folders, answered as lists to export.', href: '/assistant', icon: 'bi-chat-square-text' },
-    { title: 'Access Explorer', description: 'Who reaches what and why: a user, a group, a folder.', href: '/access-explorer', icon: 'bi-diagram-3' },
+    { title: 'Access Explorer', description: 'What a user or a group reaches, and why (Access Management › Explorer).', href: '/access-explorer', icon: 'bi-diagram-3' },
     { title: 'Exposure map', description: 'Map of the folders by how widely their permissions open them.', href: '/insights/exposure', icon: 'bi-globe2' },
     { title: 'Insights & Recommendations', description: 'The state of the data: coverage, alerts, availability, and what to handle.', href: '/insights', icon: 'bi-lightbulb' },
     { title: 'Recommendations', description: 'What the measures, scans and ACL reads reveal, with the folders concerned.', href: '/insights/recommendations', icon: 'bi-lightbulb' },

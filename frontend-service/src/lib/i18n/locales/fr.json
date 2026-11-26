@@ -6017,9 +6017,7 @@
   "Special rights": "Droits spéciaux",
   "access_explorer": {
     "mode_user": "Utilisateur",
-    "mode_group": "Groupe",
-    "mode_folder": "Chemin",
-    "mode_root": "Dossier géré"
+    "mode_group": "Groupe"
   },
   "Unable to load the storage topology.": "Impossible de charger la topologie du stockage.",
   "The last collection is older than two synchronisation cycles.": "La dernière collecte date de plus de deux cycles de synchronisation.",
@@ -6126,5 +6124,8 @@
   "Risky files": "Fichiers à risque",
   "Never scanned for sensitivity": "Jamais analysés (sensibilité)",
   "Nobody knows yet whether they hold passwords or personal data.": "On ne sait pas encore s'ils contiennent des mots de passe ou des données personnelles.",
-  "Database backups, mailboxes or executables stored in {count} folder(s).": "Sauvegardes de bases, boîtes mail ou exécutables stockés dans {count} dossier(s)."
+  "Database backups, mailboxes or executables stored in {count} folder(s).": "Sauvegardes de bases, boîtes mail ou exécutables stockés dans {count} dossier(s).",
+  "Everyone who reaches this folder": "Tous ceux qui accèdent à ce dossier",
+  "Search a user or a group to see what they reach, and why. For a folder: its Permissions tab in Storage Roots.": "Recherchez un utilisateur ou un groupe pour voir ce qu'il atteint, et pourquoi. Pour un dossier : son onglet Permissions dans Storage Roots.",
+  "What a user or a group reaches, and why (Access Management › Explorer).": "Ce qu'un utilisateur ou un groupe atteint, et pourquoi (Access Management › Explorateur)."
 }

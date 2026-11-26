@@ -27,14 +27,12 @@ from app.services.storage_root_permissions import (
     _BROAD_NAMES,
     _extra_broad_names,
     _json,
-    is_expected_system_principal,
     rights_from_raw,
     short_name,
 )
 
 MAX_DEPTH = 10
 PAGE_MAX = 200
-PEOPLE_ROWS_MAX = 20000
 _RANK = {"read": 1, "special": 1, "modify": 2, "full": 3}
 
 # Limits of the computation, translated by the page
@@ -45,8 +43,6 @@ LIMIT_DENY = "deny_present"  # a deny entry: the effective right may be lower
 LIMIT_ACCOUNT_STATE = "account_state_unknown"  # the reading did not carry the account state
 LIMIT_NO_SNAPSHOT = "no_directory_snapshot"
 LIMIT_DEPTH = "group_depth_truncated"
-LIMIT_ACL_NOT_READ = "acl_not_read"
-LIMIT_PEOPLE_TRUNCATED = "people_truncated"
 
 
 # ---------------------------------------------------------------- pure computation (tested without a database)
@@ -103,47 +99,6 @@ def summarize(grants: list[dict[str, Any]]) -> dict[str, Any]:
         "multiple_paths": len(grants) > 1,
         "inherited_only": bool(grants) and all(g["inherited"] for g in grants),
     }
-
-
-def principal_kind(principal: str, *, broad: bool, service_account: str | None, group: bool, user: bool) -> str:
-    """broad (whole company), system (expected accounts), orphan (SID without name), group, user, unknown."""
-    if broad:
-        return "broad"
-    if str(principal).upper().startswith("S-1-"):
-        return "orphan"
-    if is_expected_system_principal(principal, service_account):
-        return "system"
-    if group:
-        return "group"
-    if user:
-        return "user"
-    return "unknown"
-
-
-def merge_people(direct: list[dict[str, Any]], via_groups: list[dict[str, Any]], grants_by_key: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    """One row per person of a folder: each way they get in (their account, a group directly or nested), the strongest
-    right, a deny if any. direct: users with an entry of their own; via_groups: (user, group key, depth) rows."""
-    people: dict[int, dict[str, Any]] = {}
-
-    def row(user: dict[str, Any]) -> dict[str, Any]:
-        uid = int(user["user_id"])
-        return people.setdefault(uid, {"user_id": uid, "username": user.get("username"), "display_name": user.get("display_name"),
-                                       "is_active": user.get("is_active"), "grants": []})
-
-    for user in direct:
-        grant = grants_by_key.get(user["key"])
-        if grant:
-            row(user)["grants"].append({**grant, "kind": "direct"})
-    for member in via_groups:
-        grant = grants_by_key.get(member["key"])
-        if grant:
-            kind = "nested" if int(member.get("depth") or 0) > 0 else "group"
-            row(member)["grants"].append({**grant, "kind": kind, "group": member.get("group_name"), "depth": int(member.get("depth") or 0)})
-    out = []
-    for person in people.values():
-        out.append({**person, **summarize(person["grants"])})
-    out.sort(key=lambda p: (-_RANK.get(p["ntfs_rights"] or "", 0), str(p["display_name"] or p["username"] or "").lower()))
-    return out
 
 
 def folders_from_entries(rows: list[dict[str, Any]], origins: dict[str, list[dict[str, Any]]], order: list[int]) -> list[dict[str, Any]]:
@@ -318,17 +273,6 @@ class AccessExplorer:
                                  ORDER BY dg.name, dg.id LIMIT :limit OFFSET :offset""", params)
             total = self.db.execute(text(f"SELECT COUNT(*) {where}"), params).scalar()
             items = [{"id": int(r["id"]), "label": r["name"], "detail": r["description"] or r["code"], "source": r["source_name"]} for r in rows]
-        elif mode in {"root", "folder"}:
-            scope, extra, expanding = self._scope()
-            column = "sr.root_path" if mode == "folder" else "sr.name"
-            where = f"""FROM storage_roots sr JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id
-                        WHERE sr.deleted_at IS NULL AND (sr.name LIKE :q OR sr.root_path LIKE :q){scope}"""
-            rows = self._all(f"""SELECT sr.id, sr.name, sr.root_path, se.name AS endpoint_name {where}
-                                 ORDER BY {column}, sr.id LIMIT :limit OFFSET :offset""", {**params, **extra}, expanding)
-            total = self.db.execute(text(f"SELECT COUNT(*) {where}").bindparams(*[bindparam(n, expanding=True) for n in expanding]),
-                                    {**params, **extra}).scalar()
-            items = [{"id": int(r["id"]), "label": r["root_path"] if mode == "folder" else r["name"],
-                      "detail": r["name"] if mode == "folder" else r["root_path"], "source": r["endpoint_name"]} for r in rows]
         else:
             raise ValueError("mode")
         return {"items": items, "total": int(total or 0), "offset": offset, "limit": limit}
@@ -533,138 +477,6 @@ class AccessExplorer:
             "limits": limits,
         }
 
-    # ------------------------------------------------------------ folder (a governed folder, or a path below one)
-
-    def resolve_path(self, path: str) -> dict[str, Any] | None:
-        """The governed folder holding this path (the deepest one): its rights are the ones read for the path."""
-        norm = str(path or "").strip().replace("\\", "/")
-        while "//" in norm:
-            norm = norm.replace("//", "/")
-        norm = norm.rstrip("/").lower()
-        if not norm:
-            return None
-        scope, extra, expanding = self._scope()
-        rows = self._all(
-            f"""SELECT sr.id, sr.normalized_root_path FROM storage_roots sr
-                WHERE sr.deleted_at IS NULL AND (:p = sr.normalized_root_path OR :p LIKE CONCAT(sr.normalized_root_path, '/%')){scope}
-                ORDER BY LENGTH(sr.normalized_root_path) DESC LIMIT 1""",
-            {"p": norm, **extra}, expanding,
-        )
-        if not rows:
-            return None
-        return {"storage_root_id": int(rows[0]["id"]), "below": norm != str(rows[0]["normalized_root_path"] or "")}
-
-    def folder(self, root_id: int, *, offset: int | None = None, limit: int | None = None, level: str | None = None,
-               q: str | None = None) -> dict[str, Any] | None:
-        offset, limit = _page(offset, limit)
-        root = self._one(
-            """SELECT sr.id, sr.name, sr.root_path, sr.discovered_permissions_json, se.name AS endpoint_name,
-                      se.identity_source_id, se.bind_dn AS endpoint_account, z.name AS zone_name
-               FROM storage_roots sr JOIN storage_endpoints se ON se.id = sr.storage_endpoint_id JOIN zones z ON z.id = se.zone_id
-               WHERE sr.id = :id AND sr.deleted_at IS NULL""",
-            {"id": int(root_id)},
-        )
-        if root is None:
-            return None
-        scan = _json(root.get("discovered_permissions_json"))
-        source_id = int(root.get("identity_source_id") or 0) or None
-        snapshot = self._snapshot(source_id)
-        limits = [LIMIT_NTFS_ONLY, LIMIT_LOCAL_GROUPS]
-        entries = self._all("SELECT principal, principal_key, raw FROM storage_root_acl_entries WHERE storage_root_id = :id ORDER BY id",
-                            {"id": int(root_id)})
-        if not scan.get("discovered_at") or not entries:
-            limits.append(LIMIT_ACL_NOT_READ)
-        keys = sorted({str(e["principal_key"]).lower() for e in entries})
-        groups: dict[str, dict[str, Any]] = {}
-        users: dict[str, dict[str, Any]] = {}
-        if source_id and keys:
-            for g in self._all("""SELECT id, name, code FROM directory_groups WHERE identity_source_id = :src AND deleted_at IS NULL
-                                  AND (name IN :keys OR code IN :keys)""", {"src": source_id, "keys": keys}, ["keys"]):
-                for key in {short_name(g["name"]), short_name(g.get("code"))}:
-                    if key in keys:
-                        groups[key] = g
-            for u in self._all("""SELECT du.id, du.username, du.display_name, du.object_sid, su.is_active
-                                  FROM directory_users du
-                                  LEFT JOIN directory_snapshot_users su ON su.snapshot_id = :snap AND su.external_id = du.external_id
-                                  WHERE du.identity_source_id = :src AND (du.username IN :keys OR du.object_sid IN :keys)""",
-                               {"src": source_id, "keys": keys, "snap": (snapshot or {}).get("id") or 0}, ["keys"]):
-                for key in {short_name(u.get("username")), str(u.get("object_sid") or "").lower()}:
-                    if key in keys:
-                        users[key] = u
-        broad = broad_keys()
-        principals = []
-        grants_by_key: dict[str, dict[str, Any]] = {}
-        for entry in entries:
-            key = str(entry["principal_key"]).lower()
-            ace = ace_info(str(entry["principal"]), entry.get("raw"))
-            # BUILTIN\\…, NT AUTHORITY\\…: the server's own accounts, never the directory's namesakes
-            directory = namespace(ace["principal"]) not in LOCAL_NAMESPACES
-            kind = principal_kind(ace["principal"], broad=key in broad, service_account=root.get("endpoint_account"),
-                                  group=directory and key in groups, user=directory and key in users)
-            row = {**ace, "kind": kind, "group_id": int(groups[key]["id"]) if kind == "group" else None,
-                   "user_id": int(users[key]["id"]) if kind == "user" else None}
-            principals.append(row)
-            if kind in {"group", "user"}:
-                current = grants_by_key.get(key)
-                # A principal listed twice (explicit and inherited, or allow and deny): the deny, else the strongest
-                if current is None or ace["deny"] or (not current["deny"] and _RANK.get(ace["rights"], 0) > _RANK.get(current["rights"], 0)):
-                    grants_by_key[key] = {**{k: ace[k] for k in ("principal", "rights", "deny", "inherited")}, "kind": kind}
-        if any(p["deny"] for p in principals):
-            limits.append(LIMIT_DENY)
-        state_read = bool(snapshot and snapshot["account_state_read"])
-        direct = [{"user_id": u["id"], "username": u["username"], "display_name": u["display_name"], "key": key, "is_active": u.get("is_active")}
-                  for key, u in users.items() if (grants_by_key.get(key) or {}).get("kind") == "user"]
-        via_groups: list[dict[str, Any]] = []
-        resolved_groups = {key for key, grant in grants_by_key.items() if grant["kind"] == "group"}
-        group_ids = {int(g["id"]): key for key, g in groups.items() if key in resolved_groups}
-        counts: dict[int, int] = {}
-        if group_ids:
-            rows = self._all(
-                """SELECT dem.directory_group_id AS gid, du.id AS user_id, du.username, du.display_name, MIN(dem.depth) AS depth,
-                          MAX(su.is_active) AS is_active
-                   FROM directory_effective_memberships dem
-                   JOIN directory_users du ON du.id = dem.directory_user_id
-                   LEFT JOIN directory_snapshots ds ON ds.id = dem.snapshot_id
-                   LEFT JOIN directory_snapshot_users su ON su.snapshot_id = :snap AND su.external_id = du.external_id
-                   WHERE dem.directory_group_id IN :gids AND (dem.snapshot_id IS NULL OR UPPER(COALESCE(ds.status, '')) = 'ACTIVE')
-                   GROUP BY dem.directory_group_id, du.id, du.username, du.display_name
-                   LIMIT :cap""",
-                {"gids": sorted(group_ids), "snap": (snapshot or {}).get("id") or 0, "cap": PEOPLE_ROWS_MAX + 1}, ["gids"],
-            )
-            if len(rows) > PEOPLE_ROWS_MAX:
-                rows = rows[:PEOPLE_ROWS_MAX]
-                limits.append(LIMIT_PEOPLE_TRUNCATED)
-            for r in rows:
-                key = group_ids[int(r["gid"])]
-                counts[int(r["gid"])] = counts.get(int(r["gid"]), 0) + 1
-                via_groups.append({**r, "key": key, "group_name": groups[key]["name"]})
-        for row in principals:
-            if row["group_id"] is not None:
-                row["members"] = counts.get(int(row["group_id"]), 0)
-        people = merge_people(direct, via_groups, grants_by_key)
-        for person in people:
-            person["state"] = account_state(person.pop("is_active", None), state_read)
-        if snapshot is not None and not state_read:
-            limits.append(LIMIT_ACCOUNT_STATE)
-        if snapshot is None:
-            limits.append(LIMIT_NO_SNAPSHOT)
-        if level in {"read", "write"}:
-            people = [p for p in people if (p["ntfs_rights"] in {"modify", "full"}) == (level == "write") and p["ntfs_rights"]]
-        if q:
-            needle = q.strip().lower()
-            people = [p for p in people if needle in str(p.get("display_name") or "").lower() or needle in str(p.get("username") or "").lower()]
-        return {
-            "folder": {"storage_root_id": int(root["id"]), "name": root["name"], "root_path": root["root_path"],
-                       "endpoint_name": root["endpoint_name"], "zone_name": root["zone_name"], "acl_read_at": scan.get("discovered_at"),
-                       "inheritance_broken": "PD" in str(scan.get("control") or "").upper().split("|")},
-            "snapshot_at": (snapshot or {}).get("at"),
-            "principals": principals,
-            "summary": {"explicit": sum(1 for p in principals if not p["inherited"]), "inherited": sum(1 for p in principals if p["inherited"]),
-                        "broad": sum(1 for p in principals if p["kind"] == "broad" and not p["deny"]),
-                        "people": len(people), "write": sum(1 for p in people if p["ntfs_rights"] in {"modify", "full"})},
-            "people": {"items": people[offset:offset + limit], "total": len(people), "offset": offset, "limit": limit},
-            "limits": limits,
-        }
 
 
 def _iso(value: Any) -> str | None:

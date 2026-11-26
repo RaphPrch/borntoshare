@@ -1,4 +1,5 @@
-"""Access Explorer (Governance › Access Explorer): who reaches what and why, for administrators and guardians.
+"""Access Explorer (Access Management › Explorer): what a person or a group reaches and why, for administrators and guardians.
+A folder has its own Permissions tab (its sheet in Storage Roots): the Explorer does not repeat it.
 
 A guardian sees their own folders only: the folders listed are filtered, a folder outside them is refused, and a
 user or a group reaching none of them is « not found » (the directory is not browsed through this page).
@@ -34,7 +35,7 @@ def _found(value):
 @router.get("/search")
 def search(
     request: Request,
-    mode: Literal["user", "group", "folder", "root"],
+    mode: Literal["user", "group"],
     q: str = Query("", max_length=200),
     offset: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=200),
@@ -73,24 +74,3 @@ def group_access(
 ):
     """Members, nested groups, groups holding it, the folders it reaches (itself or through them), its exposure."""
     return ui_data(_found(_explorer(request, db).group(group_id, offset=offset, limit=limit, q=q)))
-
-
-@router.get("/folders/{storage_root_id}")
-def folder_access(
-    storage_root_id: int,
-    request: Request,
-    offset: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=200),
-    level: Literal["read", "write"] | None = None,
-    q: str | None = Query(None, max_length=200),
-    db: Session = Depends(get_db),
-):
-    """The entries of a governed folder (explicit or inherited) and the people they reach, paged."""
-    require_storage_root_access(db, actor_from_request(request), int(storage_root_id))
-    return ui_data(_found(_explorer(request, db).folder(storage_root_id, offset=offset, limit=limit, level=level, q=q)))
-
-
-@router.get("/resolve")
-def resolve_path(request: Request, path: str = Query(..., min_length=2, max_length=1024), db: Session = Depends(get_db)):
-    """The governed folder holding a path (UNC): the rights read on it are the ones known for the path."""
-    return ui_data(_found(_explorer(request, db).resolve_path(path)))
