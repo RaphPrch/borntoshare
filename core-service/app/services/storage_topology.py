@@ -23,6 +23,7 @@ from typing import Any, Iterable
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
+from app.core.values import utc_iso
 
 STATES = ("available", "unavailable", "degraded", "unknown")
 DEFAULT_SYNC_MINUTES = 360
@@ -105,12 +106,6 @@ def _parse(value: Any) -> datetime | None:
         return None
 
 
-def _iso(value: Any) -> str | None:
-    if value is None:
-        return None
-    return value.isoformat() if hasattr(value, "isoformat") else str(value)
-
-
 def _int(value: Any) -> int:
     try:
         return int(value or 0)
@@ -146,7 +141,7 @@ class StorageTopology:
         return max(15, _int(value) or DEFAULT_SYNC_MINUTES)
 
     def _freshness(self) -> dict[str, Any]:
-        return {"stale_after_minutes": 2 * self.sync_minutes, "stale_before": _iso(self.stale_before)}
+        return {"stale_after_minutes": 2 * self.sync_minutes, "stale_before": utc_iso(self.stale_before)}
 
     # ------------------------------------------------------------ overview: every zone, its servers and DFS namespaces
 
@@ -226,11 +221,11 @@ class StorageTopology:
             state = probe_state(e.get("last_probe_status"), active=active)
             if state == "available" and e.get("dfs_error"):
                 state = "degraded"
-            collected = e.get("dfs_read_at") or _iso(e.get("last_probe_at"))
+            collected = e.get("dfs_read_at") or utc_iso(e.get("last_probe_at"))
             children = {"links": _int(e.get("dfs_links"))}
         else:
             state = server_state(e.get("last_probe_status"), active=active, roots_failed=_int(roots.get("failed")), roots_ok=_int(roots.get("ok")))
-            collected = _iso(e.get("last_probe_at"))
+            collected = utc_iso(e.get("last_probe_at"))
             children = {"roots": _int(roots.get("roots")), "shares": _int(roots.get("shares")), "volumes": _int((quota or {}).get("volumes")),
                         "roots_unavailable": _int(roots.get("failed")), "roots_stale": _int(roots.get("stale"))}
         return {
@@ -284,7 +279,7 @@ class StorageTopology:
             share_nodes.append({
                 "key": s["share_key"], "type": "share", "name": share_unc(s["sample_path"]) or s["share_key"], "volume": volume,
                 "state": state, "stale": _int(s["stale"]) > 0 and state != "unknown",
-                "collected_at": _iso(s["first_at"]), "last_collected_at": _iso(s["last_at"]),
+                "collected_at": utc_iso(s["first_at"]), "last_collected_at": utc_iso(s["last_at"]),
                 "children": {"roots": _int(s["roots"]), "roots_unavailable": _int(s["failed"]), "roots_stale": _int(s["stale"]),
                              "roots_unknown": _int(s["roots"]) - _int(s["ok"]) - _int(s["failed"])},
                 "capacity": {"quota_limit_bytes": _bytes(s["quota_limit"]), "quota_used_bytes": _bytes(s["quota_used"]), "quotas": _int(s["quotas"]),
@@ -364,7 +359,7 @@ class StorageTopology:
             items.append({
                 "id": int(r["id"]), "type": "root", "name": r["name"], "path": r["root_path"], "state": node_state,
                 "stale": node_state != "unknown" and is_stale(r["last_probe_at"], self.stale_before),
-                "collected_at": _iso(r["last_probe_at"]), "message": r["last_probe_message"] if node_state == "unavailable" else None,
+                "collected_at": utc_iso(r["last_probe_at"]), "message": r["last_probe_message"] if node_state == "unavailable" else None,
                 "volume": volume_of(r["local_path"]),
                 "capacity": {"quota_limit_bytes": _bytes(r["limit_bytes"]), "quota_used_bytes": _bytes(r["used_bytes"]),
                              "measured_bytes": _bytes(r["measured_bytes"]), "measured_at": r["measured_at"]},

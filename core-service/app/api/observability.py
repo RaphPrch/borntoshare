@@ -15,17 +15,12 @@ from app.data.repositories import observability_sql
 from app.api._helpers import ui_data
 from app.core.db import get_db
 from app.services.authorization import actor_from_request, require_observability
+from app.core.values import utc_iso
 
 router = APIRouter(prefix="/observability", tags=["observability"])
 
 PERIOD_HOURS = {"24h": 24, "7d": 24 * 7, "30d": 24 * 30}
 SEVERITY_RANK = {"critical": 4, "high": 3, "warning": 2, "info": 1}
-
-
-def _iso(value: Any) -> str | None:
-    if value is None:
-        return None
-    return value.isoformat() + ("Z" if getattr(value, "tzinfo", None) is None else "")
 
 
 def _health(db: Session) -> dict[str, Any]:
@@ -57,7 +52,7 @@ def _health(db: Session) -> dict[str, Any]:
         "down": [brief(c) for c in data["components"] if c["status"] == "down"],
         "degraded": [brief(c) for c in data["components"] if c["status"] == "degraded"],
         "last_check_at": max((c["checked_at"] for c in data["components"] if c["checked_at"]), default=None),
-        "next_check_at": _iso(schedule),
+        "next_check_at": utc_iso(schedule),
         "uptime_24h": round(sum(uptimes) / len(uptimes), 1) if uptimes else None,
     }
 
@@ -101,7 +96,7 @@ def _alerts(db: Session, hours: int) -> dict[str, Any]:
                 "scopes": sorted(g["scopes"])[:3],
                 "scope_count": len(g["scopes"]),
                 "example": g["example"],
-                "last_seen_at": _iso(g["last_seen_at"]),
+                "last_seen_at": utc_iso(g["last_seen_at"]),
             }
             for g in top
         ],
@@ -116,7 +111,7 @@ def _jobs(db: Session, hours: int) -> dict[str, Any]:
     active = observability_sql.jobs_2(db).mappings().all()
     stuck = sum(1 for row in active if stuck_reason(dict(row)))
     items = [
-        {**dict(r), "updated_at": _iso(r["updated_at"])}
+        {**dict(r), "updated_at": utc_iso(r["updated_at"])}
         for r in observability_sql.jobs_3(db, {"hours": hours}).mappings()
     ]
     return {"total": int(counts.get("total") or 0), "failed": int(counts.get("failed") or 0), "stuck": int(stuck or 0), "items": items}

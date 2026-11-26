@@ -29,7 +29,7 @@ def test_reports_have_the_common_shape() -> None:
     assert storage["kpis"][0]["value"] == 20 * GB
     assert "five_s" not in reports.KINDS  # served by the 5S module
     quotas = next(section for section in storage["sections"] if section["title"] == "Quotas")
-    assert quotas["rows"][0]["status"] == "à surveiller"
+    assert quotas["rows"][0]["status"] == {"text": "à surveiller", "tone": "warn"}
 
 
 def test_new_states_of_the_express_search() -> None:

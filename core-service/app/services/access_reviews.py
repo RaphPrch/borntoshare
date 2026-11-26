@@ -17,14 +17,11 @@ from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
 from app.services.authorization import ActorContext, get_guardian_storage_root_ids, is_platform_administrator
+from app.core.values import utc_iso
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _iso(value: Any) -> str | None:
-    return value.isoformat() + "Z" if isinstance(value, datetime) else None
 
 
 def _refuse(code: str, message: str, http: int = status.HTTP_409_CONFLICT) -> HTTPException:
@@ -109,8 +106,8 @@ def list_reviews(db: Session, actor: ActorContext) -> list[dict[str, Any]]:
         out.append({**{k: row[k] for k in ("id", "name", "status", "created_by", "closed_by")},
                     **{k: int(row[k] or 0) for k in ("total", "decided", "revoked", "manual", "failed", "folders")},
                     "revoke": int(row["revoke_count"] or 0),
-                    "keep": int(row["keep_count"] or 0), "due_at": _iso(row["due_at"]), "created_at": _iso(row["created_at"]),
-                    "closed_at": _iso(row["closed_at"])})
+                    "keep": int(row["keep_count"] or 0), "due_at": utc_iso(row["due_at"]), "created_at": utc_iso(row["created_at"]),
+                    "closed_at": utc_iso(row["closed_at"])})
     return out
 
 
@@ -144,10 +141,10 @@ def items(db: Session, actor: ActorContext, review_id: int) -> dict[str, Any]:
         rows.append({"id": int(row["id"]), "storage_root_id": int(row["storage_root_id"]), "root_name": row["root_name"], "root_path": row["root_path"],
                      "username": row["username"], "display_name": row["display_name"], "level": row["level"], "via": via,
                      "revocable": bool(row["revocable_request_ids"]), "decision": row["decision"], "note": row["note"],
-                     "decided_by": row["decided_by"], "decided_at": _iso(row["decided_at"]), "outcome": row["outcome"],
+                     "decided_by": row["decided_by"], "decided_at": utc_iso(row["decided_at"]), "outcome": row["outcome"],
                      "outcome_detail": row["outcome_detail"]})
-    return {"review": {"id": int(review["id"]), "name": review["name"], "status": review["status"], "due_at": _iso(review["due_at"]),
-                       "created_at": _iso(review["created_at"]), "created_by": review["created_by"], "closed_at": _iso(review["closed_at"])},
+    return {"review": {"id": int(review["id"]), "name": review["name"], "status": review["status"], "due_at": utc_iso(review["due_at"]),
+                       "created_at": utc_iso(review["created_at"]), "created_by": review["created_by"], "closed_at": utc_iso(review["closed_at"])},
             "items": rows}
 
 

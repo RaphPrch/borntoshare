@@ -15,6 +15,7 @@ from typing import Any
 
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
+from app.core.values import utc_iso
 
 READ_ACTION = "folder_quota_read"
 APPLY_ACTION = "folder_quota_apply"
@@ -25,10 +26,6 @@ MAX_LIMIT = 1024 ** 5
 
 def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
-
-
-def _iso(value: Any) -> str | None:
-    return value.isoformat() + "Z" if value else None
 
 
 def _int(value: Any) -> int | None:
@@ -51,10 +48,10 @@ def _row(row: Any) -> dict[str, Any]:
         "pending_operation": row["pending_operation"],
         "error_code": row["error_code"],
         "error_message": row["error_message"],
-        "read_at": _iso(row["read_at"]),
-        "applied_at": _iso(row["applied_at"]),
+        "read_at": utc_iso(row["read_at"]),
+        "applied_at": utc_iso(row["applied_at"]),
         "updated_by": row["updated_by"],
-        "updated_at": _iso(row["updated_at"]),
+        "updated_at": utc_iso(row["updated_at"]),
     }
 
 
@@ -69,9 +66,9 @@ def _request_row(row: Any) -> dict[str, Any]:
         "reason": row["reason"],
         "status": row["status"],
         "decided_by": row["decided_by"],
-        "decided_at": _iso(row["decided_at"]),
+        "decided_at": utc_iso(row["decided_at"]),
         "decision_note": row["decision_note"],
-        "created_at": _iso(row["created_at"]),
+        "created_at": utc_iso(row["created_at"]),
         **({"folder_name": row["folder_name"], "root_path": row["root_path"]} if "folder_name" in row.keys() else {}),
     }
 
