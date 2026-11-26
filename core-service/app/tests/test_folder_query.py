@@ -91,3 +91,14 @@ def test_the_states_are_the_same_in_the_browser_and_in_the_core() -> None:
     block = source.read_text(encoding="utf-8").split("const STATES", 1)[1].split("\n};", 1)[0]
     browser = set(re.findall(r"^\s+'?([a-z][a-z-]*)'?: \(", block, flags=re.M))
     assert browser == set(folder_query.STATES)
+
+
+def test_a_long_search_stays_fast() -> None:
+    # The reports pass the search typed by a person: a pathological one must not stall the core (CodeQL ReDoS)
+    import time
+
+    started = time.perf_counter()
+    for text in ("A" * 20000, "A" * 20000 + ":", "est:" + "a" * 20000, " ".join(["tag:x"] * 2000)):
+        fq.parse(text)
+    assert time.perf_counter() - started < 1.0
+    assert fq.parse("est:quota-plein zone:Paris")[0][1].value == "Paris"

@@ -30,7 +30,7 @@ ALIASES = {
     "doublons": "dups", "duplicates": "dups",
     "medias": "media", "media": "media",
 }
-_TOKEN = re.compile(r'(-?)([a-zA-Zéèêà]+)([:<>])("[^"]*"?|\S*)')
+_TOKEN = re.compile(r'(-?)([a-zA-Zéèêà]{1,32})([:<>])("[^"]*"?|\S*)')
 
 
 def fold(value: Any) -> str:

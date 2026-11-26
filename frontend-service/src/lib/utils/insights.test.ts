@@ -10,7 +10,7 @@ const rows = [
   { storage_root_id: 4, content_size_bytes: null, measure_status: 'running', dup_wasted_bytes: 5, remediation_status: 'overdue', guardians_count: 1 }
 ];
 
-const insights = buildInsights(rows, true);
+const insights = buildInsights(rows, { governance: true, fives: true });
 for (const insight of insights) {
   assert.equal(insight.count, foldersMatching(rows, insight.query).length, `${insight.key}: the figure is the list of ${insight.query}`);
 }
@@ -23,6 +23,13 @@ assert.equal(byKey.quota.count, 1);
 // Never measured: no size, whatever the measure state (the list est:non-mesure)
 assert.equal(byKey.never.count, 2);
 // Without the governance: no guardian nor inheritance recommendation
-assert.ok(!buildInsights(rows, false).some((insight) => ['guardian', 'inheritance'].includes(insight.key)));
+assert.ok(!buildInsights(rows, { governance: false, fives: true }).some((insight) => insight.license === 'governance'));
+// Without the 5S module: nothing of its measures nor of its sensitivity scan
+const without5S = buildInsights(rows, { governance: true, fives: false });
+assert.ok(without5S.every((insight) => insight.license !== 'fives'));
+assert.ok(!without5S.some((insight) => ['cold', 'dups', 'junk', 'secrets', 'corrections'].includes(insight.key)));
+// The most pressing first
+const tones = insights.map((insight) => insight.tone);
+assert.deepEqual(tones, [...tones].sort((a, b) => ['bad', 'warn', 'mut', 'ok'].indexOf(a) - ['bad', 'warn', 'mut', 'ok'].indexOf(b)));
 
 console.log('insights: OK');

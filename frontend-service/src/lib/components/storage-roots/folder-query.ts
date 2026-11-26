@@ -28,7 +28,7 @@ const ALIASES: Record<string, string> = {
 };
 
 const fold = (value: unknown) => String(value ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-const TOKEN = /(-?)([a-zA-Zéèêà]+)([:<>])("[^"]*"?|\S*)/y;
+const TOKEN = /(-?)([a-zA-Zéèêà]{1,32})([:<>])("[^"]*"?|\S*)/y;
 
 export function parseFolderQuery(query: string): { filters: QueryFilter[]; text: string } {
   const filters: QueryFilter[] = [];
@@ -178,7 +178,8 @@ export function foldersMatching<T extends Row>(rows: T[], query: string): T[] {
 }
 
 const quote = (value: string) => (/\s/.test(value) ? `"${value}"` : value);
-const STATE_LABELS = (): Array<[string, string]> => [
+/** Every « est:… » state with its label (filters of the reports, suggestions of the search) */
+export const STATE_LABELS = (): Array<[string, string]> => [
   ['alerte', t('with open alerts')],
   ['injoignable', t('unreachable')],
   ['sain', t('healthy')],

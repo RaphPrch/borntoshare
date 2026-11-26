@@ -111,3 +111,53 @@ def test_a_measure_goes_to_the_scanner_of_the_module_when_it_is_on(monkeypatch) 
 
     monkeypatch.setattr(probe_service, "submit_probe_run", core_job)
     assert asyncio.run(scans.request_measure(_Db(), 8)) == 42
+
+
+def test_each_report_comes_with_its_license() -> None:
+    assert set(reports.kinds(governance=False, fives=False)) == {"storage", "infrastructure", "alerts"}
+    assert set(reports.kinds(governance=True, fives=False)) == {"storage", "infrastructure", "alerts", "governance", "exposure", "guardians", "requests"}
+    # The sensitivity scan is the 5S module's: its report comes with it
+    assert "security" in reports.kinds(governance=False, fives=True) and "governance" not in reports.kinds(governance=False, fives=True)
+    assert all(license_ in reports.LICENSES for _t, _d, license_ in reports.KINDS.values())
+    assert set(reports.BUILDERS) == set(reports.KINDS)
+
+
+def test_availability_and_guardians_reports() -> None:
+    rows = [_row(last_probe_at=NOW - timedelta(days=3), backup_covered=True),
+            _row(storage_root_id=2, last_probe_status="failed", last_probe_at=NOW, last_probe_message="Access denied", backup_covered=True),
+            _row(storage_root_id=3, last_probe_status=None, last_probe_at=None, guardians_count=0, guardians=[]),
+            _row(storage_root_id=4, last_probe_at=NOW, guardians_count=1, backup_covered=False, guardians=[{"name": "Alice Martin", "login": "alice"}])]
+    infra = reports.BUILDERS["infrastructure"](None, rows, {"stale_before": NOW - timedelta(days=1)})
+    kpis = {kpi["label"]: kpi["value"] for kpi in infra["kpis"]}
+    assert kpis["Injoignables"] == 1 and kpis["Jamais testés"] == 1 and kpis["Collecte ancienne"] == 1
+    assert infra["sections"][1]["rows"][0]["message"] == "Access denied"
+    keepers = reports.BUILDERS["guardians"](None, rows)
+    kpis = {kpi["label"]: kpi["value"] for kpi in keepers["kpis"]}
+    assert kpis["Sans gardien"] == 1 and kpis["Sans suppléant"] == 1
+    assert keepers["sections"][2]["rows"] == [{"guardian": "Alice Martin", "folders": 1}]
+
+
+class _Rows:
+    def __init__(self, rows):
+        self.rows = rows
+
+    def execute(self, *_args, **_kwargs):
+        rows = self.rows
+        return type("R", (), {"mappings": lambda _self: type("M", (), {"all": lambda _m: rows})()})()
+
+
+def test_requests_of_the_period() -> None:
+    rows = [_row(), _row(storage_root_id=2)]
+    found = [
+        {"request_id": 1, "request_code": "REQ-1", "status": "approved", "created_at": NOW - timedelta(days=3), "decided_at": NOW - timedelta(days=2),
+         "storage_root_id": 1, "requested_for_display": "Paul", "latest_execution_status": "SUCCEEDED"},
+        {"request_id": 2, "request_code": "REQ-2", "status": "pending", "created_at": NOW - timedelta(days=1), "decided_at": None,
+         "storage_root_id": 1, "requested_for_display": "Anne", "latest_execution_status": None},
+        {"request_id": 3, "request_code": "REQ-3", "status": "approved", "created_at": NOW - timedelta(days=5), "decided_at": NOW - timedelta(days=2),
+         "storage_root_id": 2, "requested_for_display": "Léa", "latest_execution_status": "FAILED"},
+    ]
+    report = reports.BUILDERS["requests"](_Rows(found), rows, {"days": 30})
+    kpis = {kpi["label"]: kpi["value"] for kpi in report["kpis"]}
+    assert kpis["Demandes"] == 3 and kpis["Accordées"] == 2 and kpis["En attente"] == 1 and kpis["En échec"] == 1
+    assert kpis["Délai médian de décision"] == 3.0
+    assert report["sections"][1]["rows"][0]["code"] == "REQ-3"

@@ -49,7 +49,7 @@
 
   const num = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : 0);
   let rings = $derived(coverageRings({ roots, governance: $governanceEnabled, exposure, topology: isAdmin ? topology : undefined }));
-  let insights = $derived(roots ? buildInsights(roots, $governanceEnabled) : []);
+  let insights = $derived(roots ? buildInsights(roots, { governance: $governanceEnabled, fives: $fivesEnabled }) : []);
   let first = $derived(insights.filter((insight) => insight.tone === 'bad' || insight.tone === 'warn').slice(0, FIRST));
   let volume = $derived((roots ?? []).reduce((sum, row) => sum + num(row.content_size_bytes ?? row.estimated_size_bytes), 0));
   let alerted = $derived(roots ? foldersMatching(roots, 'est:alerte') : []);
