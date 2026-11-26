@@ -13,6 +13,8 @@
   import { listGovernanceAlerts, type GovernanceAlert } from '$lib/api/governance-alerts';
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import RingStat from '$lib/components/ui/RingStat.svelte';
+  import { percent } from '$lib/utils/ring';
   import { t } from '$lib/i18n';
   import { accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/mappers/access-requests.mapper';
   import { governanceEnabled } from '$lib/utils/features';
@@ -101,7 +103,9 @@
             {#each reviews.slice(0, SHOWN) as review (review.id)}
               <li><a class="v2-fi" href={`/access-reviews/${review.id}`}>
                 <div class="v2-fi__t"><b>{review.name}</b><small>{t('{left} decision(s) left out of {total}', { left: review.total - review.decided, total: review.total })}</small></div>
-                <span class="v2-fi__r">{#if review.due_at}<small>{t('due {date}', { date: formatDate(review.due_at) })}</small>{/if}</span>
+                <span class="v2-fi__r">{#if review.due_at}<small>{t('due {date}', { date: formatDate(review.due_at) })}</small>{/if}
+                  <RingStat value={percent(review.decided, review.total)} size={28} stroke={4} center={false}
+                    label={t('{pct} % decided', { pct: Math.round(percent(review.decided, review.total) ?? 0) })} /></span>
               </a></li>
             {/each}
           </ul>

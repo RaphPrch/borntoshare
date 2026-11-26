@@ -2,6 +2,8 @@
 
   import { onDestroy, untrack } from 'svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
+  import RingStat from '$lib/components/ui/RingStat.svelte';
+  import { percent, type RingTone } from '$lib/utils/ring';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
   import ConfirmActionModal from '$lib/components/ui/ConfirmActionModal.svelte';
   import { t } from '$lib/i18n';
@@ -235,7 +237,8 @@
     .filter((p) => p.expires_at)
     .sort((a, b) => String(a.expires_at).localeCompare(String(b.expires_at)))
     .slice(0, 5));
-  let ringShare = $derived(data && data.summary.groups ? Math.round((data.summary.groups_ok / data.summary.groups) * 100) : 0);
+  // Groups whose entry is in place, out of the groups of the folder (no group: an empty ring, not 0 %)
+  let ringShare = $derived(data ? percent(data.summary.groups_ok, data.summary.groups) : null);
 </script>
 
 {#snippet aclCard(d: StorageRootPermissionsData, view: { tone: string; word: () => string })}
@@ -247,7 +250,7 @@
           <button type="button" class="b2s-btn b2s-btn-sm b2s-btn-secondary" disabled={!d.people.length} onclick={exportCsv}><i class="bi bi-download" aria-hidden="true"></i>{t('Export')}</button>
         </header>
         <div class="pm-state">
-          <span class={`pm-ring is-${view.tone}`} style={`--share:${ringShare}%`} aria-hidden="true"><b>{d.summary.groups_ok}/{d.summary.groups}</b></span>
+          <RingStat value={ringShare} size={56} stroke={6} tone={view.tone as RingTone}><b class="pm-ring">{d.summary.groups_ok}/{d.summary.groups}</b></RingStat>
           <div class="pm-state__text">
             <strong class={`is-${view.tone}`}>{view.word().replace(/\.$/, '')}</strong>
             <p>
@@ -492,12 +495,7 @@
   .is-info { color: var(--b2s-color-info-strong); }
   /* state */
   .pm-state { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px; align-items: center; }
-  .pm-ring { position: relative; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: conic-gradient(var(--ring) var(--share), var(--b2s-color-neutral-soft) 0); --ring: var(--b2s-color-success); }
-  .pm-ring.is-warn { --ring: var(--b2s-color-warning); }
-  .pm-ring.is-bad { --ring: var(--b2s-color-danger); }
-  .pm-ring.is-idle { --ring: var(--b2s-color-border-mid); }
-  .pm-ring::after { content: ''; position: absolute; inset: 6px; border-radius: 50%; background: var(--b2s-color-surface); }
-  .pm-ring b { position: relative; z-index: 1; font-size: 13px; }
+  .pm-ring { font-size: 13px; }
   .pm-state__text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .pm-state__text strong { font-size: 17px; font-weight: 600; }
   .pm-state__text strong.is-ok { color: var(--b2s-color-success-strong); }
