@@ -77,3 +77,17 @@ def test_duplicates_and_media_criteria():
     assert not matches({"content_size_bytes": None}, "doublons>1Go")
     assert not matches({"content_size_bytes": 10, "media_bytes": None}, "medias>10%")
     assert not matches(data, "-medias>50%")
+
+
+def test_the_states_are_the_same_in_the_browser_and_in_the_core() -> None:
+    # One rule per state: the list of Storage Roots, Insights and the Dashboard (folder-query.ts) count with the same
+    # states as the policies and the reports of the core; a state added on one side only would silently differ
+    import re
+    from pathlib import Path
+
+    from app.services import folder_query
+
+    source = Path(__file__).resolve().parents[3] / "frontend-service/src/lib/components/storage-roots/folder-query.ts"
+    block = source.read_text(encoding="utf-8").split("const STATES", 1)[1].split("\n};", 1)[0]
+    browser = set(re.findall(r"^\s+'?([a-z][a-z-]*)'?: \(", block, flags=re.M))
+    assert browser == set(folder_query.STATES)

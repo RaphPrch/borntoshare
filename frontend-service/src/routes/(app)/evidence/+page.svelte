@@ -4,7 +4,7 @@
    * - the evidence pack of the platform or a zone (ZIP built by core-service, SHA-256 of each file);
    * - the evidence of each access review campaign (exported from its page);
    * - the evidence pack of one folder (its sheet in Storage Roots);
-   * - the reports to print or save as PDF (Insights & Recommendations).
+   * - the reports to print or save as PDF: listed once, by Insights & Recommendations (a link here).
    */
   import { onMount } from 'svelte';
   import { apiGetData } from '$lib/api/client';
@@ -12,24 +12,17 @@
   import RelativeTime from '$lib/components/ui/RelativeTime.svelte';
   import LoadingState from '$lib/components/ui/LoadingState.svelte';
   import { t } from '$lib/i18n';
-  import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
+  import { governanceEnabled } from '$lib/utils/features';
 
   type Review = { id: number; name: string; status: 'open' | 'closed'; closed_at: string | null; created_at: string; total: number; decided: number };
-  type Report = { key: string; title: string; description: string };
 
   let packOpen = $state(false);
   let reviews = $state<Review[] | null>(null);
-  let reports = $state<Report[] | null>(null);
 
   onMount(async () => {
-    const [campaigns, core, module] = await Promise.all([
-      $governanceEnabled ? apiGetData<Review[]>(fetch, '/access-reviews').catch(() => []) : Promise.resolve([] as Review[]),
-      apiGetData<Report[]>(fetch, '/insights/reports').catch(() => []),
-      $fivesEnabled ? apiGetData<Report[]>(fetch, '/modules/fives/reports').catch(() => []) : Promise.resolve([] as Report[])
-    ]);
+    const campaigns = $governanceEnabled ? await apiGetData<Review[]>(fetch, '/access-reviews').catch(() => [] as Review[]) : [];
     // Closed campaigns first: their export is final
     reviews = [...campaigns].sort((a, b) => Number(a.status === 'open') - Number(b.status === 'open') || String(b.closed_at ?? b.created_at).localeCompare(String(a.closed_at ?? a.created_at)));
-    reports = [...core, ...module];
   });
 </script>
 
@@ -54,18 +47,9 @@
     </div>
 
     <div class="v2-sec">
-      <div class="v2-sh"><h2>{t('Reports to print')}</h2>{#if reports?.length}<span class="v2-tag is-mut">{reports.length}</span>{/if}</div>
-      {#if reports === null}
-        <LoadingState block skeleton="rows">{t('Loading…')}</LoadingState>
-      {:else if reports.length}
-        <ul class="v2-feed">
-          {#each reports as report (report.key)}
-            <li><a class="v2-fi" href={`/reports/${report.key}`}><div class="v2-fi__t"><b>{report.title}</b><small>{report.description}</small></div></a></li>
-          {/each}
-        </ul>
-      {:else}
-        <p class="v2-empty">{t('No report available.')}</p>
-      {/if}
+      <div class="v2-sh"><h2>{t('Reports to print')}</h2></div>
+      <p class="v2-hint">{t('Storage, security, access and 5S reports, to print or save as PDF: they are listed with the recommendations.')}</p>
+      <div><a class="b2s-btn b2s-btn-secondary" href="/reports#reports"><i class="bi bi-printer" aria-hidden="true"></i>{t('Open the reports')}</a></div>
     </div>
 
     {#if $governanceEnabled}

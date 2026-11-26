@@ -6,6 +6,7 @@
   import { fivesEnabled, governanceEnabled } from '$lib/utils/features';
   import { onMount } from 'svelte';
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
+  import { foldersMatching } from '$lib/components/storage-roots/folder-query';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -61,7 +62,7 @@
     loadFailed = false;
     [roots, endpoints, missingSecrets, lateTasks] = await Promise.all([
       // The columns of the journal and the tiles only (the whole folder list weighed megabytes)
-      soft(apiGetList<Root>(fetch, '/storage-roots/context', { fields: 'storage_root_id,storage_root_name,root_path,dfs_path,zone_name,storage_endpoint_id,storage_endpoint_name,content_size_bytes,estimated_size_bytes,content_files,measure_status,password_files,key_files,quota_used_percent,quota_pending_requests,guardians_count,open_alerts_count' })),
+      soft(apiGetList<Root>(fetch, '/storage-roots/context', { fields: 'storage_root_id,storage_root_name,root_path,dfs_path,zone_name,storage_endpoint_id,storage_endpoint_name,content_size_bytes,estimated_size_bytes,content_files,measure_status,password_files,key_files,quota_used_percent,quota_warn_percent,quota_pending_requests,guardians_count,open_alerts_count' })),
       soft(apiGetList<Endpoint>(fetch, '/storage-endpoints/context')),
       soft(apiGetList<MissingSecret>(fetch, '/infrastructure/secrets/missing')),
       soft(apiGetList<LateTask>(fetch, '/infrastructure/schedules/late'))
@@ -79,13 +80,14 @@
   const measured = (row: Root) => row.content_size_bytes != null || ['done', 'running'].includes(String(row.measure_status ?? ''));
   let totalBytes = $derived(roots.reduce((sum, row) => sum + size(row), 0));
   let totalFiles = $derived(roots.reduce((sum, row) => sum + num(row.content_files), 0));
-  let failedRoots = $derived(roots.filter((row) => String(row.measure_status ?? '') === 'failed'));
+  // Each figure below is counted by the express search its « See » opens (the same rules as Storage Roots and Insights)
+  let failedRoots = $derived(foldersMatching(roots, 'est:mesure-echec'));
   let neverRoots = $derived(roots.filter((row) => !measured(row) && String(row.measure_status ?? '') !== 'failed'));
-  let secretRoots = $derived(roots.filter((row) => num(row.password_files) + num(row.key_files) > 0));
+  let secretRoots = $derived(foldersMatching(roots, 'est:secret'));
   let secretFiles = $derived(secretRoots.reduce((sum, row) => sum + num(row.password_files) + num(row.key_files), 0));
-  let quotaRoots = $derived(roots.filter((row) => num(row.quota_used_percent) > 85 || num(row.quota_pending_requests) > 0));
+  let quotaRoots = $derived(foldersMatching(roots, 'est:quota-plein'));
   let quotaWaiting = $derived(roots.reduce((sum, row) => sum + num(row.quota_pending_requests), 0));
-  let noGuardian = $derived($governanceEnabled ? roots.filter((row) => num(row.guardians_count) === 0) : []);
+  let noGuardian = $derived($governanceEnabled ? foldersMatching(roots, 'est:sans-gardien') : []);
 
   let name = $derived(String(($page.data as any)?.me?.display_name || ($page.data as any)?.me?.username || '').trim());
   // ---- Journal: the day told in one headline and one paragraph, from the figures below ----
@@ -148,9 +150,11 @@
     if (failedRoots.length) list.push({ key: 'failed', tone: 'bad', title: t('{count} measure(s) failed', { count: failedRoots.length }),
       detail: failedRoots.slice(0, 3).map((row) => String(row.storage_root_name ?? '')).join(', '), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:mesure-echec')}` });
     if (secretFiles) list.push({ key: 'secrets-files', tone: 'bad', title: t('{count} file(s) with passwords or keys', { count: secretFiles }),
-      detail: t('in {count} folder(s)', { count: secretRoots.length }), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:mot-de-passe')}` });
-    if (quotaRoots.length) list.push({ key: 'quota', tone: 'warn', title: t('{count} quota(s) over 85 %', { count: quotaRoots.length }),
-      detail: quotaWaiting ? t('{count} space request(s) waiting', { count: quotaWaiting }) : t('Almost full'), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:quota-plein')}` });
+      detail: t('in {count} folder(s)', { count: secretRoots.length }), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:secret')}` });
+    if (quotaRoots.length) list.push({ key: 'quota', tone: 'warn', title: t('{count} quota(s) almost full', { count: quotaRoots.length }),
+      detail: quotaWaiting ? t('{count} space request(s) waiting', { count: quotaWaiting }) : t('Over the warning threshold of their folder'), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:quota-plein')}` });
+    else if (quotaWaiting) list.push({ key: 'quota', tone: 'warn', title: t('{count} space request(s) waiting', { count: quotaWaiting }),
+      detail: t('Quotas'), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:quota-demande')}` });
     if (noGuardian.length) list.push({ key: 'guardian', tone: 'warn', title: t('{count} folder(s) without guardian', { count: noGuardian.length }),
       detail: t('Their requests go to the administrators'), action: t('See'), href: `/storage-roots?q=${encodeURIComponent('est:sans-gardien')}` });
     if (neverRoots.length) list.push({ key: 'never', tone: 'mut', title: t('{count} folder(s) never measured', { count: neverRoots.length }),

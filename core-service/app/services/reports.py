@@ -13,6 +13,8 @@ from typing import Any, Callable
 from sqlalchemy import bindparam, text
 from sqlalchemy.orm import Session
 
+from app.services import folder_query
+
 
 # The 5S and data hygiene reports (cold data, duplicates, clutter, growth) belong to the 5S module (fives-service)
 KINDS = {
@@ -55,8 +57,8 @@ def storage(db: Session, rows: list[dict]) -> dict[str, Any]:
     measured = [row for row in rows if row.get("content_size_bytes") is not None]
     total = sum(_size(row) for row in measured)
     with_quota = [row for row in rows if row.get("quota_limit_bytes") is not None]
-    watch = [row for row in with_quota if row.get("quota_used_percent") is not None
-             and float(row["quota_used_percent"]) >= float(row.get("quota_warn_percent") or 85)]
+    # The rules of the express search (est:…): the report lists what « See » lists in Storage Roots
+    watch = [row for row in with_quota if folder_query.STATES["quota-plein"](row)]
     servers: dict[str, dict[str, Any]] = {}
     for row in measured:
         entry = servers.setdefault(str(row.get("storage_endpoint_name") or "—"), {"server": str(row.get("storage_endpoint_name") or "—"),
@@ -104,8 +106,8 @@ def security(db: Session, rows: list[dict], governance: bool = True) -> dict[str
     ids = [int(row.get("storage_root_id") or 0) for row in rows]
     by_id = {int(row.get("storage_root_id") or 0): row for row in rows}
     scanned = [row for row in rows if row.get("sensitive_files") is not None]
-    with_pw = [row for row in rows if int(row.get("password_files") or 0)]
-    with_keys = [row for row in rows if int(row.get("key_files") or 0)]
+    with_pw = [row for row in rows if folder_query.STATES["mot-de-passe"](row)]
+    with_keys = [row for row in rows if folder_query.STATES["cle-ou-jeton"](row)]
     corrections = []
     if ids:
         corrections = [dict(row) for row in db.execute(

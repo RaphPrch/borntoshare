@@ -38,7 +38,8 @@
     "test:actor-assertion": "npx tsx ./src/lib/server/auth/actor-assertion.test.ts",
     "test:navigation": "npx tsx ./src/lib/components/layout/nav.test.ts && npx tsx ./src/lib/utils/route-access.test.ts",
     "test:access-explorer": "npx tsx ./src/lib/utils/access-explain.test.ts",
-    "test:storage-topology": "npx tsx ./src/lib/utils/storage-topology.test.ts"
+    "test:storage-topology": "npx tsx ./src/lib/utils/storage-topology.test.ts",
+    "test:insights": "npx tsx ./src/lib/utils/insights.test.ts"
   },
   "overrides": {
     "cookie": "0.7.2"

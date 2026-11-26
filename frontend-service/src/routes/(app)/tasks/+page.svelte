@@ -2,8 +2,8 @@
   /**
    * My Tasks: what waits for the person signed in, gathered from the sources that already exist (nothing is computed
    * here that another page does not show): the requests to decide and the reviews (Access Management), the open
-   * alerts of their folders (Governance Jobs), the recommendations (Insights & Recommendations, same rules), and their
-   * own requests to follow (Dashboard). Each block leads to the page where it is handled.
+   * alerts of their folders (Governance Jobs) and their own requests to follow (Dashboard). Each block leads to the page
+   * where it is handled. The recommendations are the platform's, not a task: Insights & Recommendations holds them.
    */
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
@@ -17,7 +17,6 @@
   import { accessRequestId, accessRequestRequesterName, accessRequestTargetLabel } from '$lib/mappers/access-requests.mapper';
   import { governanceEnabled } from '$lib/utils/features';
   import { formatDate } from '$lib/utils/format';
-  import { INSIGHT_FIELDS, INSIGHT_ICONS, buildInsights, type Insight } from '$lib/utils/insights';
 
   type Review = { id: number; name: string; status: 'open' | 'closed'; due_at: string | null; total: number; decided: number };
   const SHOWN = 6;
@@ -30,26 +29,15 @@
   let staff = $derived(Boolean(nav.canSeeStorageRoots));
 
   let loading = $state(true);
-  let insightsLoading = $state(true);
   let toDecide = $state<any[]>([]);
   let reviews = $state<Review[]>([]);
   let alerts = $state<GovernanceAlert[]>([]);
-  let insights = $state<Insight[]>([]);
   let me = $state<UserDashboardMePayload | null>(null);
 
   onMount(async () => {
     // Each source on its own: one that does not answer leaves its block empty, never the page
     const soft = <T,>(promise: Promise<T>, empty: T) => promise.catch(() => empty);
     const governance = $governanceEnabled;
-    // The recommendations read every folder: they come after, the other blocks do not wait for them
-    if (staff) {
-      void soft(apiGetList<Record<string, any>>(fetch, '/storage-roots/context', { fields: INSIGHT_FIELDS }), []).then((roots) => {
-        insights = buildInsights(roots, governance).filter((insight) => insight.tone !== 'mut');
-        insightsLoading = false;
-      });
-    } else {
-      insightsLoading = false;
-    }
     const [pending, campaigns, open, mine] = await Promise.all([
       staff && governance ? soft(apiGetList<any>(fetch, '/access-requests', { status: 'pending' }), []) : Promise.resolve([]),
       staff && governance ? soft(apiGetData<Review[]>(fetch, '/access-reviews'), []) : Promise.resolve([] as Review[]),
@@ -63,15 +51,14 @@
     loading = false;
   });
 
-  // Their own requests to follow: failed, or ending within 30 days (the Dashboard says the same)
-  let followUp = $derived<DashboardRequest[]>([
-    ...(me?.my_requests ?? []).filter((row) => String(row.latest_execution_status ?? '').toLowerCase() === 'failed'),
-    ...(me?.my_ending ?? [])
-  ]);
+  // Their own requests to follow: refused by the server or the directory (the core's rule, whatever their age), or
+  // ending within 30 days; a request in both is listed once
+  let failedIds = $derived(new Set((me?.my_failed ?? []).map((row) => row.request_id)));
+  let followUp = $derived<DashboardRequest[]>([...(me?.my_failed ?? []), ...(me?.my_ending ?? []).filter((row) => !failedIds.has(row.request_id))]);
   const SEVERITY_TONE: Record<string, string> = { critical: 'bad', high: 'bad', warning: 'warn' };
   const severityLabel = (severity: unknown) =>
     ({ critical: t('Critical'), high: t('High'), warning: t('Warning'), info: t('Info') })[String(severity)] ?? String(severity ?? '');
-  let total = $derived(toDecide.length + reviews.length + alerts.length + insights.length + followUp.length);
+  let total = $derived(toDecide.length + reviews.length + alerts.length + followUp.length);
 </script>
 
 <svelte:head><title>My Tasks · BornToShare</title></svelte:head>
@@ -80,13 +67,14 @@
   <div class="v2-head">
     <div>
       <h1>My Tasks</h1>
-      <p>{t('What waits for you: requests to decide, reviews, alerts, recommendations and your own requests to follow.')}</p>
+      <p>{t('What waits for you: requests to decide, reviews, alerts and your own requests to follow.')}</p>
     </div>
+    {#if staff}<div class="v2-head__r"><a class="b2s-btn b2s-btn-secondary" href="/reports"><i class="bi bi-lightbulb" aria-hidden="true"></i>{t('Recommendations')}</a></div>{/if}
   </div>
 
   {#if loading}
     <LoadingState block skeleton="rows">{t('Loading…')}</LoadingState>
-  {:else if total === 0 && !insightsLoading}
+  {:else if total === 0}
     <div class="v2-sec"><p class="v2-empty">{t('Nothing waits for you.')}</p></div>
   {:else}
     <div class="v2-cols2">
@@ -136,26 +124,6 @@
         </div>
       {/if}
 
-      {#if insightsLoading}
-        <div class="v2-sec">
-          <div class="v2-sh"><h2>{t('Recommendations')}</h2></div>
-          <LoadingState block skeleton="rows">{t('Loading…')}</LoadingState>
-        </div>
-      {:else if insights.length}
-        <div class="v2-sec">
-          <div class="v2-sh"><h2>{t('Recommendations')}</h2><span class="v2-tag is-mut">{insights.length}</span>
-            <div class="v2-sh__r"><a href="/reports">{t('See all')}</a></div></div>
-          <ul class="v2-feed">
-            {#each insights as insight (insight.key)}
-              <li><a class="v2-fi" href={`/storage-roots?q=${encodeURIComponent(insight.query)}`}>
-                <div class="v2-fi__t"><b><i class={`bi ${INSIGHT_ICONS[insight.key] ?? 'bi-lightbulb'}`} aria-hidden="true"></i> {insight.title}</b><small>{insight.detail}</small></div>
-                <span class="v2-fi__r"><span class={`v2-tag is-${insight.tone}`}>{insight.big}</span></span>
-              </a></li>
-            {/each}
-          </ul>
-        </div>
-      {/if}
-
       {#if followUp.length}
         <div class="v2-sec">
           <div class="v2-sh"><h2>{t('My requests to follow')}</h2><span class="v2-tag is-warn">{followUp.length}</span>
@@ -164,7 +132,7 @@
             {#each followUp.slice(0, SHOWN) as row (`${row.request_id}-${row.expires_at}`)}
               <li><a class="v2-fi" href={`/access-requests?status=all&request=${row.request_id}`}>
                 <div class="v2-fi__t"><b>{row.storage_root_name ?? '—'}</b>
-                  <small>{String(row.latest_execution_status ?? '').toLowerCase() === 'failed' ? t('Not applied: to look at') : t('Ends {when}', { when: row.expires_at ? formatDate(row.expires_at) : '—' })}</small></div>
+                  <small>{failedIds.has(row.request_id) ? t('Not applied: to look at') : t('Ends {when}', { when: row.expires_at ? formatDate(row.expires_at) : '—' })}</small></div>
                 <span class="v2-fi__r"><small><RelativeTime value={row.updated_at ?? row.created_at} /></small></span>
               </a></li>
             {/each}
@@ -174,7 +142,3 @@
     </div>
   {/if}
 </section>
-
-<style>
-  .tk .v2-fi__t b i { margin-right: 4px; color: var(--b2s-accent-vivid); }
-</style>

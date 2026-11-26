@@ -6057,5 +6057,12 @@
   "Measured size": "Taille mesurée",
   "{used} of {limit} (quotas)": "{used} sur {limit} (quotas)",
   "Map of the storage: zones, servers, volumes, shares, DFS and folders, with their state.": "Carte du stockage : zones, serveurs, volumes, partages, DFS et dossiers, avec leur état.",
-  "Topology": "Topologie"
+  "Topology": "Topologie",
+  "with passwords, keys or tokens": "avec mots de passe, clés ou jetons",
+  "{count} quota(s) almost full": "{count} quota(s) presque plein(s)",
+  "Over the warning threshold of their folder": "Au-delà du seuil d'alerte de leur dossier",
+  "Quotas": "Quotas",
+  "What waits for you: requests to decide, reviews, alerts and your own requests to follow.": "Ce qui vous attend : demandes à décider, revues, alertes et vos propres demandes à suivre.",
+  "Storage, security, access and 5S reports, to print or save as PDF: they are listed with the recommendations.": "Rapports stockage, sécurité, accès et 5S, à imprimer ou enregistrer en PDF : ils sont listés avec les recommandations.",
+  "Open the reports": "Ouvrir les rapports"
 }
