@@ -7,6 +7,8 @@
   import { onMount } from 'svelte';
   import { apiGetData, apiGetList, apiPostData } from '$lib/api/client';
   import { foldersMatching } from '$lib/components/storage-roots/folder-query';
+  import RingStat from '$lib/components/ui/RingStat.svelte';
+  import { coverageTone, percent } from '$lib/utils/ring';
   import { toast } from '$lib/stores/toast';
   import { reportUiError } from '$lib/errors';
   import InlineAlert from '$lib/components/ui/InlineAlert.svelte';
@@ -48,6 +50,8 @@
   let missingSecrets: MissingSecret[] = $state([]);
   let lateTasks: LateTask[] = $state([]);
   let loaded = $state(false);
+  let exposure = $state<Record<string, number> | null>(null);
+  let topology = $state<{ servers: number; dfs: number; states: Record<string, number> } | null>(null);
   // A reading that failed: the front page does not claim that everything is up to date
   let loadFailed = $state(false);
   function soft<T>(request: Promise<T[]>): Promise<T[]> {
@@ -68,6 +72,9 @@
       soft(apiGetList<LateTask>(fetch, '/infrastructure/schedules/late'))
     ]);
     loaded = true;
+    // The coverage rings that need more than the folder list: they come after, the page does not wait for them
+    if ($governanceEnabled) void apiGetData<{ summary: Record<string, number> }>(fetch, '/storage-roots/exposure').then((data) => (exposure = data?.summary ?? null)).catch(() => null);
+    void apiGetData<{ summary: { servers: number; dfs: number; states: Record<string, number> } }>(fetch, '/storage-topology').then((data) => (topology = data?.summary ?? null)).catch(() => null);
     if ($fivesEnabled) {
       const fives = await apiGetData<{ score: number | null }>(fetch, '/modules/fives/five-s').catch(() => null);
       fivesScore = fives?.score ?? null;
@@ -88,6 +95,29 @@
   let quotaRoots = $derived(foldersMatching(roots, 'est:quota-plein'));
   let quotaWaiting = $derived(roots.reduce((sum, row) => sum + num(row.quota_pending_requests), 0));
   let noGuardian = $derived($governanceEnabled ? foldersMatching(roots, 'est:sans-gardien') : []);
+
+  // Coverage: a part of the whole, each ring opens the list of what is missing
+  let coverage = $derived.by(() => {
+    const total = roots.length;
+    const rings = [
+      { key: 'measured', label: t('Folders measured'), value: loaded ? percent(total - foldersMatching(roots, 'est:non-mesure').length, total) : null,
+        detail: t('{count} never measured', { count: foldersMatching(roots, 'est:non-mesure').length }), href: `/storage-roots?q=${encodeURIComponent('est:non-mesure')}` }
+    ];
+    if ($governanceEnabled) {
+      rings.push({ key: 'guardian', label: t('Folders with a guardian'), value: loaded ? percent(total - noGuardian.length, total) : null,
+        detail: t('{count} without guardian', { count: noGuardian.length }), href: `/storage-roots?q=${encodeURIComponent('est:sans-gardien')}` });
+      const read = exposure ? num(exposure.total) - num(exposure.unknown) : 0;
+      rings.push({ key: 'governed', label: t('Folders governed'), value: exposure ? percent(num(exposure.governed), read) : null,
+        detail: exposure ? t('{open} open to everyone · {outside} outside accounts', { open: num(exposure.open_write) + num(exposure.open_read), outside: num(exposure.outside) }) : t('Reading the ACLs…'),
+        href: '/exposure' });
+    }
+    const states = topology?.states ?? {};
+    const known = topology ? num(topology.servers) + num(topology.dfs) - num(states.unknown) : 0;
+    rings.push({ key: 'servers', label: t('Servers available'), value: topology ? percent(num(states.available), known) : null,
+      detail: topology ? t('{degraded} degraded · {down} unavailable', { degraded: num(states.degraded), down: num(states.unavailable) }) : t('Reading the topology…'),
+      href: '/admin/storage-topology' });
+    return rings;
+  });
 
   let name = $derived(String(($page.data as any)?.me?.display_name || ($page.data as any)?.me?.username || '').trim());
   // ---- Journal: the day told in one headline and one paragraph, from the figures below ----
@@ -197,6 +227,15 @@
     {/if}
   </div>
 
+  <div class="v2-sec dash-cov" aria-label={t('Coverage')}>
+    {#each coverage as ring (ring.key)}
+      <a class="dash-cov__i" href={ring.href}>
+        <RingStat value={ring.value} size={72} tone={coverageTone(ring.value)} label={`${ring.label}: ${ring.value == null ? '—' : Math.round(ring.value) + ' %'}`} />
+        <span><b>{ring.label}</b><small>{ring.detail}</small></span>
+      </a>
+    {/each}
+  </div>
+
   <div class="jr-cols">
     <div>
       <h2 class="jr-h2">{t('Front page')}</h2>
@@ -238,6 +277,11 @@
 </section>
 
 <style>
+  .dash-cov { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .dash-cov__i { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; border-radius: var(--b2s-radius-md); padding: 4px; }
+  .dash-cov__i:hover, .dash-cov__i:focus-visible { background: var(--b2s-color-surface-hover); }
+  .dash-cov__i b { display: block; font-size: 14px; }
+  .dash-cov__i small { color: var(--b2s-color-text-muted); font-size: 12px; }
   .jr-hero { display: block; }
   .jr-kick { color: var(--b2s-color-text-muted); font-size: 12px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
   .jr-hero h1 { margin: 10px 0 0; color: var(--b2s-color-heading); font-size: 30px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15; }

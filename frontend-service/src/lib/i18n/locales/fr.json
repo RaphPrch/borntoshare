@@ -6064,5 +6064,16 @@
   "Quotas": "Quotas",
   "What waits for you: requests to decide, reviews, alerts and your own requests to follow.": "Ce qui vous attend : demandes à décider, revues, alertes et vos propres demandes à suivre.",
   "Storage, security, access and 5S reports, to print or save as PDF: they are listed with the recommendations.": "Rapports stockage, sécurité, accès et 5S, à imprimer ou enregistrer en PDF : ils sont listés avec les recommandations.",
-  "Open the reports": "Ouvrir les rapports"
+  "Open the reports": "Ouvrir les rapports",
+  "Coverage": "Couverture",
+  "Folders measured": "Dossiers mesurés",
+  "Folders with a guardian": "Dossiers avec gardien",
+  "{count} without guardian": "{count} sans gardien",
+  "Folders governed": "Dossiers gouvernés",
+  "{open} open to everyone · {outside} outside accounts": "{open} ouverts à tous · {outside} comptes hors BornToShare",
+  "Reading the ACLs…": "Lecture des ACL…",
+  "Servers available": "Serveurs disponibles",
+  "{degraded} degraded · {down} unavailable": "{degraded} dégradé(s) · {down} indisponible(s)",
+  "Reading the topology…": "Lecture de la topologie…",
+  "{n} of {total} available": "{n} sur {total} disponible(s)"
 }
