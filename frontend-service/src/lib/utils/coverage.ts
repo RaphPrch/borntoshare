@@ -42,7 +42,8 @@ export function coverageRings(input: {
     const topo = input.topology;
     const states = topo?.states ?? {};
     rings.push({ key: 'servers', label: t('Servers available'),
-      value: topo ? percent(num(states.available), num(topo.servers) + num(topo.dfs) - num(states.unknown)) : null,
+      // A degraded server answers (some of its folders do not): it counts as available, its state says the rest
+      value: topo ? percent(num(states.available) + num(states.degraded), num(topo.servers) + num(topo.dfs) - num(states.unknown)) : null,
       detail: topo ? t('{degraded} degraded · {down} unavailable', { degraded: num(states.degraded), down: num(states.unavailable) }) : t('Reading the topology…'),
       href: '/insights/topology' });
   }
